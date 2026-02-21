@@ -1,0 +1,78 @@
+# BMAD Custom Kit - Project Context Template
+# ═══════════════════════════════════════════════════════════════════════════════
+# Ce fichier est la SOURCE DE VÉRITÉ pour les informations projet.
+# Les agents et scripts le lisent automatiquement.
+# Remplissez les sections pertinentes et supprimez celles qui ne s'appliquent pas.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── Projet ───────────────────────────────────────────────────────────────────
+project:
+  name: "Mon Projet"                    # Nom du projet
+  description: "Description courte"     # Description en une ligne
+  type: "infrastructure"                # infrastructure | webapp | data-pipeline | mobile | game
+  stack: []                             # Ex: ["terraform", "ansible", "docker", "k8s"]
+  repos:                                # Dépôts git du projet
+    - name: "main-repo"
+      path: "."
+      default_branch: "main"
+
+# ─── Utilisateur ──────────────────────────────────────────────────────────────
+user:
+  name: "Votre Nom"
+  language: "Français"                  # Langue de communication des agents
+  document_language: "Français"         # Langue des documents générés
+
+# ─── Infrastructure (si applicable) ──────────────────────────────────────────
+# Décommentez et adaptez si votre projet a de l'infrastructure
+#
+# infrastructure:
+#   hosts:
+#     - name: "server-01"
+#       role: "primary"
+#       ip: "192.168.1.10"
+#       type: "bare-metal"              # bare-metal | vm | container | cloud
+#       services:
+#         - { name: "nginx", port: 80 }
+#         - { name: "app", port: 8080 }
+#
+#   network:
+#     subnet: "192.168.1.0/24"
+#     dns: "192.168.1.1"
+#     domain: "example.local"
+#
+# ─── Kubernetes (si applicable) ──────────────────────────────────────────────
+#
+# kubernetes:
+#   distribution: "k3s"                 # k3s | k8s | eks | gke | aks
+#   nodes:
+#     - { name: "node-1", role: "control-plane", ip: "192.168.1.20" }
+#     - { name: "node-2", role: "worker", ip: "192.168.1.21" }
+#   gitops: "fluxcd"                    # fluxcd | argocd | none
+#   storage: "longhorn"                 # longhorn | nfs | ceph | ebs
+#
+# ─── Monitoring (si applicable) ──────────────────────────────────────────────
+#
+# monitoring:
+#   stack: "prometheus"                 # prometheus | datadog | cloudwatch
+#   grafana_url: "http://localhost:3000"
+#   alerting: "discord"                 # discord | slack | pagerduty | email
+#
+# ─── CI/CD ────────────────────────────────────────────────────────────────────
+#
+# cicd:
+#   platform: "github-actions"          # github-actions | gitlab-ci | jenkins
+#   runner: "self-hosted"               # self-hosted | cloud
+#   deploy_method: "ansible"            # ansible | terraform | kubectl | docker-compose
+#
+# ─── Sécurité ────────────────────────────────────────────────────────────────
+#
+# security:
+#   secrets_manager: "sops"             # sops | vault | aws-secrets | none
+#   encryption_key: "age"              # age | gpg | kms
+#   tls: true
+#   firewall: "ufw"                    # ufw | iptables | nftables | cloud-sg
+
+# ─── Agents custom (auto-rempli par bmad-init) ──────────────────────────────
+agents:
+  archetype: "minimal"                 # Archétype utilisé lors de l'init
+  custom_agents: []                    # Liste des agents ajoutés manuellement

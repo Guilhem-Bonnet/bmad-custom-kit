@@ -1,0 +1,164 @@
+---
+name: incident-response
+description: Workflow partagé de réponse aux incidents et génération de post-mortems structurés
+triggers:
+  - alerte critique Alertmanager résolue
+  - incident infra détecté
+  - incident sécurité détecté
+---
+
+# Workflow Incident Response
+
+**But :** Fournir un processus structuré de diagnostic et de post-mortem pour tout incident infra ou sécurité. Ce workflow est partagé entre tous les agents opérationnels.
+
+**Qui peut le déclencher :** Tout agent (Forge, Vault, Hawk, Helm, Phoenix, Flow) ou manuellement par l'utilisateur.
+
+---
+
+## VARIANTES
+
+| Variante | Lead | Support | Quand |
+|----------|------|---------|-------|
+| **Incident Infra** | Forge ou Helm (selon périmètre LXC/K3s) | Hawk (métriques), Flow (CI/CD) | Container down, service inaccessible, performance dégradée |
+| **Incident Sécurité** | Vault | Forge (isolation), Hawk (logs), Helm (K8s RBAC) | Tentative d'intrusion, secret exposé, container compromis |
+| **Incident Données** | Phoenix | Helm (Longhorn), Forge (Proxmox) | Perte de données, corruption, backup échoué |
+
+---
+
+## ÉTAPE 1 : DÉTECTION & TRIAGE (5 min max)
+
+### 1.1 Contexte initial
+
+Recueillir immédiatement :
+
+```
+- Quoi : quel service/composant est impacté ?
+- Quand : timestamp de détection (alerte Hawk ou observation manuelle)
+- Impact : utilisateurs/services affectés ?
+- Sévérité : CRITIQUE (service down) / HAUTE (dégradé) / MOYENNE (risque) / BASSE (cosmétique)
+```
+
+### 1.2 Actions immédiates
+
+| Sévérité | Action |
+|----------|--------|
+| CRITIQUE | Contenir immédiatement (isoler le composant), notifier Guilhem si hors-heures |
+| HAUTE | Diagnostiquer en priorité, documenter au fil de l'eau |
+| MOYENNE | Planifier dans la session courante |
+| BASSE | Logger pour traitement ultérieur |
+
+### 1.3 Assignation du lead
+
+- Composant LXC (Terraform/Ansible/Docker) → **Forge** lead
+- Composant K3s (pods/FluxCD/Longhorn) → **Helm** lead
+- Composant sécurité (secrets, intrusion, TLS) → **Vault** lead
+- Composant monitoring (alertes fausses, TSDB) → **Hawk** lead
+- Composant données (backup échoué, corruption) → **Phoenix** lead
+
+---
+
+## ÉTAPE 2 : DIAGNOSTIC SYSTÉMATIQUE
+
+### 2.1 Arbre de diagnostic
+
+```
+1. Le service répond-il ? (curl/probe)
+   ├─ NON → Le container/pod tourne-t-il ?
+   │   ├─ NON → Pourquoi ? (OOM, crash, scheduling, disk full)
+   │   └─ OUI → Port/network issue ? (iptables, NetworkPolicy, DNS)
+   └─ OUI mais lent/erreurs → Métriques anormales ?
+       ├─ CPU/RAM saturé → Qui consomme ? (top, kubectl top)
+       ├─ Disk I/O → Quel volume ? (iostat, df)
+       └─ Erreurs applicatives → Logs ? (Loki, docker logs, kubectl logs)
+```
+
+### 2.2 Collecte de preuves
+
+L'agent lead doit collecter et documenter :
+
+```markdown
+## Preuves collectées
+- [ ] Logs du service (30 dernières minutes)
+- [ ] Métriques Prometheus autour du timestamp incident
+- [ ] Events K8s (si cluster) ou docker events
+- [ ] État des resources (CPU, RAM, disk)
+- [ ] Changements récents (deploys, commits, configs)
+```
+
+### 2.3 Actions de remédiation
+
+1. Identifier la cause root
+2. Appliquer le fix (direct, pas de proposition)
+3. Valider : service restored, métriques normales
+4. Si fix temporaire : documenter la dette technique
+
+---
+
+## ÉTAPE 3 : POST-MORTEM
+
+### 3.1 Template post-mortem
+
+Générer automatiquement dans `{project-root}/_bmad-output/implementation-artifacts/postmortems/` :
+
+```markdown
+---
+date: YYYY-MM-DD
+severity: CRITIQUE|HAUTE|MOYENNE
+duration: Xh Xmin (détection → résolution)
+lead: [agent name]
+services_impacted: [liste]
+---
+
+# Post-Mortem : [Titre court]
+
+## Timeline
+| Heure | Événement |
+|-------|-----------|
+| HH:MM | Détection : [comment] |
+| HH:MM | Diagnostic : [findings] |
+| HH:MM | Remédiation : [action] |
+| HH:MM | Validation : [résultat] |
+
+## Cause root
+[Description technique de la cause fondamentale]
+
+## Impact
+- Services affectés : [liste]
+- Durée d'indisponibilité : [durée]
+- Données perdues : [aucune / description]
+
+## Impact sécurité
+[OBLIGATOIRE — même si "Aucun impact sécurité identifié"]
+
+## Remédiation appliquée
+[Ce qui a été fait pour résoudre]
+
+## Actions préventives
+- [ ] [Action 1 — assignée à agent]
+- [ ] [Action 2 — assignée à agent]
+
+## Leçons apprises
+- [Learning 1]
+- [Learning 2]
+
+## Métriques
+- MTTD (Mean Time To Detect) : [durée] — Cible : < 5min
+- MTTR (Mean Time To Repair) : [durée] — Cible : < 2h
+```
+
+### 3.2 Actions post-incident
+
+1. Écrire le post-mortem dans le dossier dédié
+2. Ajouter les learnings dans `_bmad/_memory/agent-learnings/` (fichier de l'agent lead)
+3. Mettre à jour `_bmad/_memory/shared-context.md` si l'architecture a changé
+4. Créer des requêtes inter-agents pour les actions préventives
+5. Si NFR violé (MTTD > 5min, RTO > 2h) → ajouter une alerte Hawk pour prévenir la récurrence
+
+---
+
+## NOTES DE MODÉRATION
+
+- Ce workflow ne remplace pas les compétences des agents — il structure le processus
+- L'agent lead a autorité sur les décisions techniques pendant l'incident
+- En cas de désaccord entre agents, escalader à l'utilisateur
+- Le post-mortem est blameless — focus sur le processus, pas les individus

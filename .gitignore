@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Memory system runtime data
+qdrant_data/
+memories.json
+activity.jsonl
+session-summaries/
+.last-health-check
+archives/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Secrets (never commit)
+*.key
+*.pem
+*.env.local
