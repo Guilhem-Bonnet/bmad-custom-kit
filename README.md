@@ -90,6 +90,7 @@ bmad-custom-kit/
 |-----------|---------------|----------|
 | **minimal** | Atlas + Sentinel + Mnemo + 1 agent vierge | Tout projet — point de départ |
 | **infra-ops** | + Forge, Vault, Flow, Hawk, Helm, Phoenix, Probe | Projets infrastructure/DevOps |
+| **web-app** | Atlas + Sentinel + Mnemo (+ agents stack auto) | Applications web — SPA + API + DB |
 | **stack** (auto) | Gopher, Pixel, Serpent, Container, Terra, Kube, Playbook | Déployés selon le stack détecté par `--auto` |
 
 > Les agents `stack` sont sélectifs : seuls ceux correspondant au stack détecté sont déployés.

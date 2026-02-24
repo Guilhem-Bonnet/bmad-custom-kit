@@ -144,6 +144,9 @@ auto_select_archetype() {
     # infra-ops si terraform ou k8s ou ansible
     if echo "$stacks" | grep -qE '(terraform|k8s|ansible)'; then
         echo "infra-ops"
+    # web-app si frontend + (go|node|python)
+    elif echo "$stacks" | grep -qE 'frontend' && echo "$stacks" | grep -qE '(go|node|python)'; then
+        echo "web-app"
     else
         echo "minimal"
     fi

@@ -70,6 +70,39 @@ Agents stack déployés : Terra 🌍 + Playbook 🎭 + Kube ⎈ + Container 🐋
 
 ---
 
+### `web-app`
+
+**Cas d'usage** : Applications web — SPA + API REST, fullstack Next.js, backend headless. Sélectionné automatiquement par `--auto` quand un frontend **et** un backend sont détectés.
+
+**Contenu :**
+- `shared-context.tpl.md` — sections : Stack, Architecture, API (routes + auth), Base de données, Variables d'env, Conventions, Points de vigilance
+- Agents : les 3 meta (Atlas, Sentinel, Mnemo) + agents `stack` selon détection (`--auto`)
+
+**Détection automatique :**
+```bash
+# Exemple : projet Go + React
+bash bmad-init.sh --name "Mon App" --user "Guilhem" --auto
+# → stack détecté : go frontend docker
+# → archétype auto : web-app
+# → agents stack déployés : Gopher + Pixel + Container
+```
+
+**Sections du `shared-context.tpl.md` à remplir :**
+1. Stack Technique — frontend/backend/DB/auth/deploy avec versions
+2. Architecture — arborescence répertoires
+3. API — base URL, auth method, routes principales
+4. Base de données — moteur, connexion, tables principales
+5. Environnement local — commandes dev/test
+6. Variables d'environnement — liste exhaustive
+7. Conventions — commits, branches, outils
+
+**Quand l'utiliser :**
+- SPA (React, Vue, Next.js) + API REST (Go, Python, Node)
+- Applications fullstack avec base de données
+- Projets avec frontend et backend séparés dans le même repo
+
+---
+
 ### `infra-ops`
 
 **Cas d'usage** : Infrastructure, DevOps, homelab, serveurs — l'archétype complet.
