@@ -326,7 +326,9 @@ def get_semantic_client():
     except ImportError:
         return None
     except Exception as e:
-        print(f"⚠️  Sémantique init échoué ({e}), fallback mode local")
+        print(f"⚠️  Mémoire sémantique indisponible ({e})")
+        print(f"   → Basculement automatique en mode JSON (fonctionnel, recherche réduite)")
+        print(f"   → Diagnostiquer : python mem0-bridge.py status")
         return None
 
 
@@ -477,7 +479,7 @@ def cmd_status(args):
         print(f"   Embeddings: ✅ sentence-transformers {sentence_transformers.__version__}")
         try:
             from qdrant_client import QdrantClient
-            print(f"   Qdrant: ✅ qdrant-client")
+            print(f"   Qdrant lib: ✅ qdrant-client")
             client = get_semantic_client()
             if client:
                 count = client.count()
@@ -486,14 +488,23 @@ def cmd_status(args):
                 print(f"   Stockage: {QDRANT_PATH}")
                 semantic_ok = True
             else:
-                print(f"   Sémantique: ⚠️  init échoué")
+                print(f"   Qdrant: ⚠️  init échoué — la mémoire sémantique est indisponible")
+                print(f"           → Mode fallback JSON actif automatiquement")
+                print(f"           → Pour diagnostiquer : python mem0-bridge.py upgrade")
         except ImportError:
-            print(f"   Qdrant: ❌ pip install qdrant-client")
+            print(f"   Qdrant lib: ❌ pip install qdrant-client")
+            print(f"              → Mode fallback JSON actif automatiquement")
     except ImportError:
         print(f"   Embeddings: ❌ pip install sentence-transformers")
+        print(f"              → Mode fallback JSON actif automatiquement")
+        print(f"              → Capacités réduites : recherche par mots-clés uniquement")
 
-    mode = "sémantique (embeddings locaux)" if semantic_ok else "local (JSON)"
+    mode = "sémantique (embeddings locaux)" if semantic_ok else "local JSON (fallback)"
     print(f"   Mode actif: {'🚀' if semantic_ok else '📁'} {mode}")
+    if not semantic_ok:
+        print(f"   ⚠️  ATTENTION : le mode fallback JSON est fonctionnel mais limité.")
+        print(f"      La recherche sémantique n'est PAS active.")
+        print(f"      Les agents fonctionnent normalement — seule la qualité de recherche est réduite.")
 
     # Afficher les agents détectés
     print(f"\n   Agents configurés ({len(AGENT_PROFILES)}):")

@@ -121,6 +121,34 @@ collect_activity_failures() {
 # GÉNÉRATION DU RAPPORT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Détection projet neuf (toutes sources vides)
+_all_sources_empty=true
+for _f in "$DECISIONS_LOG" "$CONTRADICTION_LOG" "$HANDOFF_LOG" "$ACTIVITY_LOG"; do
+    [[ -f "$_f" ]] && [[ -s "$_f" ]] && _all_sources_empty=false && break
+done
+if [[ -d "$LEARNINGS_DIR" ]]; then
+    for _f in "$LEARNINGS_DIR"/*.md; do
+        [[ -f "$_f" ]] && [[ -s "$_f" ]] && _all_sources_empty=false && break
+    done
+fi
+
+if $_all_sources_empty; then
+    warn "Aucune source de données disponible."
+    echo ""
+    echo "  💡 C'est normal sur un projet neuf ou peu actif."
+    echo "     Le SIL a besoin de données accumulées pour être utile :"
+    echo "     - decisions-log.md       : décisions et retours post-livraison"
+    echo "     - contradiction-log.md   : désaccords entre agents"
+    echo "     - agent-learnings/*.md   : apprentissages des agents"
+    echo "     - activity.jsonl         : journal d'activité"
+    echo ""
+    echo "  → Revenez après 2-3 semaines d'utilisation normale."
+    echo "  → Pour forcer la génération quand même : relancez avec --force-empty"
+    if [[ "${*:-}" != *--force-empty* ]]; then
+        exit 0
+    fi
+fi
+
 info "Collecte des signaux SIL depuis $PROJECT_ROOT..."
 
 cat > "$OUTPUT_FILE" <<HEADER

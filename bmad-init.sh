@@ -21,6 +21,7 @@ USER_NAME=""
 LANGUAGE="Français"
 ARCHETYPE="minimal"
 AUTO_DETECT=false
+FORCE=false
 
 # ─── Couleurs ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -50,11 +51,14 @@ Options:
   --archetype TYPE    Archétype à utiliser: minimal, infra-ops (défaut: minimal)
   --target DIR        Répertoire cible (défaut: répertoire courant)
   --auto              Détecter automatiquement le stack et choisir l'archétype optimal
+  --force             Écraser une installation existante sans demander confirmation
   --help              Afficher cette aide
 
 Archétypes:
   minimal     Meta-agents (Atlas, Sentinel, Mnemo) + 1 agent vierge
   infra-ops   Agents Infrastructure & DevOps complets (10 agents)
+  web-app     Agents Full-Stack (Stack, Pixel) + agents stack auto
+  fix-loop    Boucle de correction certifiée (Loop orchestrateur)
 
 Exemples:
   $(basename "$0") --name "Mon API" --user "Alice" --archetype minimal
@@ -72,6 +76,7 @@ while [[ $# -gt 0 ]]; do
         --archetype) ARCHETYPE="$2"; shift 2 ;;
         --target)   TARGET_DIR="$2"; shift 2 ;;
         --auto)     AUTO_DETECT=true; shift ;;
+        --force)    FORCE=true; shift ;;
         --help)     usage ;;
         *)          error "Option inconnue: $1. Utilisez --help." ;;
     esac
@@ -212,10 +217,14 @@ ARCHETYPE_DIR="$SCRIPT_DIR/archetypes/$ARCHETYPE"
 # ─── Vérification cible ─────────────────────────────────────────────────────
 BMAD_DIR="$TARGET_DIR/_bmad"
 if [[ -d "$BMAD_DIR/_config/custom" ]]; then
-    warn "Un dossier _bmad/custom existe déjà dans $TARGET_DIR"
-    read -p "Continuer et écraser ? (y/N) " -n 1 -r
-    echo
-    [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
+    if $FORCE; then
+        warn "--force : écrasement de l'installation existante dans $TARGET_DIR"
+    else
+        warn "Un dossier _bmad/custom existe déjà dans $TARGET_DIR"
+        read -p "Continuer et écraser ? (y/N) " -n 1 -r
+        echo
+        [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
+    fi
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -402,7 +411,33 @@ done
 
 ok "Manifest généré (à compléter avec les détails des agents)"
 
-# ─── 8. Installer les dépendances Python (optionnel) ────────────────────────
+# ─── 8. Installer le git pre-commit hook (CC) ──────────────────────────────
+GIT_DIR="$(git -C "$TARGET_DIR" rev-parse --git-dir 2>/dev/null || true)"
+if [[ -n "$GIT_DIR" ]]; then
+    HOOK_SRC="$SCRIPT_DIR/framework/hooks/pre-commit-cc.sh"
+    HOOK_DST="$GIT_DIR/hooks/pre-commit"
+    if [[ -f "$HOOK_SRC" ]]; then
+        if [[ -f "$HOOK_DST" ]] && grep -q 'BMAD Completion Contract' "$HOOK_DST" 2>/dev/null; then
+            ok "Pre-commit hook CC déjà installé"
+        elif [[ -f "$HOOK_DST" ]] && ! $FORCE; then
+            warn "Un pre-commit hook non-BMAD existe déjà — utilisez --force pour le chaîner"
+        elif [[ -f "$HOOK_DST" ]]; then
+            # Chaîner avec le hook existant
+            cp "$HOOK_DST" "${HOOK_DST}.pre-bmad"
+            printf '#!/usr/bin/env bash\nbash "$(git rev-parse --git-dir)/hooks/pre-commit.pre-bmad" || exit 1\nbash "%s" || exit 1\n' "$HOOK_SRC" > "$HOOK_DST"
+            chmod +x "$HOOK_DST"
+            ok "Pre-commit hook chaîné (existant + CC)"
+        else
+            cp "$HOOK_SRC" "$HOOK_DST"
+            chmod +x "$HOOK_DST"
+            ok "Pre-commit hook CC installé"
+        fi
+    fi
+else
+    info "Pas de dépôt git détecté — hook pre-commit non installé"
+fi
+
+# ─── 9. Installer les dépendances Python (optionnel) ────────────────────────
 if command -v pip3 &>/dev/null; then
     info "Installation des dépendances Python..."
     pip3 install -q -r "$BMAD_DIR/_memory/requirements.txt" 2>/dev/null && \
@@ -412,7 +447,7 @@ else
     warn "pip3 non trouvé — installez les dépendances manuellement : pip install -r _bmad/_memory/requirements.txt"
 fi
 
-# ─── 9. Résumé ──────────────────────────────────────────────────────────────
+# ─── 10. Résumé ──────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}🎉 BMAD Custom Kit installé avec succès !${NC}"
