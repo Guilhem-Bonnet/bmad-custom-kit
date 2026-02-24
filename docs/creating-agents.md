@@ -95,6 +95,39 @@ Créer le fichier learnings :
 echo "# Learnings — Gardien" > _bmad/_memory/agent-learnings/security-app.md
 ```
 
+## Clause "Use when"
+
+Chaque agent devrait inclure en en-tête une clause commentée `USE WHEN` qui guide le dispatch et aide l'utilisateur à choisir l'agent approprié.
+
+```markdown
+<!--
+USE WHEN:
+- [Situation ou besoin 1]
+- [Situation ou besoin 2]
+- [Situation ou besoin 3]
+DON'T USE WHEN:
+- [Cas hors-périmètre]
+-->
+```
+
+**Exemples :**
+
+```markdown
+<!--
+USE WHEN:
+- Besoin de diagnostiquer un problème technique récurrent
+- Besoin de preuves d'exécution avant de claimer "done"
+- Fix qui a échoué plusieurs fois sans explication claire
+DON'T USE WHEN:
+- Exploration exploratoire (pas de bug précis à corriger)
+- Questions de design ou d'architecture (voir Atlas ou Sentinel)
+-->
+```
+
+Cette clause est extraite automatiquement par `mem0-bridge.py dispatch` pour le routage contextuel.
+
+---
+
 ## Bonnes pratiques
 
 ### Scope strict

@@ -1,0 +1,31 @@
+# Docker Compose — Qdrant pour développement local BMAD
+# Généré par : bmad-init.sh --memory qdrant-docker
+#
+# Usage :
+#   docker compose -f docker-compose.memory.yml up -d
+#   docker compose -f docker-compose.memory.yml down
+#
+# Dashboard : http://localhost:6333/dashboard
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: bmad-qdrant
+    restart: unless-stopped
+    ports:
+      - "${BMAD_QDRANT_PORT:-6333}:6333"
+      - "${BMAD_QDRANT_GRPC_PORT:-6334}:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  qdrant_storage:
+    name: bmad-qdrant-storage

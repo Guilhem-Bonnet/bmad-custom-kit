@@ -1,0 +1,132 @@
+# K3s / Kubernetes — Qdrant pour HouseServer ou cluster K3s
+# Généré par : bmad-init.sh --memory qdrant-k8s
+#
+# Déploiement :
+#   kubectl apply -f k8s-qdrant.yaml
+#
+# Ou via FluxCD HelmRelease (recommandé HouseServer) :
+#   Placer ce fichier dans le répertoire GitOps surveillé par FluxCD
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bmad-memory
+  labels:
+    app.kubernetes.io/part-of: bmad
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qdrant-storage
+  namespace: bmad-memory
+spec:
+  # Utilise Longhorn si disponible (HouseServer), sinon default
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qdrant
+  namespace: bmad-memory
+  labels:
+    app: qdrant
+    app.kubernetes.io/part-of: bmad
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qdrant
+  template:
+    metadata:
+      labels:
+        app: qdrant
+    spec:
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:latest
+          ports:
+            - containerPort: 6333
+              name: http
+            - containerPort: 6334
+              name: grpc
+          env:
+            - name: QDRANT__LOG_LEVEL
+              value: "INFO"
+          volumeMounts:
+            - name: storage
+              mountPath: /qdrant/storage
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 6333
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 6333
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: qdrant-storage
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: bmad-memory
+  labels:
+    app: qdrant
+spec:
+  selector:
+    app: qdrant
+  ports:
+    - name: http
+      port: 6333
+      targetPort: 6333
+    - name: grpc
+      port: 6334
+      targetPort: 6334
+  type: ClusterIP
+
+---
+# Ingress Traefik (optionnel — accès dashboard depuis l'extérieur)
+# Décommenter si Traefik est installé (HouseServer standard)
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: qdrant-dashboard
+#   namespace: bmad-memory
+#   annotations:
+#     traefik.ingress.kubernetes.io/router.entrypoints: websecure
+#     traefik.ingress.kubernetes.io/router.tls: "true"
+# spec:
+#   rules:
+#     - host: qdrant.VOTRE_DOMAINE
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: qdrant
+#                 port:
+#                   number: 6333

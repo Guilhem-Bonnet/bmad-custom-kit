@@ -1,0 +1,3 @@
+# Requirements minimalistes — backend local JSON uniquement
+# Aucune dépendance ML, zéro installation, fonctionne partout
+pyyaml>=6.0

@@ -72,6 +72,27 @@ user:
 #   tls: true
 #   firewall: "ufw"                    # ufw | iptables | nftables | cloud-sg
 
+# ─── Mémoire vectorielle ──────────────────────────────────────────────────
+# Configuré automatiquement par bmad-init.sh --memory <backend>
+# Priorité : ENV vars (BMAD_OLLAMA_URL / BMAD_QDRANT_URL) > ce fichier > auto-détection
+#
+memory:
+  # Backends disponibles : auto | local | qdrant-local | qdrant-server | ollama
+  # auto = détection automatique à l'exécution
+  backend: "auto"
+
+  # Collection Qdrant — isolée par projet (convention: bmad_{project_name})
+  # collection_prefix: "bmad"
+
+  # Modèle d'embedding :
+  #   nomic-embed-text (768dim, via Ollama — recommandé si Ollama disponible)
+  #   all-MiniLM-L6-v2 (384dim, via sentence-transformers — léger, CPU)
+  # embedding_model: "nomic-embed-text"
+
+  # URLs — surchargées par les ENV vars BMAD_OLLAMA_URL / BMAD_QDRANT_URL
+  # ollama_url: "http://localhost:11434"
+  # qdrant_url: "http://localhost:6333"
+
 # ─── Agents custom (auto-rempli par bmad-init) ──────────────────────────────
 agents:
   archetype: "minimal"                 # Archétype utilisé lors de l'init

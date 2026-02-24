@@ -319,21 +319,39 @@ class SemanticMemory:
         return self.client.get_collection(COLLECTION_NAME).points_count
 
 
+def _load_memory_config() -> dict:
+    """Lit la section 'memory:' de project-context.yaml."""
+    ctx = _load_project_context()
+    return ctx.get("memory", {})
+
+
 def get_semantic_client():
-    """Initialise le moteur sémantique local."""
+    """Initialise le backend sémantique via la factory backends/."""
     try:
-        return SemanticMemory()
+        from .backends import get_backend
+        backend, name = get_backend()
+        if name == "local":
+            return None  # Fallback local géré dans get_client()
+        return backend
     except ImportError:
-        return None
+        # Exécuté directement (pas en package) — fallback SemanticMemory
+        try:
+            return SemanticMemory()
+        except ImportError:
+            return None
+        except Exception as e:
+            print(f"⚠️  Mémoire sémantique indisponible ({e})")
+            print(f"   → Basculement automatique en mode JSON (fonctionnel, recherche réduite)")
+            print(f"   → Diagnostiquer : python mem0-bridge.py status")
+            return None
     except Exception as e:
-        print(f"⚠️  Mémoire sémantique indisponible ({e})")
-        print(f"   → Basculement automatique en mode JSON (fonctionnel, recherche réduite)")
+        print(f"⚠️  Backend mémoire indisponible ({e})")
         print(f"   → Diagnostiquer : python mem0-bridge.py status")
         return None
 
 
 def get_client(prefer_semantic=True):
-    """Retourne le client approprié."""
+    """Retourne (client, mode). Interface inchangée pour compatibilité."""
     if prefer_semantic:
         client = get_semantic_client()
         if client:

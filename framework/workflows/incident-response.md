@@ -2,16 +2,28 @@
 name: incident-response
 description: Workflow partagé de réponse aux incidents et génération de post-mortems structurés
 triggers:
-  - alerte critique Alertmanager résolue
+  - alerte critique résolue
   - incident infra détecté
   - incident sécurité détecté
 ---
+
+<!--
+TEMPLATE — Remplacer les {{placeholders}} avant utilisation :
+  {{ops_agent}}        - Agent infrastructure/provisioning (ex: Forge)
+  {{security_agent}}   - Agent sécurité (ex: Vault)
+  {{monitoring_agent}} - Agent observabilité (ex: Hawk)
+  {{k8s_agent}}        - Agent kubernetes/orchestration (ex: Helm)
+  {{backup_agent}}     - Agent backup/DR (ex: Phoenix)
+  {{cicd_agent}}       - Agent CI/CD (ex: Flow)
+  {{debug_agent}}      - Agent debugging système (ex: Probe)
+  {{user_name}}        - Nom de l'utilisateur principal
+-->
 
 # Workflow Incident Response
 
 **But :** Fournir un processus structuré de diagnostic et de post-mortem pour tout incident infra ou sécurité. Ce workflow est partagé entre tous les agents opérationnels.
 
-**Qui peut le déclencher :** Tout agent (Forge, Vault, Hawk, Helm, Phoenix, Flow) ou manuellement par l'utilisateur.
+**Qui peut le déclencher :** Tout agent ({{ops_agent}}, {{security_agent}}, {{monitoring_agent}}, {{k8s_agent}}, {{backup_agent}}, {{cicd_agent}}) ou manuellement par l'utilisateur.
 
 ---
 
@@ -19,9 +31,9 @@ triggers:
 
 | Variante | Lead | Support | Quand |
 |----------|------|---------|-------|
-| **Incident Infra** | Forge ou Helm (selon périmètre LXC/K3s) | Hawk (métriques), Flow (CI/CD) | Container down, service inaccessible, performance dégradée |
-| **Incident Sécurité** | Vault | Forge (isolation), Hawk (logs), Helm (K8s RBAC) | Tentative d'intrusion, secret exposé, container compromis |
-| **Incident Données** | Phoenix | Helm (Longhorn), Forge (Proxmox) | Perte de données, corruption, backup échoué |
+| **Incident Infra** | {{ops_agent}} ou {{k8s_agent}} (selon périmètre LXC/K3s) | {{monitoring_agent}} (métriques), {{cicd_agent}} (CI/CD) | Container down, service inaccessible, performance dégradée |
+| **Incident Sécurité** | {{security_agent}} | {{ops_agent}} (isolation), {{monitoring_agent}} (logs), {{k8s_agent}} (K8s RBAC) | Tentative d'intrusion, secret exposé, container compromis |
+| **Incident Données** | {{backup_agent}} | {{k8s_agent}} (Longhorn), {{ops_agent}} (Proxmox) | Perte de données, corruption, backup échoué |
 
 ---
 
@@ -42,18 +54,18 @@ Recueillir immédiatement :
 
 | Sévérité | Action |
 |----------|--------|
-| CRITIQUE | Contenir immédiatement (isoler le composant), notifier Guilhem si hors-heures |
+| CRITIQUE | Contenir immédiatement (isoler le composant), notifier {{user_name}} si hors-heures |
 | HAUTE | Diagnostiquer en priorité, documenter au fil de l'eau |
 | MOYENNE | Planifier dans la session courante |
 | BASSE | Logger pour traitement ultérieur |
 
 ### 1.3 Assignation du lead
 
-- Composant LXC (Terraform/Ansible/Docker) → **Forge** lead
-- Composant K3s (pods/FluxCD/Longhorn) → **Helm** lead
-- Composant sécurité (secrets, intrusion, TLS) → **Vault** lead
-- Composant monitoring (alertes fausses, TSDB) → **Hawk** lead
-- Composant données (backup échoué, corruption) → **Phoenix** lead
+- Composant LXC (Terraform/Ansible/Docker) → **{{ops_agent}}** lead
+- Composant K3s (pods/FluxCD/Longhorn) → **{{k8s_agent}}** lead
+- Composant sécurité (secrets, intrusion, TLS) → **{{security_agent}}** lead
+- Composant monitoring (alertes fausses, TSDB) → **{{monitoring_agent}}** lead
+- Composant données (backup échoué, corruption) → **{{backup_agent}}** lead
 
 ---
 

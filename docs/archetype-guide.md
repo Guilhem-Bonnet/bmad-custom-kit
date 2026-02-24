@@ -53,7 +53,37 @@ bash bmad-init.sh --name "Mon App" --user "Guilhem" --auto
 # Résultat : équipe exactement adaptée à votre projet
 ```
 
-**Exemple Anime-Sama-Downloader (Go + React + Docker) :**
+**# `fix-loop`
+
+**Cas d'usage** : Projets nécessitant une boucle de correction rigoureuse — zéro "done" sans preuve d'exécution.
+
+**Agents inclus :**
+| Agent | Icône | Rôle |
+|-------|-------|------|
+| fix-loop-orchestrator (Loop) | 🔁 | Orchestrateur boucle fermée, sévérité adaptative, META-REVIEW |
+
+**Workflows inclus :**
+| Workflow | Description |
+|----------|-------------|
+| `workflow-closed-loop-fix.tpl.md` | 9 phases, 86 fixes, FER session isolation, auto-amélioration |
+
+**Quand l'utiliser :**
+- Tout projet avec des bugs récurrents ou des régressions
+- Quand l'équipe a besoin de preuves d'exécution systématiques
+- Quand les fixes "ça marche" sans test réel sont un problème
+- En complément de `infra-ops` pour les projets infrastructure
+
+**Combinaison recommandée :** `infra-ops` + `fix-loop` = stack maximale pour l'infrastructure production.
+
+**Concepts clés :**
+- **FER** (Fix Evidence Record) : fichier YAML de session isolant chaque cycle de fix
+- **Sévérité S1/S2/S3** : processus adaptatif (S3 = rapide, S1 = toutes phases)
+- **META-REVIEW** : auto-amélioration du workflow après chaque cycle certifié
+- **Challenger adversarial** : tente activement de casser le fix avec preuves
+
+---
+
+##Exemple Anime-Sama-Downloader (Go + React + Docker) :**
 ```
 Stack détecté : go frontend docker
 Agent déployés : Gopher 🐹 + Pixel ⚛️ + Container 🐋
@@ -176,6 +206,16 @@ Pour contribuer un archétype au kit :
 3. Documenter dans ce guide
 4. Tester avec `bmad-init.sh --archetype mon-archetype`
 
+**Archétypes disponibles :**
+- `minimal` — Meta-agents (Atlas, Sentinel, Mnemo) + template vierge ✅
+- `infra-ops` — Infrastructure & DevOps (10 agents) ✅
+- `fix-loop` — Boucle de correction certifiée (Loop, workflow 9 phases) ✅
+
 **Archétypes envisagés :**
+- `web-app` — Frontend + Backend + DB (React, Next.js, Rails, Django)
 - `data-pipeline` — ETL, ML, analytics (dbt, Airflow, Spark)
 - `game-dev` — Moteurs de jeu, assets, QA (Unity, Godot)
+
+**Ressources complémentaires :**
+- [Patterns de design workflow](workflow-design-patterns.md) — 13 patterns universels extraits de 86 fixes
+- [Créer un agent](creating-agents.md) — Guide complet avec clause "Use when"

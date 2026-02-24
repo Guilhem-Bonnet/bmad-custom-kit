@@ -22,6 +22,7 @@ LANGUAGE="Français"
 ARCHETYPE="minimal"
 AUTO_DETECT=false
 FORCE=false
+MEMORY_BACKEND="auto"
 
 # ─── Couleurs ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -48,9 +49,11 @@ Options:
   --name NAME         Nom du projet (requis)
   --user USER         Votre nom (requis)
   --lang LANGUAGE     Langue de communication (défaut: Français)
-  --archetype TYPE    Archétype à utiliser: minimal, infra-ops (défaut: minimal)
+  --archetype TYPE    Archétype à utiliser: minimal, infra-ops, fix-loop (défaut: minimal)
   --target DIR        Répertoire cible (défaut: répertoire courant)
   --auto              Détecter automatiquement le stack et choisir l'archétype optimal
+  --memory BACKEND    Backend mémoire: auto, local, qdrant-local, qdrant-server, ollama,
+                        qdrant-docker (génère docker-compose.memory.yml)
   --force             Écraser une installation existante sans demander confirmation
   --help              Afficher cette aide
 
@@ -58,11 +61,12 @@ Archétypes:
   minimal     Meta-agents (Atlas, Sentinel, Mnemo) + 1 agent vierge
   infra-ops   Agents Infrastructure & DevOps complets (10 agents)
   web-app     Agents Full-Stack (Stack, Pixel) + agents stack auto
-  fix-loop    Boucle de correction certifiée (Loop orchestrateur)
+  fix-loop    Orchestrateur boucle de correction certifiée + workflow 9 phases
 
 Exemples:
   $(basename "$0") --name "Mon API" --user "Alice" --archetype minimal
   $(basename "$0") --name "Infra Prod" --user "Bob" --archetype infra-ops --lang "English"
+  $(basename "$0") --name "Mon App" --user "Guilhem" --auto --memory ollama
 EOF
     exit 0
 }
@@ -76,6 +80,7 @@ while [[ $# -gt 0 ]]; do
         --archetype) ARCHETYPE="$2"; shift 2 ;;
         --target)   TARGET_DIR="$2"; shift 2 ;;
         --auto)     AUTO_DETECT=true; shift ;;
+        --memory)   MEMORY_BACKEND="$2"; shift 2 ;;
         --force)    FORCE=true; shift ;;
         --help)     usage ;;
         *)          error "Option inconnue: $1. Utilisez --help." ;;
@@ -211,6 +216,13 @@ if $AUTO_DETECT; then
     ok "Stack détecté : ${DETECTED_STACKS:-aucun} → archétype : $ARCHETYPE"
 fi
 
+# Auto-détection du backend mémoire si "auto"
+if [[ "$MEMORY_BACKEND" == "auto" ]]; then
+    info "Détection du backend mémoire..."
+    MEMORY_BACKEND=$(detect_memory_backend)
+    ok "Backend mémoire détecté : $MEMORY_BACKEND"
+fi
+
 ARCHETYPE_DIR="$SCRIPT_DIR/archetypes/$ARCHETYPE"
 [[ ! -d "$ARCHETYPE_DIR" ]] && error "Archétype '$ARCHETYPE' non trouvé. Disponibles: $(ls "$SCRIPT_DIR/archetypes/")"
 
@@ -238,6 +250,7 @@ echo -e "  Projet:     ${GREEN}$PROJECT_NAME${NC}"
 echo -e "  Utilisateur: ${GREEN}$USER_NAME${NC}"
 echo -e "  Langue:     ${GREEN}$LANGUAGE${NC}"
 echo -e "  Archétype:  ${GREEN}$ARCHETYPE${NC}"
+echo -e "  Mémoire:    ${GREEN}$MEMORY_BACKEND${NC}"
 echo -e "  Cible:      ${GREEN}$TARGET_DIR${NC}"
 echo ""
 
@@ -269,7 +282,21 @@ chmod +x "$BMAD_DIR/_config/custom/sil-collect.sh"
 cp "$SCRIPT_DIR/framework/memory/maintenance.py" "$BMAD_DIR/_memory/maintenance.py"
 cp "$SCRIPT_DIR/framework/memory/mem0-bridge.py" "$BMAD_DIR/_memory/mem0-bridge.py"
 cp "$SCRIPT_DIR/framework/memory/session-save.py" "$BMAD_DIR/_memory/session-save.py"
-cp "$SCRIPT_DIR/framework/memory/requirements.txt" "$BMAD_DIR/_memory/requirements.txt"
+
+# Backend memory — copier les backends/
+mkdir -p "$BMAD_DIR/_memory/backends"
+cp -r "$SCRIPT_DIR/framework/memory/backends/"* "$BMAD_DIR/_memory/backends/"
+
+# Choisir le bon requirements selon le backend
+case "$MEMORY_BACKEND" in
+    ollama)          REQS_SRC="$SCRIPT_DIR/framework/memory/requirements/requirements-ollama.txt" ;;
+    qdrant-*|semantic) REQS_SRC="$SCRIPT_DIR/framework/memory/requirements/requirements-qdrant.txt" ;;
+    *)               REQS_SRC="$SCRIPT_DIR/framework/memory/requirements/requirements-minimal.txt" ;;
+esac
+cp "${REQS_SRC:-$SCRIPT_DIR/framework/memory/requirements/requirements-minimal.txt}" "$BMAD_DIR/_memory/requirements.txt"
+
+# Copier aussi le requirements original complet (référence)
+cp "$SCRIPT_DIR/framework/memory/requirements.txt" "$BMAD_DIR/_memory/requirements-full.txt"
 
 # Prompt templates
 cp -r "$SCRIPT_DIR/framework/prompt-templates/"* "$BMAD_DIR/_config/custom/prompt-templates/" 2>/dev/null || true
@@ -303,7 +330,8 @@ if $AUTO_DETECT && [[ -n "${DETECTED_STACKS:-}" ]]; then
     info "Modal Team Engine — déploiement des agents stack..."
     deploy_stack_agents "$DETECTED_STACKS" "$BMAD_DIR/_config/custom/agents"
 fi
-
+# ─── 4c. Déployer les agents features selon le backend mémoire ────────────────────
+deploy_feature_agents "$MEMORY_BACKEND" "$BMAD_DIR/_config/custom/agents"
 # ─── 5. Générer project-context.yaml ────────────────────────────────────────
 info "Génération de project-context.yaml..."
 
@@ -313,6 +341,7 @@ if [[ ! -f "$PROJECT_CONTEXT" ]]; then
         -e "s/\"Votre Nom\"/\"$USER_NAME\"/" \
         -e "s/\"Français\"/\"$LANGUAGE\"/" \
         -e "s/\"minimal\"/\"$ARCHETYPE\"/" \
+        -e "s/backend: \"auto\"/backend: \"$MEMORY_BACKEND\"/" \
         "$SCRIPT_DIR/project-context.tpl.yaml" > "$PROJECT_CONTEXT"
     ok "project-context.yaml créé"
 else
@@ -437,9 +466,18 @@ else
     info "Pas de dépôt git détecté — hook pre-commit non installé"
 fi
 
-# ─── 9. Installer les dépendances Python (optionnel) ────────────────────────
+# ─── 9. Générer docker-compose.memory.yml si backend = qdrant-docker ─────────────────
+if [[ "$MEMORY_BACKEND" == "qdrant-docker" ]]; then
+    DOCKER_MEM="$TARGET_DIR/docker-compose.memory.yml"
+    if [[ ! -f "$DOCKER_MEM" || "$FORCE" == "true" ]]; then
+        cp "$SCRIPT_DIR/framework/memory/docker-compose.memory.tpl.yml" "$DOCKER_MEM"
+        ok "docker-compose.memory.yml généré — lancer : docker compose -f docker-compose.memory.yml up -d"
+    fi
+fi
+
+# ─── 10. Installer les dépendances Python (optionnel) ────────────────────────────────
 if command -v pip3 &>/dev/null; then
-    info "Installation des dépendances Python..."
+    info "Installation des dépendances Python (backend: $MEMORY_BACKEND)..."
     pip3 install -q -r "$BMAD_DIR/_memory/requirements.txt" 2>/dev/null && \
         ok "Dépendances Python installées" || \
         warn "Installation des dépendances échouée (non bloquant)"

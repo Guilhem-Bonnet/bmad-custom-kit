@@ -1,0 +1,6 @@
+# Requirements backend qdrant-local ou qdrant-server
+# Embeddings : sentence-transformers (all-MiniLM-L6-v2 ou all-mpnet-base-v2)
+# Stockage   : Qdrant fichier local ou serveur distant
+pyyaml>=6.0
+qdrant-client>=1.7.0
+sentence-transformers>=2.2.0

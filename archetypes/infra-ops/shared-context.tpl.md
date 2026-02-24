@@ -38,6 +38,7 @@
 | k8s-navigator | Helm | ☸️ | Kubernetes & Orchestration |
 | backup-dr-specialist | Phoenix | 🏰 | Backup & Disaster Recovery |
 | systems-debugger | Probe | 🔬 | Systems Debugging |
+| fix-loop-orchestrator | Loop | 🔁 | Correction certifiée & Fix Patterns |
 
 ## Conventions
 

@@ -1,0 +1,6 @@
+# Requirements backend ollama
+# Embeddings : Ollama HTTP (nomic-embed-text, aucun modèle téléchargé localement)
+# Stockage   : Qdrant fichier local ou serveur distant
+# NOTE: sentence-transformers N'EST PAS nécessaire — Ollama fournit les embeddings
+pyyaml>=6.0
+qdrant-client>=1.7.0
