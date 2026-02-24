@@ -14,7 +14,7 @@ Un archétype est un ensemble pré-configuré d'agents, de templates et de confi
 | Agent | Icône | Rôle |
 |-------|-------|------|
 | Atlas (project-navigator) | 🗺️ | Navigation projet, registre des services, cartographie |
-| Sentinel (agent-optimizer) | 🔍 | Audit qualité des agents, optimisation prompts |
+| Sentinel (agent-optimizer) | 🔍 | Audit qualité des agents, optimisation prompts, **Self-Improvement Loop** |
 | Mnemo (memory-keeper) | 🧠 | Gestion mémoire, contradictions, consolidation |
 
 **+ 1 template vierge** (`custom-agent.tpl.md`) pour créer vos propres agents.
@@ -23,6 +23,50 @@ Un archétype est un ensemble pré-configuré d'agents, de templates et de confi
 - Projets non-infrastructure (web apps, APIs, data pipelines)
 - Quand vous voulez construire vos agents de zéro
 - Pour tester le framework avant d'investir dans un archétype complet
+
+---
+
+### `stack` — Modal Team Engine
+
+**Cas d'usage** : Déployé automatiquement par `--auto` en fonction du stack détecté. Les agents `stack` s'ajoutent à l'archétype de base choisi.
+
+**Agents disponibles (déployés sélectivement) :**
+| Agent | Icône | Stack détecté par | Domaine |
+|-------|-------|-----------------|--------|
+| Gopher | 🐹 | `go.mod` | Go — backend, tests table-driven, performance |
+| Pixel | ⚛️ | `package.json` + react/vue/next/vite | TypeScript & React — types, hooks, RTL |
+| Serpent | 🐍 | `requirements.txt` / `pyproject.toml` | Python — types, pytest, ruff |
+| Container | 🐋 | `Dockerfile` / `docker-compose.yml` | Docker — multi-stage, sécurité, healthchecks |
+| Terra | 🌍 | `*.tf` (jusqu'à depth 7) | Terraform — plan obligatoire, modules, tfsec |
+| Kube | ⎈ | `k8s/`, `kind: Deployment` | Kubernetes — workloads, troubleshooting, RBAC |
+| Playbook | 🎭 | `ansible/`, `playbook*.yml`, `ansible.cfg` | Ansible — idémpotence, vault, lint |
+
+**Comment ça marche (Modal Team Engine) :**
+```bash
+# L'option --auto fait tout automatiquement :
+bash bmad-init.sh --name "Mon App" --user "Guilhem" --auto
+
+# → 1. detect_stack() scan le répertoire courant
+# → 2. Identifie les stacks : ex. "go frontend docker"
+# → 3. Choisit l'archétype : minimal si app, infra-ops si terraform/k8s/ansible
+# → 4. deploy_stack_agents() copie les agents correspondants
+# Résultat : équipe exactement adaptée à votre projet
+```
+
+**Exemple Anime-Sama-Downloader (Go + React + Docker) :**
+```
+Stack détecté : go frontend docker
+Agent déployés : Gopher 🐹 + Pixel ⚛️ + Container 🐋
+```
+
+**Exemple Terraform-HouseServer (Terraform + Ansible + K8s) :**
+```
+Stack détecté : terraform ansible k8s docker
+Archétype auto : infra-ops
+Agents stack déployés : Terra 🌍 + Playbook 🎭 + Kube ⎈ + Container 🐋
+```
+
+> Les agents `stack` complètent l'archétype (ils ne le remplacent pas). Ils intègrent tous le Completion Contract : `cc-verify.sh --stack X` avant tout "terminé".
 
 ---
 
@@ -100,6 +144,5 @@ Pour contribuer un archétype au kit :
 4. Tester avec `bmad-init.sh --archetype mon-archetype`
 
 **Archétypes envisagés :**
-- `web-app` — Frontend + Backend + DB (React, Next.js, Rails, Django)
 - `data-pipeline` — ETL, ML, analytics (dbt, Airflow, Spark)
 - `game-dev` — Moteurs de jeu, assets, QA (Unity, Godot)

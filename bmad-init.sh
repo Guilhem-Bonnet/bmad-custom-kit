@@ -20,6 +20,7 @@ PROJECT_NAME=""
 USER_NAME=""
 LANGUAGE="Français"
 ARCHETYPE="minimal"
+AUTO_DETECT=false
 
 # ─── Couleurs ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -48,6 +49,7 @@ Options:
   --lang LANGUAGE     Langue de communication (défaut: Français)
   --archetype TYPE    Archétype à utiliser: minimal, infra-ops (défaut: minimal)
   --target DIR        Répertoire cible (défaut: répertoire courant)
+  --auto              Détecter automatiquement le stack et choisir l'archétype optimal
   --help              Afficher cette aide
 
 Archétypes:
@@ -69,15 +71,137 @@ while [[ $# -gt 0 ]]; do
         --lang)     LANGUAGE="$2"; shift 2 ;;
         --archetype) ARCHETYPE="$2"; shift 2 ;;
         --target)   TARGET_DIR="$2"; shift 2 ;;
+        --auto)     AUTO_DETECT=true; shift ;;
         --help)     usage ;;
         *)          error "Option inconnue: $1. Utilisez --help." ;;
     esac
 done
 
+# ─── Détection automatique du stack ─────────────────────────────────────────
+detect_stack() {
+    local dir="${1:-$(pwd)}"
+    local detected=()
+
+    # Go
+    [[ -f "$dir/go.mod" ]] && detected+=("go")
+
+    # Terraform (racine ou sous-dossiers profonds, hors .terraform/)
+    if find "$dir" -maxdepth 7 -name '*.tf' \
+         -not -path '*/.terraform/*' \
+         -not -path '*/node_modules/*' \
+         -print -quit 2>/dev/null | grep -q .; then
+        detected+=("terraform")
+    fi
+
+    # Frontend (React/Vue/Next/Vite) — chercher package.json jusqu'à depth 3
+    if find "$dir" -maxdepth 3 -name 'package.json' \
+         -not -path '*/node_modules/*' \
+         -exec grep -qE '"(react|vue|next|vite)"' {} \; \
+         -print -quit 2>/dev/null | grep -q .; then
+        detected+=("frontend")
+    # Node sans framework frontend
+    elif [[ -f "$dir/package.json" ]] && \
+         ! grep -qE '"(react|vue|next|vite)"' "$dir/package.json" 2>/dev/null; then
+        detected+=("node")
+    fi
+
+    # Ansible
+    if [[ -d "$dir/ansible" ]] || \
+       find "$dir" -maxdepth 3 -name 'playbook*.yml' -print -quit 2>/dev/null | grep -q . || \
+       find "$dir" -maxdepth 3 -name 'site.yml' -print -quit 2>/dev/null | grep -q . || \
+       find "$dir" -maxdepth 3 -name 'ansible.cfg' -print -quit 2>/dev/null | grep -q .; then
+        detected+=("ansible")
+    fi
+
+    # Kubernetes (manifests avec kind: Deployment/StatefulSet/Service)
+    if [[ -d "$dir/k8s" ]] || [[ -d "$dir/kubernetes" ]] || \
+       find "$dir" -maxdepth 4 -name '*.yaml' \
+         -not -path '*/node_modules/*' \
+         -not -path '*/.terraform/*' \
+         -exec grep -qlE '^kind: (Deployment|StatefulSet|DaemonSet|Service|Ingress)' {} \; \
+         -print -quit 2>/dev/null | grep -q .; then
+        detected+=("k8s")
+    fi
+
+    # Python
+    if [[ -f "$dir/requirements.txt" ]] || [[ -f "$dir/pyproject.toml" ]] || \
+       find "$dir" -maxdepth 2 -name 'requirements*.txt' -print -quit 2>/dev/null | grep -q .; then
+        detected+=("python")
+    fi
+
+    # Docker
+    if [[ -f "$dir/Dockerfile" ]] || \
+       find "$dir" -maxdepth 3 -name 'docker-compose*.yml' -print -quit 2>/dev/null | grep -q . || \
+       find "$dir" -maxdepth 3 -name 'Dockerfile*' -print -quit 2>/dev/null | grep -q .; then
+        detected+=("docker")
+    fi
+
+    echo "${detected[*]:-unknown}"
+}
+
+auto_select_archetype() {
+    local stacks="$1"
+    # infra-ops si terraform ou k8s ou ansible
+    if echo "$stacks" | grep -qE '(terraform|k8s|ansible)'; then
+        echo "infra-ops"
+    else
+        echo "minimal"
+    fi
+}
+
+# ─── Déploiement des agents stack (Modal Team Engine) ───────────────────────
+# Copie les agents spécialisés correspondant aux stacks détectés dans le
+# répertoire _bmad/_config/custom/agents/ du projet cible.
+deploy_stack_agents() {
+    local stacks="$1"
+    local target_agents_dir="$2"
+    local stack_agents_dir="$SCRIPT_DIR/archetypes/stack/agents"
+    local deployed=()
+
+    [[ ! -d "$stack_agents_dir" ]] && { warn "archetypes/stack/agents/ non trouvé — agents stack ignorés"; return 0; }
+
+    declare -A STACK_MAP=(
+        ["go"]="go-expert.md"
+        ["frontend"]="typescript-expert.md"
+        ["node"]="typescript-expert.md"
+        ["python"]="python-expert.md"
+        ["docker"]="docker-expert.md"
+        ["terraform"]="terraform-expert.md"
+        ["k8s"]="k8s-expert.md"
+        ["ansible"]="ansible-expert.md"
+    )
+
+    for stack in $stacks; do
+        agent_file="${STACK_MAP[$stack]:-}"
+        [[ -z "$agent_file" ]] && continue
+        src="$stack_agents_dir/$agent_file"
+        dst="$target_agents_dir/$agent_file"
+        if [[ -f "$src" ]] && [[ ! -f "$dst" ]]; then
+            cp "$src" "$dst"
+            deployed+=("$agent_file")
+        fi
+    done
+
+    if [[ ${#deployed[@]} -gt 0 ]]; then
+        ok "Agents stack déployés : ${deployed[*]}"
+    else
+        info "Aucun agent stack supplémentaire (déjà présents ou stacks non reconnus)"
+    fi
+}
+
 # ─── Validation ──────────────────────────────────────────────────────────────
 [[ -z "$PROJECT_NAME" ]] && error "--name est requis"
 [[ -z "$USER_NAME" ]]    && error "--user est requis"
 [[ ! -d "$SCRIPT_DIR/framework" ]] && error "Le kit BMAD n'est pas trouvé dans $SCRIPT_DIR"
+
+# Auto-détection du stack si --auto
+if $AUTO_DETECT; then
+    info "Analyse automatique du stack..."
+    DETECTED_STACKS=$(detect_stack "$TARGET_DIR")
+    AUTO_ARCHETYPE=$(auto_select_archetype "$DETECTED_STACKS")
+    [[ "$ARCHETYPE" == "minimal" ]] && ARCHETYPE="$AUTO_ARCHETYPE"
+    ok "Stack détecté : ${DETECTED_STACKS:-aucun} → archétype : $ARCHETYPE"
+fi
 
 ARCHETYPE_DIR="$SCRIPT_DIR/archetypes/$ARCHETYPE"
 [[ ! -d "$ARCHETYPE_DIR" ]] && error "Archétype '$ARCHETYPE' non trouvé. Disponibles: $(ls "$SCRIPT_DIR/archetypes/")"
@@ -121,6 +245,14 @@ info "Installation du framework..."
 # Agent base protocol
 cp "$SCRIPT_DIR/framework/agent-base.md" "$BMAD_DIR/_config/custom/agent-base.md"
 
+# Completion Contract verifier
+cp "$SCRIPT_DIR/framework/cc-verify.sh" "$BMAD_DIR/_config/custom/cc-verify.sh"
+chmod +x "$BMAD_DIR/_config/custom/cc-verify.sh"
+
+# Self-Improvement Loop collector
+cp "$SCRIPT_DIR/framework/sil-collect.sh" "$BMAD_DIR/_config/custom/sil-collect.sh"
+chmod +x "$BMAD_DIR/_config/custom/sil-collect.sh"
+
 # Scripts mémoire
 cp "$SCRIPT_DIR/framework/memory/maintenance.py" "$BMAD_DIR/_memory/maintenance.py"
 cp "$SCRIPT_DIR/framework/memory/mem0-bridge.py" "$BMAD_DIR/_memory/mem0-bridge.py"
@@ -152,6 +284,12 @@ if [[ "$ARCHETYPE" != "meta" ]]; then
     fi
 
     ok "Archétype '$ARCHETYPE' installé"
+fi
+
+# ─── 4b. Déployer les agents stack via Modal Team Engine (MTE) ───────────────
+if $AUTO_DETECT && [[ -n "${DETECTED_STACKS:-}" ]]; then
+    info "Modal Team Engine — déploiement des agents stack..."
+    deploy_stack_agents "$DETECTED_STACKS" "$BMAD_DIR/_config/custom/agents"
 fi
 
 # ─── 5. Générer project-context.yaml ────────────────────────────────────────
@@ -215,6 +353,11 @@ touch "$BMAD_DIR/_memory/handoff-log.md"
 touch "$BMAD_DIR/_memory/agent-changelog.md"
 echo '[]' > "$BMAD_DIR/_memory/memories.json"
 touch "$BMAD_DIR/_memory/activity.jsonl"
+
+# Contradiction log
+sed "s/{{project_name}}/$PROJECT_NAME/g" \
+    "$SCRIPT_DIR/framework/memory/contradiction-log.tpl.md" \
+    > "$BMAD_DIR/_memory/contradiction-log.md"
 
 # Session state
 cat > "$BMAD_DIR/_memory/session-state.md" <<MD
@@ -281,4 +424,12 @@ echo "     ${CYAN}npx bmad-install${NC}"
 echo ""
 echo "  Pour vérifier l'installation :"
 echo "     ${CYAN}python3 _bmad/_memory/maintenance.py health-check${NC}"
-echo ""
+  echo ""
+  echo "  Completion Contract — vérifier votre code :"
+  echo "     ${CYAN}bash _bmad/_config/custom/cc-verify.sh${NC}"
+  echo ""
+
+  if $AUTO_DETECT && [[ -n "${DETECTED_STACKS:-}" ]]; then
+    echo -e "  ${CYAN}Stack(s) détecté(s) : ${GREEN}$DETECTED_STACKS${NC}"
+    echo ""
+  fi

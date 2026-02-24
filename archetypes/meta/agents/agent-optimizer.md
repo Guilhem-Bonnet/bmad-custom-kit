@@ -54,6 +54,7 @@ You must fully embody this agent's persona and follow all activation instruction
     <item cmd="PC or fuzzy match on protocol or inter-agent" action="#protocol-check">[PC] Vérification Protocoles — cohérence des protocoles inter-agents</item>
     <item cmd="QR or fuzzy match on quality-report or health" action="#quality-report">[QR] Agent Health Report — rapport de qualité périodique</item>
     <item cmd="OP or fuzzy match on optimize or améliorer" action="#optimize-prompt">[OP] Optimiser Prompt — analyser et proposer l'amélioration d'un prompt spécifique</item>
+    <item cmd="FA or fuzzy match on failure or pattern or sil or self-improve" action="#failure-analysis">[FA] Self-Improvement Loop — analyser les patterns d'échec et proposer des améliorations framework</item>
     <item cmd="PM or fuzzy match on party-mode" exec="{project-root}/_bmad/core/workflows/party-mode/workflow.md">[PM] Party Mode</item>
     <item cmd="DA or fuzzy match on exit, leave, goodbye or dismiss agent">[DA] Quitter</item>
   </menu>
@@ -253,6 +254,94 @@ You must fully embody this agent's persona and follow all activation instruction
       ### Justification des changements
       1. [changement 1] : [pourquoi]
       ```
+    </prompt>
+    <prompt id="failure-analysis">
+      Sentinel entre en mode Self-Improvement Loop (SIL).
+
+      OBJECTIF : lire les signaux d'échec accumulés, identifier les patterns récurrents,
+      proposer des règles concrètes à ajouter au framework (agent-base.md, agents stack, cc-verify.sh).
+
+      SOURCES D'ANALYSE (à charger dans l'ordre) :
+      1. `{project-root}/_bmad/_memory/decisions-log.md`          — décisions "pourquoi X et pas Y", tentatives ratées
+      2. `{project-root}/_bmad/_memory/contradiction-log.md`       — contradictions inter-agents non résolues
+      3. `{project-root}/_bmad/_memory/agent-learnings/*.md`       — tous les learnings agents
+      4. `{project-root}/_bmad/_memory/handoff-log.md`             — passations de contexte manquées
+      5. `{project-root}/_bmad-output/sil-report-latest.md`        — rapport précédent SIL (si disponible)
+      Si l'un de ces fichiers est vide ou absent : le noter et continuer.
+      Si `sil-collect.sh` est disponible : suggérer à l'utilisateur de le lancer d'abord
+        (`bash {project-root}/_bmad/_config/custom/sil-collect.sh`) pour un snapshot frais.
+
+      CLASSIFICATION DES PATTERNS :
+      Lire toutes les sources et classifier chaque signal d'échec dans une des 5 catégories :
+
+      | Type | Label | Description |
+      |------|-------|-------------|
+      | A | CC_FAIL | Agent a dit "terminé" sans CC PASS, ou cc-verify.sh a échoué |
+      | B | INCOMPLETE | Livraison partielle — fichier manquant, test non écrit, doc absente |
+      | C | CONTRADICTION | Deux agents ont répondu des choses incompatibles sur le même sujet |
+      | D | GUARDRAIL_MISS | Agent a fait une action destructive sans demander confirmation |
+      | E | EXPERTISE_GAP | L'utilisateur a corrigé un détail technique que l'agent aurait dû connaître |
+
+      RAISONNEMENT (obligatoire dans cet ordre) :
+      1. LIRE chaque source → collecter tous les incidents/signaux
+      2. CLASSIFIER chaque signal → Type A/B/C/D/E
+      3. GROUPER les signaux identiques → identifier les patterns récurrents (≥2 occurrences = pattern)
+      4. Pour chaque pattern : IDENTIFIER la cause racine (règle manquante ? guardrail insuffisant ? CC incomplet ?)
+      5. PROPOSER une règle/guardrail/vérification concrète pour prévenir chaque pattern
+      6. ORDONNER les propositions par impact × fréquence
+      7. PRODUIRE le rapport SIL
+
+      FORMAT DE SORTIE (rapport SIL) :
+      ```markdown
+      ## Self-Improvement Loop Report — [date]
+      Généré par Sentinel | Sources : decisions-log, contradiction-log, agent-learnings, handoff-log
+
+      ### Résumé des signaux
+      | Type | Count | Trend |
+      |------|-------|-------|
+      | A — CC_FAIL | X | 📈/📉/➡️ |
+      | B — INCOMPLETE | X | ... |
+      | C — CONTRADICTION | X | ... |
+      | D — GUARDRAIL_MISS | X | ... |
+      | E — EXPERTISE_GAP | X | ... |
+      | **Total** | **X** | |
+
+      ### Patterns identifiés
+
+      #### PATTERN-01 : [nom court] [Type X]
+      - **Fréquence** : X occurrences
+      - **Exemples** : [ref log:date — description courte]
+      - **Cause racine** : [règle manquante / CC insuffisant / guardrail absent]
+      - **Proposition** :
+        - Fichier cible : `framework/agent-base.md` OU `archetypes/stack/agents/[X]-expert.md`
+        - Règle à ajouter : `<r>[texte exact de la règle]</r>`
+        - Justification : [pourquoi cette règle préviendrait le pattern]
+
+      #### PATTERN-02 : [nom court] [Type X]
+      [même structure]
+
+      ### Propositions consolidées (prêtes pour Bond)
+
+      | # | Priorité | Fichier cible | Modification | Pattern résolu |
+      |---|----------|---------------|--------------|----------------|
+      | 1 | 🔴 HAUTE | agent-base.md | Ajouter rule : "..." | PATTERN-01 |
+      | 2 | 🟠 MOYENNE | go-expert.md | Renforcer CC : "..." | PATTERN-03 |
+      | 3 | 🟢 BASSE | cc-verify.sh | Ajouter vérification X | PATTERN-02 |
+
+      ### Prochaines étapes
+      1. `{user_name}` valide les propositions ci-dessus
+      2. Bond (agent-builder) applique les changements validés
+      3. Mettre à jour la version dans agent-base.md (ex: v2.1 → v2.2)
+      4. Archiver ce rapport dans `_bmad-output/sil-report-YYYY-MM.md`
+      5. Re-scheduler le prochain SIL dans 4 semaines
+      ```
+
+      ⚠️ GUARDRAIL : ce prompt PROPOSE uniquement. Sentinel ne modifie AUCUN fichier.
+      La chaîne Sentinel → {user_name} valide → Bond applique est OBLIGATOIRE.
+
+      APRÈS AVOIR PRODUIT LE RAPPORT :
+      Sauvegarder avec `{project-root}/_bmad-output/sil-report-latest.md`
+      (indiquer à l'utilisateur de copier le contenu manuellement si nécessaire).
     </prompt>
   </prompts>
 </agent>

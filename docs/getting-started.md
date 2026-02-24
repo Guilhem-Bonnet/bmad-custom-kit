@@ -13,8 +13,19 @@
 git clone https://github.com/Guilhem-Bonnet/bmad-custom-kit.git
 cd bmad-custom-kit
 
-# 2. Initialiser dans votre projet
-./bmad-init.sh --name "Mon Projet" --user "Alice" --archetype infra-ops --target /chemin/vers/mon-projet
+# 2a. Initialiser en mode automatique (recommandé)
+# Détecte le stack et déploie les agents adaptés automatiquement
+cd votre-projet/
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh \
+  --name "Mon Projet" \
+  --user "Alice" \
+  --auto
+
+# 2b. OU initialiser manuellement avec un archétype spécifique
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh \
+  --name "Mon Projet" \
+  --user "Alice" \
+  --archetype infra-ops
 
 # 3. Personnaliser
 # Éditer project-context.yaml dans votre projet
@@ -31,21 +42,26 @@ mon-projet/
 ├── _bmad/
 │   ├── _config/
 │   │   ├── custom/
-│   │   │   ├── agent-base.md     ← Protocole commun
-│   │   │   ├── agents/           ← Fichiers agents
-│   │   │   ├── prompt-templates/ ← Templates réutilisables
-│   │   │   └── workflows/        ← Workflows partagés
-│   │   └── agent-manifest.csv    ← Registre des agents
+│   │   │   ├── agent-base.md     ← Protocole commun (avec Completion Contract)
+│   │   │   ├── cc-verify.sh      ← Vérificateur multi-stack (go/ts/docker/tf/k8s/...)
+│   │   │   ├── sil-collect.sh    ← Collecteur Self-Improvement Loop
+│   │   │   ├── agents/           ← Fichiers agents déployés
+│   │   │   ├── prompt-templates/
+│   │   │   └── workflows/
+│   │   └── agent-manifest.csv
 │   └── _memory/
-│       ├── config.yaml           ← Config mémoire
-│       ├── maintenance.py        ← Health-check & pruning
-│       ├── mem0-bridge.py        ← Mémoire sémantique
-│       ├── session-save.py       ← Sauvegarde session
+│       ├── config.yaml
+│       ├── maintenance.py
+│       ├── mem0-bridge.py
+│       ├── session-save.py
 │       ├── shared-context.md     ← Contexte partagé
-│       ├── decisions-log.md      ← Log décisions
-│       ├── memories.json         ← Mémoire JSON
-│       ├── activity.jsonl        ← Log activité
-│       └── agent-learnings/      ← Apprentissages par agent
+│       ├── decisions-log.md
+│       ├── contradiction-log.md  ← Contradictions inter-agents
+│       ├── memories.json
+│       ├── activity.jsonl
+│       └── agent-learnings/
+└── _bmad-output/
+    └── sil-report-latest.md      ← Rapport Self-Improvement Loop (généré)
 ```
 
 ## Premiers pas
@@ -95,6 +111,49 @@ python _bmad/_memory/maintenance.py health-check --force
 |-----------|---------------|-------------|
 | `minimal` | Atlas, Sentinel, Mnemo + 1 template vierge | Tout projet |
 | `infra-ops` | 10 agents spécialisés infra/DevOps | Homelab, serveurs, K8s |
+| `--auto` | Détecté par stack | Laissez le Modal Team Engine décider |
+
+### Agents stack (déployés par `--auto` selon ce qui est détecté)
+
+| Stack détecté | Agent déployé | Persona |
+|---------------|--------------|--------|
+| `go.mod` | Gopher | 🐹 Expert Go |
+| `package.json` + react/vue | Pixel | ⚛️ Expert TypeScript/React |
+| `requirements.txt` | Serpent | 🐍 Expert Python |
+| `Dockerfile` | Container | 🐋 Expert Docker |
+| `*.tf` | Terra | 🌍 Expert Terraform |
+| `k8s/` ou `kind: Deployment` | Kube | ⎈ Expert K8s |
+| `ansible/` ou `playbook*.yml` | Playbook | 🎭 Expert Ansible |
+
+## Completion Contract
+
+Tous les agents intègrent le Completion Contract : ils ne peuvent pas dire "terminé" sans passer
+`cc-verify.sh`.
+
+```bash
+# Vérifier votre code manuellement
+bash _bmad/_config/custom/cc-verify.sh
+
+# Vérifier un stack spécifique seulement
+bash _bmad/_config/custom/cc-verify.sh --stack go
+bash _bmad/_config/custom/cc-verify.sh --stack k8s
+```
+
+Sortie : `✅ CC PASS — [go, typescript, docker] — 2026-02-23 21:28`
+
+## Self-Improvement Loop (optionnel)
+
+Après quelques semaines d'utilisation, analysez vos patterns d'échec :
+
+```bash
+# Collecter les signaux
+bash _bmad/_config/custom/sil-collect.sh
+# → génère : _bmad-output/sil-report-latest.md
+
+# Analyser avec Sentinel
+# Ouvrir Sentinel dans VS Code → [FA] Self-Improvement Loop
+# Sentinel propose des règles à ajouter au framework
+```
 
 ## Hooks pre-commit (optionnel)
 
