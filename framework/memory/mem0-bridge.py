@@ -327,27 +327,41 @@ def _load_memory_config() -> dict:
 
 def get_semantic_client():
     """Initialise le backend sémantique via la factory backends/."""
+    # Essai 1 : import relatif (mode package)
     try:
         from .backends import get_backend
         backend, name = get_backend()
         if name == "local":
-            return None  # Fallback local géré dans get_client()
+            return None
         return backend
     except ImportError:
-        # Exécuté directement (pas en package) — fallback SemanticMemory
-        try:
-            return SemanticMemory()
-        except ImportError:
-            return None
-        except Exception as e:
-            print(f"⚠️  Mémoire sémantique indisponible ({e})")
-            print(f"   → Basculement automatique en mode JSON (fonctionnel, recherche réduite)")
-            print(f"   → Diagnostiquer : python mem0-bridge.py status")
-            return None
+        pass  # Exécuté directement (python mem0-bridge.py) — utiliser importlib
     except Exception as e:
         print(f"⚠️  Backend mémoire indisponible ({e})")
-        print(f"   → Diagnostiquer : python mem0-bridge.py status")
         return None
+
+    # Essai 2 : chargement direct via importlib.util (mode script)
+    try:
+        import importlib.util, sys, os
+        backends_dir = os.path.join(os.path.dirname(__file__), "backends")
+        backends_init = os.path.join(backends_dir, "__init__.py")
+        if os.path.exists(backends_init):
+            spec = importlib.util.spec_from_file_location(
+                "backends", backends_init,
+                submodule_search_locations=[backends_dir]
+            )
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules["backends"] = mod  # enregistrer AVANT exec pour les imports relatifs
+            spec.loader.exec_module(mod)
+            backend, name = mod.get_backend()
+            if name == "local":
+                return None
+            return backend
+    except Exception as e:
+        print(f"⚠️  Backend sémantique indisponible ({e}), fallback mode local")
+        print(f"   → Diagnostiquer : python mem0-bridge.py status")
+
+    return None
 
 
 def get_client(prefer_semantic=True):
@@ -493,36 +507,37 @@ def cmd_status(args):
 
     semantic_ok = False
     try:
-        import sentence_transformers
-        print(f"   Embeddings: ✅ sentence-transformers {sentence_transformers.__version__}")
-        try:
-            from qdrant_client import QdrantClient
-            print(f"   Qdrant lib: ✅ qdrant-client")
-            client = get_semantic_client()
-            if client:
-                count = client.count()
-                print(f"   Mémoires sémantiques: {count}")
-                print(f"   Modèle: {EMBEDDING_MODEL}")
-                print(f"   Stockage: {QDRANT_PATH}")
-                semantic_ok = True
+        client = get_semantic_client()
+        if client:
+            backend_type = type(client).__name__.replace("Backend", "").lower()
+            count = client.count()
+            st = client.status() if hasattr(client, "status") else {}
+            model = st.get("model", st.get("embedding_model", getattr(client, "_model", "—")))
+            qdrant_url = st.get("qdrant_url", getattr(client, "qdrant_url", None))
+            print(f"   Backend: ✅ {backend_type}")
+            print(f"   Modèle embeddings: {model}")
+            if qdrant_url:
+                print(f"   Qdrant: {qdrant_url}")
+            print(f"   Mémoires sémantiques: {count}")
+            semantic_ok = True
+        else:
+            import os as _os
+            has_env = _os.environ.get("BMAD_OLLAMA_URL") or _os.environ.get("BMAD_QDRANT_URL")
+            if has_env:
+                print(f"   Sémantique: ⚠️  backend non disponible (voir logs ci-dessus)")
             else:
-                print(f"   Qdrant: ⚠️  init échoué — la mémoire sémantique est indisponible")
-                print(f"           → Mode fallback JSON actif automatiquement")
-                print(f"           → Pour diagnostiquer : python mem0-bridge.py upgrade")
-        except ImportError:
-            print(f"   Qdrant lib: ❌ pip install qdrant-client")
+                print(f"   Sémantique: ⚠️  non configuré")
+                print(f"              → Définir BMAD_OLLAMA_URL ou BMAD_QDRANT_URL")
+                print(f"              → Ou configurer memory: dans project-context.yaml")
             print(f"              → Mode fallback JSON actif automatiquement")
-    except ImportError:
-        print(f"   Embeddings: ❌ pip install sentence-transformers")
-        print(f"              → Mode fallback JSON actif automatiquement")
-        print(f"              → Capacités réduites : recherche par mots-clés uniquement")
+    except Exception as e:
+        print(f"   Sémantique: ❌ {e}")
 
-    mode = "sémantique (embeddings locaux)" if semantic_ok else "local JSON (fallback)"
+    mode = "sémantique" if semantic_ok else "local JSON (fallback)"
     print(f"   Mode actif: {'🚀' if semantic_ok else '📁'} {mode}")
     if not semantic_ok:
-        print(f"   ⚠️  ATTENTION : le mode fallback JSON est fonctionnel mais limité.")
-        print(f"      La recherche sémantique n'est PAS active.")
-        print(f"      Les agents fonctionnent normalement — seule la qualité de recherche est réduite.")
+        print(f"   ℹ️  Mode JSON fonctionnel — recherche sémantique non active.")
+        print(f"      → Activer : BMAD_OLLAMA_URL=http://localhost:11434 python mem0-bridge.py status")
 
     # Afficher les agents détectés
     print(f"\n   Agents configurés ({len(AGENT_PROFILES)}):")

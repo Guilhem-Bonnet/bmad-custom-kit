@@ -2,5 +2,7 @@
 # Embeddings : Ollama HTTP (nomic-embed-text, aucun modèle téléchargé localement)
 # Stockage   : Qdrant fichier local ou serveur distant
 # NOTE: sentence-transformers N'EST PAS nécessaire — Ollama fournit les embeddings
+# NOTE: qdrant-client>=1.13 + grpcio>=1.78 provoque TypeError sur Python 3.12
+#       (EnumTypeWrapper | None syntax) — pin à <1.13 jusqu'à correction upstream
 pyyaml>=6.0
-qdrant-client>=1.7.0
+qdrant-client>=1.7.0,<1.13
