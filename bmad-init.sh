@@ -177,8 +177,6 @@ cmd_session_branch() {
     local dst_file=""
     local NOW
     NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    local DATE_SHORT
-    DATE_SHORT="$(date +%Y-%m-%d)"
 
     # Parser les sous-arguments
     shift  # retirer "session-branch"
@@ -279,7 +277,8 @@ EOF
         archive)
             [[ -z "$branch_name" ]] && error "Nom de branche requis pour l'archivage"
             local arch_src="${RUNS_DIR}/${branch_name}"
-            local arch_dst="${RUNS_DIR}/archive/${branch_name}-$(date +%Y%m%d)"
+            local arch_dst
+            arch_dst="${RUNS_DIR}/archive/${branch_name}-$(date +%Y%m%d)"
             [[ ! -d "$arch_src" ]] && error "Branche '$branch_name' non trouvée"
             mkdir -p "${RUNS_DIR}/archive"
             mv "$arch_src" "$arch_dst"
@@ -890,7 +889,6 @@ cmd_upgrade() {
     # ─── Liste des fichiers framework à mettre à jour ───────────────────
     local updated=0
     local skipped=0
-    local errors_count=0
 
     # Fonction interne : comparer et copier un fichier
     _upgrade_file() {
@@ -1101,7 +1099,11 @@ cmd_doctor() {
         warnings=$((warnings + 1))
         if $do_fix; then
             info "  → Installation PyYAML..."
-            python3 -m pip install pyyaml -q && ok "  PyYAML installé" || warn "  Échec install PyYAML"
+            if python3 -m pip install pyyaml -q; then
+                ok "  PyYAML installé"
+            else
+                warn "  Échec install PyYAML"
+            fi
         fi
     fi
     echo ""
@@ -1489,7 +1491,8 @@ cmd_trace() {
             grep -E "${pattern}" "$TRACE_FILE" || info "Aucune entrée trouvée"
             ;;
         archive)
-            local arch_path="${TRACE_FILE%.md}-$(date +%Y%m%d).md"
+            local arch_path
+            arch_path="${TRACE_FILE%.md}-$(date +%Y%m%d).md"
             cp "$TRACE_FILE" "$arch_path"
             echo "" > "$TRACE_FILE"
             ok "Trace archivée dans : ${arch_path}"
@@ -1893,7 +1896,7 @@ if [[ ! -f "$BMAD_DIR/_memory/shared-context.md" ]]; then
 
 | Agent | Nom | Icône | Domaine |
 |-------|-----|-------|---------|
-$(ls "$BMAD_DIR/_config/custom/agents/"*.md 2>/dev/null | while read f; do
+$(ls "$BMAD_DIR/_config/custom/agents/"*.md 2>/dev/null | while read -r f; do
     name=$(basename "$f" .md)
     echo "| $name | — | — | À compléter |"
 done)
@@ -2116,9 +2119,11 @@ fi
 # ─── 10. Installer les dépendances Python (optionnel) ────────────────────────────────
 if command -v pip3 &>/dev/null; then
     info "Installation des dépendances Python (backend: $MEMORY_BACKEND)..."
-    pip3 install -q -r "$BMAD_DIR/_memory/requirements.txt" 2>/dev/null && \
-        ok "Dépendances Python installées" || \
+    if pip3 install -q -r "$BMAD_DIR/_memory/requirements.txt" 2>/dev/null; then
+        ok "Dépendances Python installées"
+    else
         warn "Installation des dépendances échouée (non bloquant)"
+    fi
 else
     warn "pip3 non trouvé — installez les dépendances manuellement : pip install -r _bmad/_memory/requirements.txt"
 fi
