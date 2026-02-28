@@ -13,6 +13,9 @@
 
 set -euo pipefail
 
+# ─── Version ──────────────────────────────────────────────────────────────────
+BMAD_KIT_VERSION="$(cat "$(cd "$(dirname "$0")" && pwd)/version.txt" 2>/dev/null || echo "dev")"
+
 # ─── Variables ────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_DIR="$(pwd)"
@@ -40,7 +43,7 @@ error() { echo -e "${RED}❌ $*${NC}" >&2; exit 1; }
 
 usage() {
     cat <<EOF
-${CYAN}BMAD Custom Kit — Initialisation${NC}
+${CYAN}BMAD Custom Kit v${BMAD_KIT_VERSION} — Initialisation${NC}
 
 Usage:
   $(basename "$0") --name "Nom du Projet" --user "Votre Nom" [options]
@@ -55,6 +58,8 @@ Options init:
   --target DIR        Répertoire cible (défaut: répertoire courant)
   --auto              Détecter automatiquement le stack et choisir l'archétype optimal
   --memory BACKEND    Backend mémoire: auto, local, qdrant-local, qdrant-server, ollama,
+                      qdrant-docker, qdrant-k8s (défaut: auto)
+  --version           Afficher la version du kit et quitter
                         qdrant-docker (génère docker-compose.memory.yml)
   --force             Écraser une installation existante sans demander confirmation
   --help              Afficher cette aide
@@ -850,7 +855,7 @@ cmd_doctor() {
             echo -e "  ${GREEN}✓${NC}  ${tool} (${ver})"
         else
             echo -e "  ${RED}✗${NC}  ${tool} — MANQUANT"
-            ((errors++))
+            errors=$((errors + 1))
         fi
     done
 
@@ -859,7 +864,7 @@ cmd_doctor() {
         echo -e "  ${GREEN}✓${NC}  PyYAML disponible"
     else
         echo -e "  ${YELLOW}⚠${NC}  PyYAML manquant (requis pour gen-tests.py + validate)"
-        ((warnings++))
+        warnings=$((warnings + 1))
         if $do_fix; then
             info "  → Installation PyYAML..."
             python3 -m pip install pyyaml -q && ok "  PyYAML installé" || warn "  Échec install PyYAML"
@@ -870,14 +875,14 @@ cmd_doctor() {
     # ─ 2. Structure BMAD ─────────────────────────────────────────────────
     echo -e "${YELLOW}▶ Structure BMAD${NC}"
     local bmad_dir="${TARGET_DIR:-$SCRIPT_DIR}/_bmad"
-    local critical_dirs=("_bmad/_config" "_bmad/_memory" "_bmad/bmm/agents" "_bmad-output")
+    local critical_dirs=("_bmad/_config" "_bmad/_memory" "_bmad/_config/custom/agents" "_bmad-output")
     for d in "${critical_dirs[@]}"; do
         local full="${TARGET_DIR:-$SCRIPT_DIR}/${d}"
         if [[ -d "$full" ]]; then
             echo -e "  ${GREEN}✓${NC}  ${d}/"
         else
             echo -e "  ${RED}✗${NC}  ${d}/ — manquant"
-            ((errors++))
+            errors=$((errors + 1))
         fi
     done
 
@@ -889,7 +894,7 @@ cmd_doctor() {
         echo -e "  ${GREEN}✓${NC}  _bmad/_memory/shared-context.md (${wc} lignes)"
     else
         echo -e "  ${YELLOW}⚠${NC}  shared-context.md manquant — projet non initialisé"
-        ((warnings++))
+        warnings=$((warnings + 1))
     fi
 
     # project-context.yaml
@@ -898,7 +903,7 @@ cmd_doctor() {
         echo -e "  ${GREEN}✓${NC}  project-context.yaml"
     else
         echo -e "  ${YELLOW}⚠${NC}  project-context.yaml manquant — lancez : bmad-init.sh --name ..."
-        ((warnings++))
+        warnings=$((warnings + 1))
     fi
     echo ""
 
@@ -908,16 +913,16 @@ cmd_doctor() {
     if [[ -f "$bridge" ]]; then
         echo -e "  ${GREEN}✓${NC}  mem0-bridge.py présent"
         # Vérif Qdrant
-        if curl -sf http://localhost:6333/healthz &>/dev/null 2>&1; then
+        if curl -sf --connect-timeout 2 --max-time 3 http://localhost:6333/healthz &>/dev/null 2>&1; then
             echo -e "  ${GREEN}✓${NC}  Qdrant accessible (localhost:6333)"
         else
             echo -e "  ${YELLOW}⚠${NC}  Qdrant non détecté — mémoire structurée désactivée"
             echo -e "       Pour activer : docker run -p 6333:6333 qdrant/qdrant"
-            ((warnings++))
+            warnings=$((warnings + 1))
         fi
     else
         echo -e "  ${YELLOW}⚠${NC}  mem0-bridge.py manquant"
-        ((warnings++))
+        warnings=$((warnings + 1))
     fi
     echo ""
 
@@ -933,7 +938,7 @@ cmd_doctor() {
                 echo -e "  ${GREEN}✓${NC}  ${arch_name}/archetype.dna.yaml (YAML valide)"
             else
                 echo -e "  ${RED}✗${NC}  ${arch_name}/archetype.dna.yaml — YAML invalide"
-                ((errors++))
+                errors=$((errors + 1))
             fi
         done
         # Stack DNA files
@@ -956,7 +961,7 @@ cmd_doctor() {
                 hooks_ok=$((hooks_ok + 1))
             else
                 echo -e "  ${YELLOW}⚠${NC}  $h non installé"
-                ((warnings++))
+                warnings=$((warnings + 1))
             fi
         done
         if [[ $hooks_ok -lt ${#required_hooks[@]} ]]; then
@@ -968,7 +973,7 @@ cmd_doctor() {
         fi
     else
         echo -e "  ${YELLOW}⚠${NC}  Pas dans un dépôt git — hooks non vérifiés"
-        ((warnings++))
+        warnings=$((warnings + 1))
     fi
     echo ""
 
@@ -1051,12 +1056,12 @@ PYEOF
         echo -e "${CYAN}Validation de tous les fichiers DNA :${NC}"
         echo ""
         while IFS= read -r -d '' f; do
-            validate_one_dna "$f" || ((errors++))
+            validate_one_dna "$f" || errors=$((errors + 1))
         done < <(find "$SCRIPT_DIR/archetypes" -name "*.dna.yaml" -print0 2>/dev/null)
     elif [[ -n "$dna_file" ]]; then
         echo -e "${CYAN}Validation : ${dna_file}${NC}"
         echo ""
-        validate_one_dna "$dna_file" || ((errors++))
+        validate_one_dna "$dna_file" || errors=$((errors + 1))
     else
         error "Spécifiez --dna chemin/archetype.dna.yaml ou --all"
     fi
@@ -1313,6 +1318,7 @@ while [[ $# -gt 0 ]]; do
         --auto)     AUTO_DETECT=true; shift ;;
         --memory)   MEMORY_BACKEND="$2"; shift 2 ;;
         --force)    FORCE=true; shift ;;
+        --version)  echo "BMAD Custom Kit v${BMAD_KIT_VERSION}"; exit 0 ;;
         --help)     usage ;;
         *)          error "Option inconnue: $1. Utilisez --help." ;;
     esac
@@ -1436,12 +1442,12 @@ deploy_stack_agents() {
 # ─── Détection automatique du backend mémoire ────────────────────────────────
 detect_memory_backend() {
     # Qdrant local (docker)
-    if curl -sf http://localhost:6333/healthz &>/dev/null 2>&1; then
+    if curl -sf --connect-timeout 2 --max-time 3 http://localhost:6333/healthz &>/dev/null 2>&1; then
         echo "qdrant-local"
         return
     fi
     # Ollama
-    if curl -sf http://localhost:11434/api/tags &>/dev/null 2>&1; then
+    if curl -sf --connect-timeout 2 --max-time 3 http://localhost:11434/api/tags &>/dev/null 2>&1; then
         echo "ollama"
         return
     fi
@@ -1513,7 +1519,7 @@ fi
 # ═══════════════════════════════════════════════════════════════════════════════
 
 echo ""
-echo -e "${CYAN}🤖 BMAD Custom Kit — Initialisation${NC}"
+echo -e "${CYAN}🤖 BMAD Custom Kit v${BMAD_KIT_VERSION} — Initialisation${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}"
 echo -e "  Projet:     ${GREEN}$PROJECT_NAME${NC}"
 echo -e "  Utilisateur: ${GREEN}$USER_NAME${NC}"
@@ -1612,6 +1618,10 @@ if [[ ! -f "$PROJECT_CONTEXT" ]]; then
         -e "s/\"minimal\"/\"$ARCHETYPE\"/" \
         -e "s/backend: \"auto\"/backend: \"$MEMORY_BACKEND\"/" \
         "$SCRIPT_DIR/project-context.tpl.yaml" > "$PROJECT_CONTEXT"
+    # Ajouter la version du kit en fin de fichier
+    echo "" >> "$PROJECT_CONTEXT"
+    echo "# Installé par BMAD Custom Kit" >> "$PROJECT_CONTEXT"
+    echo "bmad_kit_version: \"$BMAD_KIT_VERSION\"" >> "$PROJECT_CONTEXT"
     ok "project-context.yaml créé"
 else
     warn "project-context.yaml existe déjà, pas écrasé"
@@ -1794,7 +1804,7 @@ fi
 # ─── 12. Résumé ──────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}🎉 BMAD Custom Kit installé avec succès !${NC}"
+echo -e "${GREEN}🎉 BMAD Custom Kit v${BMAD_KIT_VERSION} installé avec succès !${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
 echo ""
 echo "  Prochaines étapes :"
