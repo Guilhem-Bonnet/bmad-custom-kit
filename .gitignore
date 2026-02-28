@@ -15,8 +15,8 @@ session-summaries/
 .last-health-check
 archives/
 
-# IDE
-.vscode/
+# IDE — personnels uniquement (.vscode/ intentionnellement suivi pour le kit)
+# .vscode/  ← supprimé : settings/tasks/snippets font partie du kit distribué
 .idea/
 *.swp
 *.swo

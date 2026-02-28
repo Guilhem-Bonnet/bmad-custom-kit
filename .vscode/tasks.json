@@ -1,0 +1,209 @@
+{
+  // ════════════════════════════════════════════════════════════════════
+  // BMAD Custom Kit — VS Code Tasks
+  // Accès : Ctrl+Shift+P → "Tasks: Run Task"
+  // ════════════════════════════════════════════════════════════════════
+  "version": "2.0.0",
+  "tasks": [
+
+    // ── Groupe : BMAD Diagnostics ─────────────────────────────────────
+    {
+      "label": "BMAD: Doctor",
+      "type": "shell",
+      "command": "bash bmad-init.sh doctor",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Doctor --fix",
+      "type": "shell",
+      "command": "bash bmad-init.sh doctor --fix",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Validate DNA (tous les archetypes)",
+      "type": "shell",
+      "command": "bash bmad-init.sh validate --all",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Validate DNA (fichier courant)",
+      "type": "shell",
+      "command": "bash bmad-init.sh validate --dna ${relativeFile}",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+
+    // ── Groupe : BMAD Setup ───────────────────────────────────────────
+    {
+      "label": "BMAD: Install hooks",
+      "type": "shell",
+      "command": "bash bmad-init.sh hooks --install",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Hooks status",
+      "type": "shell",
+      "command": "bash bmad-init.sh hooks --status",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Install archetype",
+      "type": "shell",
+      "command": "bash bmad-init.sh install --archetype ${input:archetypeId}",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+
+    // ── Groupe : BMAD Session ─────────────────────────────────────────
+    {
+      "label": "BMAD: Nouvelle session-branch",
+      "type": "shell",
+      "command": "bash bmad-init.sh session-branch --name ${input:sessionName}",
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Resume checkpoint",
+      "type": "shell",
+      "command": "bash bmad-init.sh resume --checkpoint ${input:checkpointId}",
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    // ── Groupe : BMAD Audit ───────────────────────────────────────────
+    {
+      "label": "BMAD: Trace (50 dernières entrées)",
+      "type": "shell",
+      "command": "bash bmad-init.sh trace --tail 50",
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Changelog",
+      "type": "shell",
+      "command": "bash bmad-init.sh changelog",
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+
+    // ── Groupe : Gen Tests ────────────────────────────────────────────
+    {
+      "label": "BMAD: Gen tests (archetype courant)",
+      "type": "shell",
+      "command": "python3 framework/tools/gen-tests.py --dna ${input:dnaFile} --out tests/",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+
+    // ── Groupe : Validation bmad-init.sh ─────────────────────────────
+    {
+      "label": "BMAD: Vérification syntaxe bash",
+      "type": "shell",
+      "command": "bash -n bmad-init.sh && echo '✅ OK'",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [
+        {
+          "pattern": {
+            "regexp": "bmad-init\\.sh: line (\\d+): (.*)",
+            "file": 0,
+            "line": 1,
+            "message": 2
+          }
+        }
+      ]
+    }
+  ],
+
+  "inputs": [
+    {
+      "id": "archetypeId",
+      "type": "promptString",
+      "description": "ID de l'archétype (ex: web-app, infra-ops, stack/go)",
+      "default": "minimal"
+    },
+    {
+      "id": "sessionName",
+      "type": "promptString",
+      "description": "Nom de la session BMAD (ex: feature-auth, bug-fix-login)",
+      "default": "feature-dev"
+    },
+    {
+      "id": "checkpointId",
+      "type": "promptString",
+      "description": "ID court du checkpoint (8 premiers chars)",
+      "default": ""
+    },
+    {
+      "id": "dnaFile",
+      "type": "promptString",
+      "description": "Chemin vers le fichier .dna.yaml",
+      "default": "archetypes/web-app/archetype.dna.yaml"
+    }
+  ]
+}

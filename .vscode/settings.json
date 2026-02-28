@@ -1,0 +1,100 @@
+{
+  // ════════════════════════════════════════════════════════════════════
+  // BMAD Custom Kit — VS Code settings
+  // ════════════════════════════════════════════════════════════════════
+
+  // ── Éditeur ─────────────────────────────────────────────────────────
+  "editor.rulers": [80, 120],
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.ruff": "explicit",
+    "source.organizeImports.ruff": "explicit"
+  },
+  "editor.defaultFormatter": null,
+
+  // ── Fichiers exclus de l'explorateur ────────────────────────────────
+  "files.exclude": {
+    "**/.git": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "_bmad/_memory/*.json": true,
+    "_bmad/_memory/qdrant_cache": true
+  },
+
+  // ── Exclusions de la recherche (grep/ripgrep) ────────────────────────
+  "search.exclude": {
+    "_bmad-output/BMAD_TRACE.md": true,
+    "_bmad/_memory/": true,
+    "_bmad-output/.runs/": true,
+    "**/node_modules": true,
+    "**/.terraform": true,
+    "**/.venv": true
+  },
+
+  // ── YAML : associations de schémas ──────────────────────────────────
+  "yaml.schemas": {
+    "./framework/archetype-dna.schema.yaml": [
+      "archetypes/**/*.dna.yaml",
+      "framework/archetype-dna.schema.yaml"
+    ],
+    "https://json.schemastore.org/github-workflow.json": [
+      ".github/workflows/*.yml",
+      ".github/workflows/*.yaml"
+    ],
+    "https://json.schemastore.org/pre-commit-config.json": [
+      ".pre-commit-config.yaml"
+    ]
+  },
+  "yaml.validate": true,
+  "yaml.hover": true,
+  "yaml.completion": true,
+
+  // ── Python ──────────────────────────────────────────────────────────
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "python.analysis.typeCheckingMode": "basic",
+  "ruff.lint.args": ["--select=E,F,I,UP,B,N"],
+
+  // ── Shell ────────────────────────────────────────────────────────────
+  "[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format"
+  },
+  "shellformat.flag": "-i 4 -ln bash",
+  "shellformat.path": "shfmt",
+
+  // ── Markdown ─────────────────────────────────────────────────────────
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    }
+  },
+  "markdown.preview.scrollEditorWithPreview": true,
+
+  // ── Git ──────────────────────────────────────────────────────────────
+  "git.enableSmartCommit": false,
+  "git.branchProtection": ["main", "bmad/production"],
+  "git.branchPrefix": "bmad/",
+
+  // ── Copilot ──────────────────────────────────────────────────────────
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "file": ".github/copilot-instructions.md"
+    }
+  ],
+  "github.copilot.chat.reviewSelection.instructions": [
+    {
+      "text": "Reviewer : Amelia (dev agent BMAD). Vérifier que le code respecte le DNA de l'archétype actif (acceptance_criteria + tools_required). Langue : Français."
+    }
+  ],
+
+  // ── Extensions ───────────────────────────────────────────────────────
+  "extensions.ignoreRecommendations": false,
+
+  // ── Divers ───────────────────────────────────────────────────────────
+  "breadcrumbs.enabled": true,
+  "workbench.editor.enablePreviewFromCodeNavigation": false
+}

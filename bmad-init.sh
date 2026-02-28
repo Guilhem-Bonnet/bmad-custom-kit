@@ -101,6 +101,10 @@ Exemples:
   $(basename "$0") validate --dna archetypes/web-app/archetype.dna.yaml
   $(basename "$0") validate --all
   $(basename "$0") changelog
+  $(basename "$0") hooks --install
+  $(basename "$0") hooks --install --hook post-commit
+  $(basename "$0") hooks --list
+  $(basename "$0") hooks --status
 EOF
     exit 0
 }
@@ -427,6 +431,164 @@ YAMLEOF
     exit 0
 }
 
+# ─── Hooks (BM-40) ────────────────────────────────────────────────────────────
+# Gestion des git hooks BMAD
+# Usage: bmad-init.sh hooks [--install [--hook <name>] | --list | --status]
+cmd_hooks() {
+    shift  # retirer "hooks"
+    local action="status"
+    local specific_hook=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --install)  action="install"; shift ;;
+            --list)     action="list"; shift ;;
+            --status)   action="status"; shift ;;
+            --hook)     specific_hook="$2"; shift 2 ;;
+            *) error "Option inconnue pour hooks: $1" ;;
+        esac
+    done
+
+    local GIT_HOOKS_DIR
+    GIT_HOOKS_DIR="$(git rev-parse --git-dir 2>/dev/null)/hooks"
+    local FRAMEWORK_HOOKS_DIR
+    FRAMEWORK_HOOKS_DIR="$(dirname "$(realpath "$0")")/framework/hooks"
+
+    # Mapping : nom git hook → fichier source dans framework/hooks/
+    declare -A HOOK_MAP
+    HOOK_MAP["pre-commit"]="pre-commit-cc.sh"
+    HOOK_MAP["pre-commit-mnemo"]="mnemo-consolidate.sh"
+    HOOK_MAP["post-checkout"]="post-checkout.sh"
+    HOOK_MAP["prepare-commit-msg"]="prepare-commit-msg.sh"
+    HOOK_MAP["commit-msg"]="commit-msg.sh"
+    HOOK_MAP["post-commit"]="post-commit.sh"
+    HOOK_MAP["pre-push"]="pre-push.sh"
+
+    case "$action" in
+        # ── list ──────────────────────────────────────────────────────────────
+        list)
+            echo ""
+            echo "Hooks BMAD disponibles :"
+            echo ""
+            for hook_name in "${!HOOK_MAP[@]}"; do
+                local src="${FRAMEWORK_HOOKS_DIR}/${HOOK_MAP[$hook_name]}"
+                local installed="  (non installé)"
+                [[ -f "$GIT_HOOKS_DIR/$hook_name" ]] && installed="  ${GREEN}✓ installé${NC}"
+                printf "  %-28s ← %s%b\n" "$hook_name" "${HOOK_MAP[$hook_name]}" "$installed"
+            done
+            echo ""
+            ;;
+
+        # ── status ────────────────────────────────────────────────────────────
+        status)
+            echo ""
+            echo "Status des hooks BMAD dans .git/hooks/ :"
+            echo ""
+            local installed_count=0
+            local total_count=${#HOOK_MAP[@]}
+            for hook_name in pre-commit post-checkout prepare-commit-msg commit-msg post-commit pre-push; do
+                local src_file="${HOOK_MAP[$hook_name]:-}"
+                if [[ -z "$src_file" ]]; then continue; fi
+                local dst="$GIT_HOOKS_DIR/$hook_name"
+                if [[ -f "$dst" ]]; then
+                    # Vérifier si c'est bien un hook BMAD
+                    if grep -q "BMAD" "$dst" 2>/dev/null; then
+                        echo -e "  ${GREEN}✓${NC}  $hook_name"
+                        installed_count=$((installed_count + 1))
+                    else
+                        echo -e "  ${YELLOW}⚠${NC}  $hook_name (hook tiers — pas BMAD)"
+                    fi
+                else
+                    echo -e "  ${RED}✗${NC}  $hook_name"
+                fi
+            done
+            echo ""
+            echo "  $installed_count/$total_count hooks installés"
+            if [[ $installed_count -lt $total_count ]]; then
+                echo "  → Pour tout installer : $(basename "$0") hooks --install"
+            fi
+            echo ""
+            ;;
+
+        # ── install ───────────────────────────────────────────────────────────
+        install)
+            if [[ ! -d "$GIT_HOOKS_DIR" ]]; then
+                error "Pas dans un dépôt git (ou .git/hooks introuvable)"
+            fi
+            if [[ ! -d "$FRAMEWORK_HOOKS_DIR" ]]; then
+                error "framework/hooks/ introuvable — lancez depuis la racine du kit"
+            fi
+
+            local hooks_to_install=()
+            if [[ -n "$specific_hook" ]]; then
+                hooks_to_install=("$specific_hook")
+            else
+                hooks_to_install=(pre-commit post-checkout prepare-commit-msg commit-msg post-commit pre-push)
+            fi
+
+            echo ""
+            echo "Installation des hooks BMAD dans $GIT_HOOKS_DIR/ ..."
+            echo ""
+            local installed_ok=0
+            local skipped=0
+            for hook_name in "${hooks_to_install[@]}"; do
+                local src_file="${HOOK_MAP[$hook_name]:-}"
+                if [[ -z "$src_file" ]]; then
+                    warn "Hook inconnu : $hook_name — ignoré"
+                    continue
+                fi
+                local src="$FRAMEWORK_HOOKS_DIR/$src_file"
+                local dst="$GIT_HOOKS_DIR/$hook_name"
+
+                if [[ ! -f "$src" ]]; then
+                    warn "  Source manquante : $src — ignoré"
+                    continue
+                fi
+
+                # Gestion des hooks pre-commit multiples via run-parts ou chaînage
+                if [[ "$hook_name" == "pre-commit" ]] && [[ -f "$dst" ]] && ! grep -q "BMAD" "$dst" 2>/dev/null; then
+                    warn "  pre-commit existant (non-BMAD) détecté — création pre-commit.d/bmad-cc.sh"
+                    mkdir -p "$GIT_HOOKS_DIR/../.git-hooks-precommit"
+                    cp "$src" "$GIT_HOOKS_DIR/../.git-hooks-precommit/bmad-cc.sh"
+                    chmod +x "$GIT_HOOKS_DIR/../.git-hooks-precommit/bmad-cc.sh"
+                    skipped=$((skipped + 1))
+                    continue
+                fi
+
+                cp "$src" "$dst"
+                chmod +x "$dst"
+                echo -e "  ${GREEN}✓${NC}  $hook_name ← $src_file"
+                installed_ok=$((installed_ok + 1))
+            done
+
+            # Mnemo dans pre-commit si pas déjà là
+            local mnemo_src="$FRAMEWORK_HOOKS_DIR/mnemo-consolidate.sh"
+            local precommit_dst="$GIT_HOOKS_DIR/pre-commit"
+            if [[ -f "$mnemo_src" ]] && [[ -f "$precommit_dst" ]]; then
+                if ! grep -q "mnemo" "$precommit_dst" 2>/dev/null; then
+                    echo "" >> "$precommit_dst"
+                    echo "# BMAD Mnemo consolidation" >> "$precommit_dst"
+                    echo "bash \"\$(git rev-parse --show-toplevel)/framework/hooks/mnemo-consolidate.sh\"" >> "$precommit_dst"
+                    echo -e "  ${GREEN}+${NC}  mnemo-consolidate injecté dans pre-commit"
+                fi
+            fi
+
+            echo ""
+            echo "  $installed_ok hook(s) installé(s)${skipped:+ — $skipped ignoré(s) (hook tiers préservé)}"
+            echo ""
+
+            # Générer .pre-commit-config.yaml si absent
+            local precommit_cfg
+            precommit_cfg="$(git rev-parse --show-toplevel 2>/dev/null)/.pre-commit-config.yaml"
+            if [[ ! -f "$precommit_cfg" ]] && [[ -f "$(git rev-parse --show-toplevel 2>/dev/null)/framework/hooks/.pre-commit-config.tpl.yaml" ]]; then
+                cp "$(git rev-parse --show-toplevel 2>/dev/null)/framework/hooks/.pre-commit-config.tpl.yaml" "$precommit_cfg"
+                echo -e "  ${GREEN}✓${NC}  .pre-commit-config.yaml généré"
+            fi
+            ;;
+    esac
+    exit 0
+}
+
 # ─── Doctor (BM-33) ───────────────────────────────────────────────────────────
 # Health check de l'installation BMAD
 # Usage: bmad-init.sh doctor [--fix]
@@ -548,7 +710,36 @@ cmd_doctor() {
     fi
     echo ""
 
-    # ─ 5. Résumé ───────────────────────────────────────────────────────
+    # ─ 5. Git hooks ────────────────────────────────────────────────────
+    echo "Git hooks BMAD :"
+    local git_hooks_dir
+    git_hooks_dir="$(git rev-parse --git-dir 2>/dev/null)/hooks"
+    local required_hooks=("pre-commit" "post-checkout" "prepare-commit-msg" "commit-msg" "post-commit" "pre-push")
+    local hooks_ok=0
+    if [[ -d "$git_hooks_dir" ]]; then
+        for h in "${required_hooks[@]}"; do
+            if [[ -f "$git_hooks_dir/$h" ]] && grep -q "BMAD" "$git_hooks_dir/$h" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC}  $h"
+                hooks_ok=$((hooks_ok + 1))
+            else
+                echo -e "  ${YELLOW}⚠${NC}  $h non installé"
+                ((warnings++))
+            fi
+        done
+        if [[ $hooks_ok -lt ${#required_hooks[@]} ]]; then
+            info "Installez les hooks : $(basename "$0") hooks --install"
+            if [[ "$do_fix" == true ]]; then
+                bash "$0" hooks --install
+                echo -e "  ${GREEN}✓${NC}  Hooks installés via --fix"
+            fi
+        fi
+    else
+        echo -e "  ${YELLOW}⚠${NC}  Pas dans un dépôt git — hooks non vérifiés"
+        ((warnings++))
+    fi
+    echo ""
+
+    # ─ 6. Résumé ───────────────────────────────────────────────────────
     if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
         echo -e "${GREEN}✅  Tout est OK — BMAD Custom Kit prêt à l'usage${NC}"
     elif [[ $errors -eq 0 ]]; then
@@ -861,6 +1052,9 @@ if [[ "${1:-}" == "validate" ]]; then
 fi
 if [[ "${1:-}" == "changelog" ]]; then
     cmd_changelog "$@"
+fi
+if [[ "${1:-}" == "hooks" ]]; then
+    cmd_hooks "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────

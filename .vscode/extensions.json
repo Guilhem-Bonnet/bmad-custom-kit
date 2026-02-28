@@ -1,0 +1,48 @@
+{
+  // ════════════════════════════════════════════════════════════════════
+  // BMAD Custom Kit — Extensions recommandées
+  // Accepter via : Extensions panel → "Install Workspace Recommended"
+  // ════════════════════════════════════════════════════════════════════
+  "recommendations": [
+    // ── IA & Copilot ────────────────────────────────────────────────
+    "github.copilot",
+    "github.copilot-chat",
+
+    // ── YAML (schéma DNA, workflows GitHub Actions) ─────────────────
+    "redhat.vscode-yaml",
+
+    // ── Shell ────────────────────────────────────────────────────────
+    "timonwong.shellcheck",
+    "foxundermoon.shell-format",
+
+    // ── Python ──────────────────────────────────────────────────────
+    "ms-python.python",
+    "charliermarsh.ruff",
+    "ms-python.mypy-type-checker",
+
+    // ── Markdown ─────────────────────────────────────────────────────
+    "yzhang.markdown-all-in-one",
+    "DavidAnson.vscode-markdownlint",
+
+    // ── Git ──────────────────────────────────────────────────────────
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+
+    // ── Terraform ────────────────────────────────────────────────────
+    "hashicorp.terraform",
+
+    // ── Docker ───────────────────────────────────────────────────────
+    "ms-azuretools.vscode-docker",
+    "ms-kubernetes-tools.vscode-kubernetes-tools",
+
+    // ── Infrastructure ───────────────────────────────────────────────
+    "redhat.ansible",
+
+    // ── Divers ───────────────────────────────────────────────────────
+    "usernamehw.errorlens",
+    "streetsidesoftware.code-spell-checker",
+    "streetsidesoftware.code-spell-checker-french"
+  ],
+
+  "unwantedRecommendations": []
+}

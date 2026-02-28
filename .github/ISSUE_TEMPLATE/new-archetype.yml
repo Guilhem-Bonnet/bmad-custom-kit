@@ -1,0 +1,80 @@
+name: "🧬 Proposition d'archétype"
+description: "Proposer un nouvel archétype ou un agent stack"
+title: "feat(archetype): [NOM] Description courte"
+labels: ["archetype", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Un **archétype** est un ensemble d'agents + DNA + shared-context pour un type de projet.
+        Un **agent stack** est un expert technique (ex: Gopher, Serpent) ajouté par `--auto`.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type de contribution
+      options:
+        - Nouvel archétype complet
+        - Nouvel agent stack
+        - Enrichissement DNA d'un archétype existant
+        - Nouveau trait DNA
+    validations:
+      required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: Nom proposé
+      placeholder: "data-pipeline, game-dev, stack/rust, stack/java..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Cas d'usage principal
+      description: "Quel type de projet cet archétype cible-t-il ?"
+      placeholder: "Applications ETL avec dbt + Airflow + Spark..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: agents
+    attributes:
+      label: Agents proposés
+      description: "Liste des agents avec rôle et icône"
+      placeholder: |
+        | Agent | Icône | Rôle |
+        |-------|-------|------|
+        | dbt-expert | 📊 | Transformation données, tests dbt |
+    validations:
+      required: false
+
+  - type: textarea
+    id: dna_traits
+    attributes:
+      label: Traits DNA clés
+      description: "Les contraintes qualité principales (acceptance_criteria)"
+      placeholder: |
+        - dbt test --select all → 0 failures
+        - Pas de SELECT * en production
+        - Toutes les sources documentées
+    validations:
+      required: false
+
+  - type: textarea
+    id: detection
+    attributes:
+      label: Détection automatique (--auto)
+      description: "Quels fichiers/patterns déclenchent la sélection automatique ?"
+      placeholder: "dbt_project.yml, profiles.yml, *.sql dans models/"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Je souhaite contribuer
+      options:
+        - label: "Oui, je peux soumettre une PR avec les fichiers"
+        - label: "Je propose l'idée seulement"

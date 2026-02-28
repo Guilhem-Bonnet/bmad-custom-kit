@@ -1,0 +1,75 @@
+repos:
+  # ── BMAD Completion Contract ────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: bmad-pre-commit-cc
+        name: "🔒 BMAD — Completion Contract"
+        entry: bash framework/hooks/pre-commit-cc.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        types_or: [go, ts, tsx, python, shell]
+
+      - id: bmad-mnemo-consolidate
+        name: "🧠 BMAD — Mnemo consolidation mémoire"
+        entry: bash framework/hooks/mnemo-consolidate.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: bmad-commit-msg
+        name: "📝 BMAD — Commit message validation"
+        entry: bash framework/hooks/commit-msg.sh
+        language: system
+        stages: [commit-msg]
+
+      - id: bmad-post-commit-trace
+        name: "📋 BMAD — TRACE audit trail"
+        entry: bash framework/hooks/post-commit.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [post-commit]
+
+  # ── Qualité générale ────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: "(_bmad-output/|framework/prompt-templates/)"
+      - id: end-of-file-fixer
+        exclude: "(_bmad-output/|_bmad/_memory/)"
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: "_bmad/_memory/"
+      - id: check-merge-conflict
+      - id: detect-private-key
+        exclude: "docs/|examples/"
+
+  # ── Shell scripts ────────────────────────────────────────────────────────────
+  - repo: https://github.com/shellcheck-contributors/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        args: [--severity=warning, --shell=bash]
+        files: "\\.sh$"
+        exclude: "framework/hooks/(post-checkout|post-commit)\\.sh"  # hooks tiers OK
+
+  # ── Python ───────────────────────────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: "\\.py$"
+      - id: ruff-format
+        files: "\\.py$"
+
+  # ── YAML ─────────────────────────────────────────────────────────────────────
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-d, "{extends: relaxed, rules: {line-length: {max: 120}}}"]
+        exclude: "_bmad/_memory/|_bmad-output/"

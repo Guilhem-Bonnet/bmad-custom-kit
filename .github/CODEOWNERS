@@ -1,0 +1,31 @@
+# BMAD Custom Kit — CODEOWNERS
+# Format : <pattern> <owner> [<owner>...]
+# Référence : https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ── Propriétaire global ────────────────────────────────────────────────────────
+*                               @Guilhem-Bonnet
+
+# ── CLI principal ─────────────────────────────────────────────────────────────
+bmad-init.sh                    @Guilhem-Bonnet
+
+# ── Archetypes — chaque archétype a son propre owner ──────────────────────────
+archetypes/minimal/             @Guilhem-Bonnet
+archetypes/web-app/             @Guilhem-Bonnet
+archetypes/infra-ops/           @Guilhem-Bonnet
+archetypes/fix-loop/            @Guilhem-Bonnet
+archetypes/stack/               @Guilhem-Bonnet
+
+# ── Framework — composants critiques ─────────────────────────────────────────
+framework/archetype-dna.schema.yaml  @Guilhem-Bonnet
+framework/hooks/                     @Guilhem-Bonnet
+framework/tools/                     @Guilhem-Bonnet
+framework/mcp/                       @Guilhem-Bonnet
+framework/memory/                    @Guilhem-Bonnet
+
+# ── CI/CD — review obligatoire ────────────────────────────────────────────────
+.github/workflows/              @Guilhem-Bonnet
+.github/CODEOWNERS              @Guilhem-Bonnet
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+docs/                           @Guilhem-Bonnet
+*.md                            @Guilhem-Bonnet

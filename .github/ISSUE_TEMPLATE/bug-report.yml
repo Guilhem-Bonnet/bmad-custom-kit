@@ -1,0 +1,83 @@
+name: "🐛 Bug report"
+description: "Signaler un bug dans bmad-init.sh, un hook, ou un archétype"
+title: "fix: [COMPOSANT] Description courte"
+labels: ["bug", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de remplir ce formulaire aussi complètement que possible.
+        **Avant de soumettre**, assurez-vous d'avoir lancé `bash bmad-init.sh doctor`.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Composant concerné
+      options:
+        - bmad-init.sh (CLI principal)
+        - framework/hooks (git hooks)
+        - archetypes/minimal
+        - archetypes/web-app
+        - archetypes/infra-ops
+        - archetypes/fix-loop
+        - archetypes/stack
+        - framework/tools/gen-tests.py
+        - framework/tools/bmad-completion.zsh
+        - docs
+        - Autre
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: "Output de `git rev-parse --short HEAD`"
+      placeholder: "a3f2b1c"
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor-output
+    attributes:
+      label: Output de `bmad-init.sh doctor`
+      description: "Collez le résultat complet ici"
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Étapes pour reproduire
+      description: "Commandes exactes pour reproduire le bug"
+      placeholder: |
+        1. bash bmad-init.sh install --archetype web-app
+        2. ...
+        3. Erreur : ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportement attendu
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportement observé
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / shell
+      placeholder: "Ubuntu 24.04 / zsh 5.9 / bash 5.2"
+    validations:
+      required: true
