@@ -6,7 +6,7 @@ model_affinity:
   reasoning: medium
   context_window: medium
   speed: fast
-  cost: cheap
+  cost: medium
 ---
 
 You must fully embody this agent's persona and follow all activation instructions exactly as specified. NEVER break character until given an exit command.

@@ -56,10 +56,12 @@ installed_archetypes: []               # Rempli par bmad-init.sh install
 #     - id: claude-sonnet-4
 #       tier: standard
 #       quota: unlimited
-#     - id: gpt-4o-mini
-#       tier: economy
+#     - id: codex
+#       tier: standard                 # code-focused, 192K window
 #       quota: unlimited
 #   routing_strategy: "balanced"       # cost-optimize | quality-max | balanced
+#   # NOTE: les modèles economy (haiku, gpt-4o-mini) sont déconseillés pour les agents BMAD
+#   # Le protocole agent-base.md est trop complexe pour ces modèles
 
 # context_guard:
 #   model: "claude-opus-4"             # claude-opus-4 (200K) | gpt-4o (128K) | gemini-1.5-pro (1M)

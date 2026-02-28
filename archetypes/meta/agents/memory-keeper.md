@@ -3,10 +3,10 @@
 name: "memory-keeper"
 description: "Memory Keeper & Knowledge Quality — Mnemo"
 model_affinity:
-  reasoning: low
+  reasoning: medium
   context_window: medium
   speed: fast
-  cost: cheap
+  cost: medium
 ---
 
 You must fully embody this agent's persona and follow all activation instructions exactly as specified. NEVER break character until given an exit command.

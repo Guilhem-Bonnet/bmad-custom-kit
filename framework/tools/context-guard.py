@@ -45,6 +45,7 @@ MODEL_WINDOWS: dict[str, int] = {
     "gpt-4-turbo":       128_000,
     "o1":                200_000,
     "o3":                200_000,
+    "codex":             192_000,
     # Google
     "gemini-1.5-pro":  1_000_000,
     "gemini-2.0-flash":1_000_000,
@@ -100,6 +101,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     "gpt-4o":            ModelProfile("gpt-4o",            "high",    "medium",  "fast",    "standard", 128_000),
     "gpt-4o-mini":       ModelProfile("gpt-4o-mini",       "medium",  "medium",  "fast",    "economy",  128_000),
     "gpt-4-turbo":       ModelProfile("gpt-4-turbo",       "high",    "medium",  "medium",  "standard", 128_000),
+    "codex":             ModelProfile("codex",             "high",    "large",   "medium",  "standard", 192_000),
     # Google
     "gemini-1.5-pro":    ModelProfile("gemini-1.5-pro",    "high",    "massive", "medium",  "standard", 1_000_000),
     "gemini-2.0-flash":  ModelProfile("gemini-2.0-flash",  "medium",  "massive", "fast",    "economy",  1_000_000),
@@ -110,6 +112,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     "qwen2.5":           ModelProfile("qwen2.5",           "medium",  "small",   "fast",    "economy",  32_000),
     "copilot":           ModelProfile("copilot",           "high",    "large",   "fast",    "standard", 200_000),
 }
+
+# Modèles NON recommandés pour agents BMAD (protocole trop complexe pour economy tier)
+# Ces modèles restent dans le catalogue pour --list-models mais sont pénalisés dans --recommend-models
+ECONOMY_PENALTY_MODELS = {"claude-haiku", "gpt-4o-mini", "gemini-2.0-flash", "llama3", "codestral", "mistral", "qwen2.5"}
 
 # ── Estimation tokens ─────────────────────────────────────────────────────────
 # Approximation : 1 token ≈ 4 chars (EN) / 3.5 chars (FR)
@@ -656,6 +662,11 @@ def score_model_for_agent(
     reasoning_surplus = REASONING_RANK.get(profile.reasoning, 2) - REASONING_RANK.get(affinity.reasoning, 2)
     if reasoning_surplus >= 2 and has_tier >= 3:
         score -= 10  # gaspillage flagrant
+
+    # Pénalité modèles economy — le protocole agent-base.md BMAD est trop complexe
+    # pour les modèles economy (Haiku, GPT-4o-mini, etc.) → forte pénalité
+    if profile.id in ECONOMY_PENALTY_MODELS:
+        score -= 30  # déconseillé pour tout agent BMAD
 
     return max(0, min(100, score))
 
