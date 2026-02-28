@@ -254,6 +254,20 @@ Voir [docs/creating-agents.md](docs/creating-agents.md) pour le guide complet.
 
 ## ⚡ Outils de Performance & Évolution
 
+### Commandes de gestion du kit
+
+```bash
+# Version actuelle
+bash bmad-init.sh --version
+
+# Mise à jour depuis le dépôt upstream
+bash bmad-init.sh upgrade              # met à jour framework/ et archetypes/
+bash bmad-init.sh upgrade --dry-run    # preview sans modification
+bash bmad-init.sh upgrade --force      # écrase même les fichiers modifiés localement
+```
+
+### Outils CLI avancés
+
 Quatre outils CLI pour maintenir le kit en bonne santé sur la durée :
 
 ```bash
@@ -319,6 +333,36 @@ bash _bmad/_config/custom/sil-collect.sh
 | Plan/Act Mode | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Extended Thinking [THINK] | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Failure Museum | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+## 🧪 Tests
+
+Le kit inclut une suite de tests complète (213+ tests) en deux catégories :
+
+**Tests unitaires Python** (7 fichiers, 213 tests) :
+```bash
+# Lancer tous les tests
+python3 -m unittest discover -s tests -v
+
+# Un fichier spécifique
+python3 -m unittest tests.test_context_guard_advanced -v
+```
+
+| Fichier | Outil testé | Tests |
+|---------|-------------|-------|
+| `test_python_tools.py` | Tous les outils (base) | 48 |
+| `test_context_guard_advanced.py` | Context Guard avancé | 42 |
+| `test_maintenance_advanced.py` | Maintenance mémoire | 29 |
+| `test_agent_forge.py` | Agent Forge | 36 |
+| `test_agent_bench.py` | Agent Bench | 19 |
+| `test_dna_evolve.py` | DNA Evolve | 25 |
+| `test_session_save.py` | Session Save | 11 |
+
+**Smoke tests Bash** (78 assertions) :
+```bash
+bash tests/smoke-test.sh
+```
+
+**CI** : les tests Python s'exécutent automatiquement dans le job `python-tests` du workflow CI.
 
 ## Prérequis
 
