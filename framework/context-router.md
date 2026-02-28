@@ -59,6 +59,23 @@ CONTEXT BUDGET RULES :
 5. Si contexte sature → résumer les sections les moins récentes via [THINK] → stocker le résumé → décharger l'original
 ```
 
+## Agent Rules Resolution (BM-25)
+
+En P0 (avant tout autre chargement), l'agent résout la chaîne `.agent-rules` :
+
+```
+AGENT RULES RESOLUTION PROTOCOL (P0 — avant toute action) :
+1. Identifier le dossier courant de travail (activé par la tâche ou story)
+2. Chercher .agent-rules dans le dossier courant → puis dans chaque parent → jusqu'à la racine projet
+3. Merger toutes les règles trouvées : enfant surcharge parent (même id), union sinon
+4. Pour chaque règle avec enforcement: "hard" → afficher un WARN PROMINENT avant la première action
+5. Ajouter les auto_load[] de tous les .agent-rules au chargement P1 (SESSION)
+6. Afficher les reminders[] du .agent-rules le plus proche
+7. Vérifier tools_required[] du DNA actif → si check_command échoue et required: true → STOP + expliquer
+```
+
+Référence complète : [framework/agent-rules.md](agent-rules.md)
+
 ## Estimation de tokens
 
 Règle approximative pour guidance des agents :

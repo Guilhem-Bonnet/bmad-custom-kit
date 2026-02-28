@@ -53,6 +53,42 @@ values:
     description: "Chaque cycle FER est isolé du contexte des autres cycles"
     priority: 2
 
+tools_required:
+  - name: bash
+    description: "Exécution des scripts cc-verify.sh et des cycles de test"
+    required: true
+    check_command: "which bash"
+  - name: python3
+    description: "Scripts de test Python + gen-tests.py"
+    required: false
+    check_command: "which python3"
+
+acceptance_criteria:
+  - id: fer-created-before-fix
+    description: "Un FER YAML doit être créé au début de chaque session de fix avant d'écrire la première ligne de code"
+    enforcement: hard
+    context: "Trait fer-isolation — chaque cycle fix est tracer dans un Fix Evidence Record"
+    triggers_on: ["**/*"]
+    checked_by: fix-loop-orchestrator
+  - id: all-tests-rerun-after-fix
+    description: "Après chaque fix : toute la suite de tests liée doit être re-exécutée, pas seulement le test ciblé"
+    enforcement: hard
+    context: "Trait never-assume-fixed — un fix qui casse un autre test = FER non clos"
+    triggers_on: ["**/*.spec.*", "**/*.test.*", "**/*_test.*"]
+    checked_by: fix-loop-orchestrator
+  - id: fer-closed-with-cc-pass
+    description: "Un FER ne peut pas être clos sans CC PASS attaché"
+    enforcement: hard
+    context: "Trait proof-of-execution + contrainte no-done-without-proof"
+    triggers_on: ["**/*"]
+    checked_by: fix-loop-orchestrator
+  - id: severity-protocol-followed
+    description: "Le protocole de sévérité correct est suivi (S3=3 phases, S2=6, S1=9)"
+    enforcement: soft
+    context: "Trait severity-adaptive"
+    triggers_on: ["**/*"]
+    checked_by: fix-loop-orchestrator
+
 agents:
   - path: "../../archetypes/fix-loop/agents/fix-loop-orchestrator.tpl.md"
     required: true

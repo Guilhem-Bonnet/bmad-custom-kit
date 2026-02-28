@@ -64,6 +64,50 @@ values:
     description: "L'infra doit survivre à la perte de n'importe quel nœud"
     priority: 2
 
+tools_required:
+  - name: terraform
+    description: "IaC cloud/on-prem"
+    required: true
+    check_command: "which terraform"
+  - name: kubectl
+    description: "Gestion cluster Kubernetes"
+    required: false
+    check_command: "which kubectl"
+  - name: ansible
+    description: "Automation configuration serveurs"
+    required: false
+    check_command: "which ansible"
+  - name: docker
+    description: "Build et run des conteneurs"
+    required: true
+    check_command: "which docker"
+
+acceptance_criteria:
+  - id: terraform-plan-before-apply
+    description: "terraform plan doit être exécuté et validé avant tout apply"
+    enforcement: hard
+    context: "Trait plan-before-apply — afficher le résumé +/~/- et attendre confirmation si destroy > 0"
+    triggers_on: ["**/*.tf", "**/*.tfvars"]
+    checked_by: terra
+  - id: no-secrets-in-tf-state
+    description: "Aucun secret en clair dans les fichiers .tfstate ou variables Terraform"
+    enforcement: hard
+    context: "Trait security-first — utiliser SOPS ou Vault"
+    triggers_on: ["**/*.tf", "**/*.tfvars", "**/*.tfstate"]
+    checked_by: vault
+  - id: monitoring-alert-on-new-service
+    description: "Chaque nouveau service déployé a au moins une alerte de disponibilité"
+    enforcement: soft
+    context: "Trait observability-mandatory — probe Blackbox ou métriques Prometheus"
+    triggers_on: ["**/helm/**/*", "**/k8s/**/*", "**/docker-compose*.yml"]
+    checked_by: hawk
+  - id: backup-snapshot-before-destructive
+    description: "Snapshot ou backup confirmé avant toute migration de données ou destroy"
+    enforcement: hard
+    context: "Trait backup-before-change"
+    triggers_on: ["**/*.tf", "**/migrations/**/*"]
+    checked_by: phoenix
+
 agents:
   - path: "../../archetypes/infra-ops/agents/ops-engineer.md"
     required: true

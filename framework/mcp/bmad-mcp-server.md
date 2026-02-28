@@ -353,13 +353,79 @@ await server.connect(transport);
 
 ---
 
+## MCP v2 — Sampling (BM-31)
+
+> MCP v2 introduit la capability `sampling` : le serveur MCP peut demander au **client LLM**
+> d'effectuer un appel LLM imbriqué. Cela permet à BMAD de déléguer une sous-question
+> à un agent spécialisé sans quitter le contexte courant.
+
+### Déclaration de la capability
+
+```javascript
+const server = new Server(
+  { name: "bmad-mcp-server", version: "2.0.0" },
+  { capabilities: { tools: {}, sampling: {} } }  // ← sampling activé
+);
+```
+
+### Tool : `delegate_to_agent` (BM-31)
+
+```json
+{
+  "name": "delegate_to_agent",
+  "description": "Délègue une sous-question à un agent BMAD spécialisé via MCP sampling. Le LLM client exécute l'appel avec le persona de l'agent cible.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": {
+        "type": "string",
+        "enum": ["analyst", "architect", "qa", "sm", "tech-writer"],
+        "description": "Agent cible pour la délégation"
+      },
+      "task": {"type": "string", "description": "Tâche ou question à déléguer"},
+      "context": {"type": "string", "description": "Contexte pertinent pour l'agent"},
+      "max_tokens": {"type": "integer", "default": 2048}
+    },
+    "required": ["agent_id", "task"]
+  }
+}
+```
+
+**Implémentation (MCP sampling)** :
+
+```javascript
+case "delegate_to_agent": {
+  const { agent_id, task, context, max_tokens = 2048 } = args;
+  // Charger le persona de l'agent
+  const agentFile = join(PROJECT_ROOT, `_bmad/bmm/agents/${agent_id}.md`);
+  const persona = existsSync(agentFile) ? readFileSync(agentFile, "utf-8").substring(0, 800) : "";
+  // Déléguer via MCP sampling — le LLM client exécute l'appel
+  const response = await server.createMessage({
+    messages: [{
+      role: "user",
+      content: { type: "text", text: `${context}\n\nTâche: ${task}` }
+    }],
+    system: `Tu es ${agent_id} — ${persona}`,
+    maxTokens: max_tokens,
+  });
+  return { content: [{ type: "text", text: response.content.text }] };
+}
+```
+
+> **Note** : MCP sampling nécessite que le client LLM supporte la capability. Supporté par
+> Claude Desktop, Cursor (roadmap), VS Code MCP extension (roadmap).
+
+---
+
 ## Roadmap
 
-- [ ] **v1.0** — 7 tools core (get_context, get_memory, run_cc, get_status, list_sessions, get_museum, spawn_task)
+- [ ] **v1.0** — 9 tools core (get_context, get_memory, run_cc, get_status, list_sessions, get_museum, spawn_task, remember_structured, recall_structured)
 - [ ] **v1.1** — HTTP transport pour multi-IDE simultané
 - [ ] **v1.2** — Tool `search_codebase` (grep sémantique via mem0)
 - [ ] **v1.3** — Tool `create_delivery_contract` (génère un contrat à partir des outputs de la session)
-- [ ] **v2.0** — MCP Resources (expose les fichiers BMAD comme resources navigables dans l'IDE)
+- [ ] **v2.0** — MCP v2 Sampling : `delegate_to_agent` (BM-31) + `capabilities: sampling`
+- [ ] **v2.1** — MCP Resources (expose les fichiers BMAD comme resources navigables dans l'IDE)
+- [ ] **v2.2** — Agent2Agent Protocol integration (BM-32)
 
 ---
 

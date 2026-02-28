@@ -90,6 +90,12 @@ Exemples:
   $(basename "$0") install --archetype infra-ops
   $(basename "$0") install --archetype stack/go --force
   $(basename "$0") install --inspect fix-loop
+  $(basename "$0") resume
+  $(basename "$0") resume --checkpoint a3f9b2
+  $(basename "$0") resume --list
+  $(basename "$0") trace --tail 50
+  $(basename "$0") trace --agent dev
+  $(basename "$0") trace --type DECISION
 EOF
     exit 0
 }
@@ -416,12 +422,146 @@ YAMLEOF
     exit 0
 }
 
+# ─── Resume (BM-26) ──────────────────────────────────────────────────────────
+# Reprise d'un workflow interrompu depuis un checkpoint
+# Usage: bmad-init.sh resume [--checkpoint ID] [--list]
+cmd_resume() {
+    local RUNS_DIR="${TARGET_DIR:-$SCRIPT_DIR}/_bmad-output/.runs"
+    local checkpoint_id=""
+    local action="resume"
+
+    shift  # retirer "resume"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --checkpoint) checkpoint_id="$2"; shift 2 ;;
+            --list)       action="list"; shift ;;
+            *) error "Option inconnue pour resume: $1" ;;
+        esac
+    done
+
+    case "$action" in
+        list)
+            echo -e "${CYAN}Checkpoints disponibles :${NC}"
+            echo ""
+            local found=false
+            while IFS= read -r -d '' f; do
+                local rid
+                rid="$(basename "$(dirname "$f")")"
+                local status
+                status="$(grep '"status"' "$f" 2>/dev/null | sed 's/.*: *"\(.*\)".*/\1/' | head -1)"
+                local step
+                step="$(grep '"current_step"' "$f" 2>/dev/null | sed 's/[^0-9]//g' | head -1)"
+                local total
+                total="$(grep '"total_steps"' "$f" 2>/dev/null | sed 's/[^0-9]//g' | head -1)"
+                local cid
+                cid="$(grep '"checkpoint_id"' "$f" 2>/dev/null | sed 's/.*: *"\(.*\)".*/\1/' | head -1)"
+                [[ -n "$cid" && "$cid" != "null" ]] && echo -e "  ${GREEN}●${NC} ${CYAN}${cid}${NC} — run: ${rid} | étape: ${step:-?}/${total:-?} | statut: ${status:-?}"
+                found=true
+            done < <(find "$RUNS_DIR" -name "state.json" -print0 2>/dev/null)
+            $found || info "Aucun checkpoint trouvé"
+            ;;
+        resume)
+            if [[ -n "$checkpoint_id" ]]; then
+                local target
+                target="$(grep -rl "\"${checkpoint_id}\"" "$RUNS_DIR" 2>/dev/null | grep 'state.json' | head -1)"
+                if [[ -z "$target" ]]; then
+                    error "Checkpoint '${checkpoint_id}' non trouvé. Listez avec : resume --list"
+                fi
+                local run_dir
+                run_dir="$(dirname "$target")"
+                ok "Checkpoint trouvé : ${run_dir}"
+                info "Reprenez le workflow dans votre agent depuis l'étape indiquée dans :\n  ${target}"
+            else
+                # Trouver le run le plus récent non-terminé
+                local latest
+                latest="$(find "$RUNS_DIR" -name "state.json" -print0 2>/dev/null | \
+                    xargs -0 grep -l '"status": "running"\|"status": "failed"' 2>/dev/null | \
+                    sort | tail -1)"
+                if [[ -z "$latest" ]]; then
+                    info "Aucun run non-terminé trouvé dans ${RUNS_DIR}/"
+                    exit 0
+                fi
+                local run_dir
+                run_dir="$(dirname "$latest")"
+                ok "Run non-terminé trouvé : $(basename "$run_dir")"
+                cat "$latest"
+            fi
+            ;;
+    esac
+    exit 0
+}
+
+# ─── Trace (BM-28) ───────────────────────────────────────────────────────────
+# Gestion du BMAD_TRACE.md — audit trail append-only
+# Usage: bmad-init.sh trace [--tail N] [--agent X] [--type X] [--archive] [--reset --confirm]
+cmd_trace() {
+    local TRACE_FILE="${TARGET_DIR:-$SCRIPT_DIR}/_bmad-output/BMAD_TRACE.md"
+    local action="view"
+    local filter_agent=""
+    local filter_type=""
+    local tail_n=30
+
+    shift  # retirer "trace"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --tail)    tail_n="$2"; action="tail"; shift 2 ;;
+            --agent)   filter_agent="$2"; action="filter"; shift 2 ;;
+            --type)    filter_type="$2"; action="filter"; shift 2 ;;
+            --archive) action="archive"; shift ;;
+            --reset)   action="reset"; shift ;;
+            --confirm) shift ;;  # flag de confirmation
+            *) error "Option inconnue pour trace: $1" ;;
+        esac
+    done
+
+    if [[ ! -f "$TRACE_FILE" ]]; then
+        info "Pas de trace trouvée dans ${TRACE_FILE}"
+        info "La trace est créée automatiquement lors des actions agents."
+        exit 0
+    fi
+
+    case "$action" in
+        tail|view)
+            echo -e "${CYAN}BMAD Trace — dernières ${tail_n} entrées :${NC}"
+            echo ""
+            tail -"${tail_n}" "$TRACE_FILE"
+            ;;
+        filter)
+            echo -e "${CYAN}BMAD Trace — filtre: agent='${filter_agent}' type='${filter_type}' :${NC}"
+            echo ""
+            local pattern=""
+            [[ -n "$filter_agent" ]] && pattern="\[${filter_agent}"
+            [[ -n "$filter_type" ]] && pattern="${pattern}.*\[${filter_type}"
+            [[ -z "$pattern" ]] && pattern="."
+            grep -E "${pattern}" "$TRACE_FILE" || info "Aucune entrée trouvée"
+            ;;
+        archive)
+            local arch_path="${TRACE_FILE%.md}-$(date +%Y%m%d).md"
+            cp "$TRACE_FILE" "$arch_path"
+            echo "" > "$TRACE_FILE"
+            ok "Trace archivée dans : ${arch_path}"
+            ;;
+        reset)
+            warn "Suppression définitive de BMAD_TRACE.md"
+            echo "" > "$TRACE_FILE"
+            ok "Trace réinitialisée"
+            ;;
+    esac
+    exit 0
+}
+
 # ─── Dispatch des sous-commandes ──────────────────────────────────────────────────
 if [[ "${1:-}" == "session-branch" ]]; then
     cmd_session_branch "$@"
 fi
 if [[ "${1:-}" == "install" ]]; then
     cmd_install "$@"
+fi
+if [[ "${1:-}" == "resume" ]]; then
+    cmd_resume "$@"
+fi
+if [[ "${1:-}" == "trace" ]]; then
+    cmd_trace "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────

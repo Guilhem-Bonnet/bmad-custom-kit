@@ -52,10 +52,44 @@ _bmad-output/.runs/
     {"step": 2, "name": "{{artefact_name}}", "path": "{{artefact_path}}"}
   ],
 
+  "checkpoint_id": "{{sha256_short}}",
+
   "issues": [],
 
   "agent_notes": "Notes libres de l'agent sur l'exécution"
 }
+```
+
+---
+
+## Checkpoint ID (BM-26)
+
+Chaque checkpoint est identifié par un `checkpoint_id` = `sha256(run_id + step + variables_json)[:6]`.
+
+En bash :
+```bash
+checkpoint_id=$(echo "${run_id}:${step}:${variables_json}" | sha256sum | cut -c1-6)
+```
+
+En Python :
+```python
+import hashlib, json
+def make_checkpoint_id(run_id: str, step: int, variables: dict) -> str:
+    payload = f"{run_id}:{step}:{json.dumps(variables, sort_keys=True)}"
+    return hashlib.sha256(payload.encode()).hexdigest()[:6]
+```
+
+### Reprise par `checkpoint_id`
+
+```bash
+# Reprendre un workflow depuis un checkpoint précis
+bmad-init.sh resume --checkpoint a3f9b2
+
+# Lister tous les checkpoints disponibles
+bmad-init.sh resume --list
+
+# Reprendre le dernier run non-terminé (sans checkpoint_id)
+bmad-init.sh resume
 ```
 
 ---

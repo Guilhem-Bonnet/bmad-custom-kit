@@ -44,6 +44,26 @@ values:
     priority: 1 | 2 | 3            # 1 = fondamental, 3 = souhaitable
 
 # ── Contenu à installer ───────────────────────────────────────────────────────
+# ── Outils requis (BM-27) ────────────────────────────────────────────────────
+# Déclaration des outils/accès requis par les agents de cet archétype
+# Permet à context-router.md de vérifier les prérequis avant activation
+tools_required:
+  - name: string                    # Ex: "bash", "browser", "files", "docker", "git"
+    description: string             # Pourquoi cet outil est requis
+    required: boolean               # true = bloquant si absent, false = fonctionnalité dégradée
+    check_command: string | null    # Commande pour vérifier la disponibilité (ex: "which docker")
+
+# ── Acceptance Criteria (BM-27 + BM-29) ─────────────────────────────────────
+# Les AC déclarés ici peuvent être convertis en squelettes de tests via :
+#   python3 framework/tools/gen-tests.py --dna archetype.dna.yaml --framework pytest
+acceptance_criteria:
+  - id: string                      # Ex: "tests-before-impl"
+    description: string             # Critère lisible par un humain
+    enforcement: "hard" | "soft"    # hard = bloquant, soft = recommandé
+    context: string                 # Contexte additionnel pour générer le test
+    triggers_on: [string]           # Patterns de fichiers concernés (glob)
+    checked_by: string | null       # Agent ou script de vérification
+
 agents:
   - path: string                    # Chemin relatif depuis archetypes/{id}/
     required: boolean

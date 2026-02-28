@@ -53,6 +53,46 @@ values:
     description: "L'app fonctionne sans JS, enrichie avec JS"
     priority: 3
 
+tools_required:
+  - name: node
+    description: "Node.js pour le build frontend et les tests Jest"
+    required: true
+    check_command: "which node"
+  - name: docker
+    description: "Conteneurisation du backend et de la base de données"
+    required: false
+    check_command: "which docker"
+  - name: browser
+    description: "Navigateur headless pour les tests E2E (Playwright/Cypress)"
+    required: false
+    check_command: "which chromium || which google-chrome || which chromium-browser"
+
+acceptance_criteria:
+  - id: tests-written-before-code
+    description: "Les tests doivent exister AVANT l'implémentation (TDD red phase)"
+    enforcement: hard
+    context: "Trait tdd-mandatory — cycle Red/Green/Refactor"
+    triggers_on: ["src/**/*.ts", "src/**/*.tsx", "**/*.py", "**/*.go"]
+    checked_by: frontend-specialist
+  - id: typescript-strict-no-any
+    description: "Aucun \"any\" explicite dans le code TypeScript soumis"
+    enforcement: hard
+    context: "Trait type-safety — strict: true obligatoire"
+    triggers_on: ["**/*.ts", "**/*.tsx"]
+    checked_by: frontend-specialist
+  - id: api-schema-before-impl
+    description: "Le schéma OpenAPI ou le type d'interface est défini avant le code API"
+    enforcement: soft
+    context: "Trait api-contract-first"
+    triggers_on: ["src/api/**/*", "pages/api/**/*"]
+    checked_by: fullstack-dev
+  - id: aria-labels-on-interactive
+    description: "Tous les boutons, liens et inputs ont un aria-label ou texte visible"
+    enforcement: soft
+    context: "Trait accessibility-aware — WCAG 2.1 AA"
+    triggers_on: ["**/*.tsx", "**/*.vue", "**/*.svelte"]
+    checked_by: pixel
+
 agents:
   - path: "../../archetypes/web-app/agents/frontend-specialist.md"
     required: true

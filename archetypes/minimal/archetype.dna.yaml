@@ -49,6 +49,40 @@ values:
     description: "Préférer l'explicite (chemins exacts, noms complets) à l'implicite"
     priority: 2
 
+tools_required:
+  - name: bash
+    description: "Interpréteur shell pour les scripts BMAD, cc-verify.sh"
+    required: true
+    check_command: "which bash"
+  - name: git
+    description: "Versioning et session branching"
+    required: true
+    check_command: "which git"
+  - name: python3
+    description: "mem0-bridge.py, gen-tests.py"
+    required: false
+    check_command: "which python3"
+
+acceptance_criteria:
+  - id: cc-pass-before-done
+    description: "cc-verify.sh doit passer avant toute déclaration 'terminé'"
+    enforcement: hard
+    context: "Trait cc-aware — ne pas rendre la main sur CC FAIL"
+    triggers_on: ["**/*"]
+    checked_by: agent-optimizer
+  - id: memory-updated-end-of-session
+    description: "Les agent-learnings Qdrant sont mis à jour en fin de session"
+    enforcement: soft
+    context: "Trait failure-museum — capitaliser les décisions"
+    triggers_on: ["**/*"]
+    checked_by: memory-keeper
+  - id: no-raw-secrets-committed
+    description: "Aucun secret en clair dans les fichiers committés"
+    enforcement: hard
+    context: "Contrainte no-raw-secrets"
+    triggers_on: ["**/*.env", "**/*.yaml", "**/*.json", "**/*.ts", "**/*.py", "**/*.go"]
+    checked_by: agent-optimizer
+
 agents:
   - path: "../../archetypes/meta/agents/project-navigator.md"
     required: true
