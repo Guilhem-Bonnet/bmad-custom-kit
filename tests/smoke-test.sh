@@ -160,6 +160,11 @@ scenario_minimal() {
     # Manifest
     assert_file_contains "_bmad/_config/agent-manifest.csv" "project-navigator"  "manifest contient atlas"
 
+    # Copilot instructions
+    assert_file_exists ".github/copilot-instructions.md"                       "copilot-instructions.md"
+    assert_file_contains ".github/copilot-instructions.md" "TestSmoke"         "copilot-instructions contient le nom"
+    assert_file_contains ".github/copilot-instructions.md" "project-navigator" "copilot-instructions contient atlas"
+
     cleanup_tmpdir
 }
 
@@ -229,6 +234,12 @@ scenario_subcommands() {
 
     # install --list (doit exit 0)
     assert_exit_code 0 "install --list exit 0" bash "$BMAD_INIT" install --list
+
+    # upgrade (doit exit 0 — même version = OK)
+    assert_exit_code 0 "upgrade exit 0" bash "$BMAD_INIT" upgrade
+
+    # upgrade --dry-run --force (doit exit 0)
+    assert_exit_code 0 "upgrade --dry-run --force exit 0" bash "$BMAD_INIT" upgrade --dry-run --force
 
     cleanup_tmpdir
 }

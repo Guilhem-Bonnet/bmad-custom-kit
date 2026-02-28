@@ -127,6 +127,8 @@ Exemples:
   $(basename "$0") evolve --report              # Rapport seul
   $(basename "$0") evolve --since 2026-01-01    # Depuis une date
   $(basename "$0") evolve --apply               # Appliquer le dernier patch
+  $(basename "$0") upgrade                      # Mettre à jour le framework
+  $(basename "$0") upgrade --dry-run            # Voir les changements sans appliquer
 
 Options guard:
   guard                    Analyser le budget de contexte de tous les agents
@@ -141,7 +143,12 @@ Options guard:
 Options evolve:
   evolve                   Analyser le projet et proposer des évolutions DNA
   evolve --report          Générer seulement le rapport (sans patch)
-  evolve --apply           Appliquer le dernier patch généré
+  evolve --apply           Appliquer le dernier patch gén
+
+Options upgrade:
+  upgrade                  Mettre à jour le framework dans un projet existant
+  upgrade --dry-run        Afficher les changements sans les appliquer
+  upgrade --force          Mettre à jour même si la version est identiqueéré
   evolve --since YYYY-MM-DD Analyser depuis une date
   evolve --dna PATH        Chemin vers archetype.dna.yaml
 
@@ -827,6 +834,233 @@ cmd_evolve() {
     exit $?
 }
 
+# ─── Upgrade (NEW) ─────────────────────────────────────────────────────────
+# Mise à jour du framework dans un projet existant
+# Usage: bmad-init.sh upgrade [--dry-run] [--force]
+cmd_upgrade() {
+    shift  # retirer "upgrade"
+    local dry_run=false
+    local force_upgrade=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)  dry_run=true; shift ;;
+            --force)    force_upgrade=true; shift ;;
+            --help)
+                echo -e "${CYAN}Usage: $(basename "$0") upgrade [--dry-run] [--force]${NC}"
+                echo ""
+                echo "  Met à jour les fichiers du framework BMAD dans le projet courant"
+                echo "  sans toucher aux agents, configs ou artefacts personnalisés."
+                echo ""
+                echo "  --dry-run   Afficher les changements sans les appliquer"
+                echo "  --force     Mettre à jour même si la version est identique"
+                exit 0
+                ;;
+            *)  error "Option upgrade inconnue: $1" ;;
+        esac
+    done
+
+    local bmad_dir="${TARGET_DIR}/_bmad"
+    local project_ctx="${TARGET_DIR}/project-context.yaml"
+
+    # Vérifier qu'un projet BMAD existe
+    if [[ ! -d "$bmad_dir/_config/custom" ]]; then
+        error "Pas de projet BMAD détecté dans $(pwd). Lancez d'abord bmad-init.sh --name ..."
+    fi
+
+    # Lire la version installée
+    local installed_version="unknown"
+    if [[ -f "$project_ctx" ]]; then
+        installed_version="$(grep 'bmad_kit_version:' "$project_ctx" 2>/dev/null | sed 's/.*: *//' | tr -d '"' || echo "unknown")"
+    fi
+
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}║  BMAD Custom Kit — Upgrade${NC}"
+    echo -e "${CYAN}╙═══════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "  Version installée : ${YELLOW}${installed_version}${NC}"
+    echo -e "  Version kit       : ${GREEN}${BMAD_KIT_VERSION}${NC}"
+    echo ""
+
+    if [[ "$installed_version" == "$BMAD_KIT_VERSION" && "$force_upgrade" == false ]]; then
+        ok "La version est déjà à jour ($BMAD_KIT_VERSION)"
+        info "Utilisez --force pour forcer la mise à jour"
+        exit 0
+    fi
+
+    # ─── Liste des fichiers framework à mettre à jour ───────────────────
+    local updated=0
+    local skipped=0
+    local errors_count=0
+
+    # Fonction interne : comparer et copier un fichier
+    _upgrade_file() {
+        local src="$1"
+        local dst="$2"
+        local label="$3"
+
+        if [[ ! -f "$src" ]]; then
+            echo -e "  ${YELLOW}⚠${NC}  Source manquante : $label"
+            skipped=$((skipped + 1))
+            return
+        fi
+
+        if [[ ! -f "$dst" ]]; then
+            # Fichier n'existe pas dans le projet — nouveau fichier
+            if [[ "$dry_run" == true ]]; then
+                echo -e "  ${GREEN}+${NC}  $label ${CYAN}(nouveau)${NC}"
+            else
+                mkdir -p "$(dirname "$dst")"
+                cp "$src" "$dst"
+                echo -e "  ${GREEN}+${NC}  $label ${CYAN}(nouveau)${NC}"
+            fi
+            updated=$((updated + 1))
+            return
+        fi
+
+        if diff -q "$src" "$dst" &>/dev/null; then
+            skipped=$((skipped + 1))
+            return
+        fi
+
+        # Fichier différent
+        if [[ "$dry_run" == true ]]; then
+            echo -e "  ${YELLOW}~${NC}  $label ${CYAN}(modifié)${NC}"
+            diff --color=always -u "$dst" "$src" 2>/dev/null | head -20
+            echo ""
+        else
+            cp "$src" "$dst"
+            echo -e "  ${GREEN}✓${NC}  $label ${CYAN}(mis à jour)${NC}"
+        fi
+        updated=$((updated + 1))
+    }
+
+    # ─── 1. Framework core files ────────────────────────────────────────
+    echo -e "${YELLOW}▶ Framework core${NC}"
+    _upgrade_file "$SCRIPT_DIR/framework/agent-base.md" \
+                  "$bmad_dir/_config/custom/agent-base.md" \
+                  "agent-base.md"
+
+    _upgrade_file "$SCRIPT_DIR/framework/cc-verify.sh" \
+                  "$bmad_dir/_config/custom/cc-verify.sh" \
+                  "cc-verify.sh"
+
+    _upgrade_file "$SCRIPT_DIR/framework/sil-collect.sh" \
+                  "$bmad_dir/_config/custom/sil-collect.sh" \
+                  "sil-collect.sh"
+    echo ""
+
+    # ─── 2. Memory scripts ──────────────────────────────────────────────
+    echo -e "${YELLOW}▶ Memory scripts${NC}"
+    _upgrade_file "$SCRIPT_DIR/framework/memory/maintenance.py" \
+                  "$bmad_dir/_memory/maintenance.py" \
+                  "maintenance.py"
+
+    _upgrade_file "$SCRIPT_DIR/framework/memory/mem0-bridge.py" \
+                  "$bmad_dir/_memory/mem0-bridge.py" \
+                  "mem0-bridge.py"
+
+    _upgrade_file "$SCRIPT_DIR/framework/memory/session-save.py" \
+                  "$bmad_dir/_memory/session-save.py" \
+                  "session-save.py"
+
+    # Backends
+    if [[ -d "$SCRIPT_DIR/framework/memory/backends" ]]; then
+        for backend_file in "$SCRIPT_DIR/framework/memory/backends/"*.py; do
+            [[ -f "$backend_file" ]] || continue
+            local bname
+            bname="$(basename "$backend_file")"
+            _upgrade_file "$backend_file" \
+                          "$bmad_dir/_memory/backends/$bname" \
+                          "backends/$bname"
+        done
+    fi
+    echo ""
+
+    # ─── 3. Meta agents ─────────────────────────────────────────────────
+    echo -e "${YELLOW}▶ Meta agents${NC}"
+    if [[ -d "$SCRIPT_DIR/archetypes/meta/agents" ]]; then
+        for meta_agent in "$SCRIPT_DIR/archetypes/meta/agents/"*.md; do
+            [[ -f "$meta_agent" ]] || continue
+            local aname
+            aname="$(basename "$meta_agent")"
+            _upgrade_file "$meta_agent" \
+                          "$bmad_dir/_config/custom/agents/$aname" \
+                          "meta/$aname"
+        done
+    fi
+    echo ""
+
+    # ─── 4. Prompt templates & workflows ────────────────────────────────
+    echo -e "${YELLOW}▶ Templates & Workflows${NC}"
+    if [[ -d "$SCRIPT_DIR/framework/prompt-templates" ]]; then
+        for tpl in "$SCRIPT_DIR/framework/prompt-templates/"*; do
+            [[ -f "$tpl" ]] || continue
+            local tname
+            tname="$(basename "$tpl")"
+            _upgrade_file "$tpl" \
+                          "$bmad_dir/_config/custom/prompt-templates/$tname" \
+                          "prompt-templates/$tname"
+        done
+    fi
+    if [[ -d "$SCRIPT_DIR/framework/workflows" ]]; then
+        for wf in "$SCRIPT_DIR/framework/workflows/"*; do
+            [[ -f "$wf" ]] || continue
+            local wname
+            wname="$(basename "$wf")"
+            _upgrade_file "$wf" \
+                          "$bmad_dir/_config/custom/workflows/$wname" \
+                          "workflows/$wname"
+        done
+    fi
+    echo ""
+
+    # ─── 5. Hooks ───────────────────────────────────────────────────────
+    echo -e "${YELLOW}▶ Git hooks${NC}"
+    local git_hooks_dir
+    git_hooks_dir="$(git rev-parse --git-dir 2>/dev/null)/hooks" || true
+    if [[ -d "$SCRIPT_DIR/framework/hooks" && -d "${git_hooks_dir:-/dev/null}" ]]; then
+        for hook_src in "$SCRIPT_DIR/framework/hooks/"*.sh; do
+            [[ -f "$hook_src" ]] || continue
+            local hname
+            hname="$(basename "$hook_src" .sh)"
+            # Ne pas écraser des hooks non-BMAD
+            local hook_dst="$git_hooks_dir/$hname"
+            if [[ -f "$hook_dst" ]] && ! grep -q "BMAD" "$hook_dst" 2>/dev/null; then
+                echo -e "  ${YELLOW}⚠${NC}  $hname — hook non-BMAD existant, ignoré"
+                skipped=$((skipped + 1))
+                continue
+            fi
+            _upgrade_file "$hook_src" "$hook_dst" "hook/$hname"
+        done
+    else
+        echo -e "  ${YELLOW}⚠${NC}  Git hooks non mis à jour (pas de dépôt git ou hooks manquants)"
+    fi
+    echo ""
+
+    # ─── 6. Mise à jour version dans project-context.yaml ──────────────
+    if [[ "$dry_run" == false && -f "$project_ctx" ]]; then
+        if grep -q 'bmad_kit_version:' "$project_ctx"; then
+            sed -i "s/bmad_kit_version:.*/bmad_kit_version: \"$BMAD_KIT_VERSION\"/" "$project_ctx"
+        else
+            echo "bmad_kit_version: \"$BMAD_KIT_VERSION\"" >> "$project_ctx"
+        fi
+        echo -e "  ${GREEN}✓${NC}  project-context.yaml → v${BMAD_KIT_VERSION}"
+    fi
+
+    # ─── Résumé ─────────────────────────────────────────────────────────
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    if [[ "$dry_run" == true ]]; then
+        echo -e "  ${CYAN}Dry-run : ${updated} fichier(s) seraient mis à jour, ${skipped} inchangé(s)${NC}"
+        info "Retirez --dry-run pour appliquer les changements"
+    else
+        echo -e "  ${GREEN}✅ Upgrade terminé : ${updated} mis à jour, ${skipped} inchangé(s)${NC}"
+        echo -e "  ${GREEN}   ${installed_version} → ${BMAD_KIT_VERSION}${NC}"
+    fi
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    exit 0
+}
+
 # ─── Doctor (BM-33) ───────────────────────────────────────────────────────────
 # Health check de l'installation BMAD
 # Usage: bmad-init.sh doctor [--fix]
@@ -1306,6 +1540,9 @@ fi
 if [[ "${1:-}" == "evolve" ]]; then
     cmd_evolve "$@"
 fi
+if [[ "${1:-}" == "upgrade" ]]; then
+    cmd_upgrade "$@"
+fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -1749,6 +1986,97 @@ for agent_file in "$BMAD_DIR/_config/custom/agents/"*.md; do
 done
 
 ok "Manifest généré (à compléter avec les détails des agents)"
+
+# ─── 7b. Générer .github/copilot-instructions.md ────────────────────────────
+COPILOT_DIR="$TARGET_DIR/.github"
+COPILOT_FILE="$COPILOT_DIR/copilot-instructions.md"
+if [[ ! -f "$COPILOT_FILE" ]] || $FORCE; then
+    mkdir -p "$COPILOT_DIR"
+    # Collecter la liste des agents installés
+    agents_table=""
+    for agent_file in "$BMAD_DIR/_config/custom/agents/"*.md; do
+        [[ -f "$agent_file" ]] || continue
+        aname="$(basename "$agent_file" .md)"
+        agents_table="${agents_table}| ${aname} | _bmad/_config/custom/agents/${aname}.md |\n"
+    done
+
+    cat > "$COPILOT_FILE" <<COPILOT_EOF
+# Copilot Instructions — ${PROJECT_NAME}
+
+> Auto-généré par BMAD Custom Kit v${BMAD_KIT_VERSION}
+> Archétype : ${ARCHETYPE} | Backend mémoire : ${MEMORY_BACKEND}
+> Date : $(date +%Y-%m-%d)
+
+## Contexte Projet
+
+- **Nom** : ${PROJECT_NAME}
+- **Utilisateur** : ${USER_NAME}
+- **Langue** : ${LANGUAGE}
+
+## Structure BMAD
+
+\`\`\`
+_bmad/
+  _config/
+    custom/
+      agents/          ← Agents IA du projet
+      prompt-templates/ ← Templates de prompts
+      workflows/       ← Workflows personnalisés
+      agent-base.md    ← Protocole de base des agents
+      cc-verify.sh     ← Completion Contract verifier
+      sil-collect.sh   ← Self-Improvement Loop collector
+    agent-manifest.csv ← Registre de tous les agents
+  _memory/
+    shared-context.md  ← Contexte partagé entre agents
+    config.yaml        ← Configuration mémoire
+    maintenance.py     ← Health check + maintenance mémoire
+    mem0-bridge.py     ← Bridge vers mémoire vectorielle
+    session-save.py    ← Sauvegarde de fin de session
+    decisions-log.md   ← Journal des décisions architecturales
+    failure-museum.md  ← Catalogue des erreurs résolues
+_bmad-output/
+  .runs/               ← Sessions de travail
+  team-vision/         ← Artefacts équipe vision
+  team-build/          ← Artefacts équipe build
+  contracts/           ← Contrats inter-agents
+project-context.yaml   ← Configuration globale du projet
+\`\`\`
+
+## Agents Installés
+
+| Agent | Fichier |
+|-------|---------|
+$(echo -e "$agents_table")
+
+## Conventions
+
+1. **Langue** : Toujours répondre en ${LANGUAGE}
+2. **Completion Contract** : Avant chaque commit, vérifier avec \`bash _bmad/_config/custom/cc-verify.sh\`
+3. **Contexte** : Charger \`_bmad/_memory/shared-context.md\` pour le contexte projet
+4. **Décisions** : Logger les décisions architecturales dans \`_bmad/_memory/decisions-log.md\`
+5. **Erreurs** : Documenter les résolutions dans \`_bmad/_memory/failure-museum.md\`
+6. **Sessions** : Sauvegarder en fin de session via \`python3 _bmad/_memory/session-save.py\`
+
+## Commandes Utiles
+
+\`\`\`bash
+# Vérifier l'installation BMAD
+bmad-init.sh doctor
+
+# Vérifier le budget de contexte des agents
+bmad-init.sh guard
+
+# Mettre à jour le framework
+bmad-init.sh upgrade
+
+# Installer un archétype supplémentaire
+bmad-init.sh install --archetype ARCHETYPE
+\`\`\`
+COPILOT_EOF
+    ok ".github/copilot-instructions.md généré"
+else
+    info ".github/copilot-instructions.md existe déjà"
+fi
 
 # ─── 8. Installer le git pre-commit hook (CC) ──────────────────────────────
 GIT_DIR="$(git -C "$TARGET_DIR" rev-parse --git-dir 2>/dev/null || true)"
