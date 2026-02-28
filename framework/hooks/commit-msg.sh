@@ -19,6 +19,8 @@
 # Installation via : bmad-init.sh hooks --install
 # ══════════════════════════════════════════════════════════════════════════════
 
+set -euo pipefail
+
 COMMIT_MSG_FILE="$1"
 GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 

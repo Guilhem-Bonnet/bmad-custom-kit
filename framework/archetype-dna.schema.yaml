@@ -15,7 +15,7 @@ author: string                      # Créateur (ex: "bmad-custom-kit")
 tags: [string]                      # Mots-clés pour la recherche du registry
 
 # ── Héritage ──────────────────────────────────────────────────────────────────
-inherits: string | null             # Archétype parent (ex: "minimal") — null = racine
+inherits: "string | null"           # Archétype parent (ex: "minimal") — null = racine
 # Quand un archétype hérite d'un autre :
 # → Ses traits s'ajoutent à ceux du parent
 # → Ses agents s'ajoutent à ceux du parent
@@ -28,20 +28,20 @@ traits:
   - name: string                    # Ex: "tdd", "cc-mandatory", "plan-act"
     description: string             # Explication du trait
     rule: string                    # Règle concrète à ajouter dans <rules> des agents
-    agents_affected: [string] | "*" # Agents concernés ou "*" pour tous
+    agents_affected: "[string] | *"  # Agents concernés ou "*" pour tous
 
 # ── Contraintes (règles strictes, bloquantes) ────────────────────────────────
 constraints:
   - id: string                      # Ex: "no-prod-without-validation"
     description: string
-    enforcement: "hard" | "soft"    # hard = bloque l'action, soft = warning
+    enforcement: "hard | soft"       # hard = bloque l'action, soft = warning
     checked_by: string              # Agent ou script qui vérifie
 
 # ── Valeurs (principes culturels de l'archétype) ─────────────────────────────
 values:
   - name: string                    # Ex: "infrastructure-as-code"
     description: string
-    priority: 1 | 2 | 3            # 1 = fondamental, 3 = souhaitable
+    priority: "1 | 2 | 3"           # 1 = fondamental, 3 = souhaitable
 
 # ── Contenu à installer ───────────────────────────────────────────────────────
 # ── Outils requis (BM-27) ────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ tools_required:
   - name: string                    # Ex: "bash", "browser", "files", "docker", "git"
     description: string             # Pourquoi cet outil est requis
     required: boolean               # true = bloquant si absent, false = fonctionnalité dégradée
-    check_command: string | null    # Commande pour vérifier la disponibilité (ex: "which docker")
+    check_command: "string | null"  # Commande pour vérifier la disponibilité (ex: "which docker")
 
 # ── Acceptance Criteria (BM-27 + BM-29) ─────────────────────────────────────
 # Les AC déclarés ici peuvent être convertis en squelettes de tests via :
@@ -59,10 +59,10 @@ tools_required:
 acceptance_criteria:
   - id: string                      # Ex: "tests-before-impl"
     description: string             # Critère lisible par un humain
-    enforcement: "hard" | "soft"    # hard = bloquant, soft = recommandé
+    enforcement: "hard | soft"       # hard = bloquant, soft = recommandé
     context: string                 # Contexte additionnel pour générer le test
     triggers_on: [string]           # Patterns de fichiers concernés (glob)
-    checked_by: string | null       # Agent ou script de vérification
+    checked_by: "string | null"     # Agent ou script de vérification
 
 agents:
   - path: string                    # Chemin relatif depuis archetypes/{id}/
@@ -74,9 +74,9 @@ workflows:
     required: boolean
     description: string
 
-shared_context_template: string | null  # Fichier shared-context.tpl.md à fusionner
+shared_context_template: "string | null"  # Fichier shared-context.tpl.md à fusionner
 
-prompts_directory: string | null    # Répertoire de prompts à copier
+prompts_directory: "string | null"  # Répertoire de prompts à copier
 
 # ── Compatibilité ─────────────────────────────────────────────────────────────
 compatible_with: [string]           # Autres archétypes compatibles pour co-installation

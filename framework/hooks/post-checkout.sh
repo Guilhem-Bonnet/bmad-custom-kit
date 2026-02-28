@@ -15,6 +15,8 @@
 # Installation via : bmad-init.sh hooks --install
 # ══════════════════════════════════════════════════════════════════════════════
 
+set -uo pipefail  # pas -e : hook post-checkout ne doit jamais bloquer
+
 PREV_HEAD="$1"
 NEW_HEAD="$2"
 BRANCH_CHECKOUT="$3"  # 1 = changement de branche, 0 = checkout fichier

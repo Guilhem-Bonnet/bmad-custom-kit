@@ -15,6 +15,8 @@
 # Installation via : bmad-init.sh hooks --install
 # ══════════════════════════════════════════════════════════════════════════════
 
+set -euo pipefail
+
 # Bypass d'urgence
 [[ "${BMAD_SKIP_PUSH_CHECK:-0}" == "1" ]] && exit 0
 

@@ -18,6 +18,8 @@
 # Installation via : bmad-init.sh hooks --install
 # ══════════════════════════════════════════════════════════════════════════════
 
+set -uo pipefail  # pas -e : hook post-commit ne doit jamais bloquer
+
 GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 BMAD_DIR="$GIT_ROOT/_bmad"
 

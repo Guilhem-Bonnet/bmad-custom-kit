@@ -16,6 +16,8 @@
 # Installation via : bmad-init.sh hooks --install
 # ══════════════════════════════════════════════════════════════════════════════
 
+set -uo pipefail  # pas -e : enrichissement du message, ne doit pas bloquer
+
 COMMIT_MSG_FILE="$1"
 COMMIT_SOURCE="${2:-}"
 

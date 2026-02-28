@@ -7,6 +7,8 @@
 # Vérifie le CC uniquement sur les fichiers stagés. Skip si cc-verify.sh absent.
 # ═══════════════════════════════════════════════════════════════════════════════
 
+set -euo pipefail
+
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 CC_SCRIPT="$PROJECT_ROOT/_bmad/_config/custom/cc-verify.sh"
 
