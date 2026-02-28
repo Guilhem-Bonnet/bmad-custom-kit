@@ -110,6 +110,21 @@ Exemples:
   $(basename "$0") bench --report --agent forge
   $(basename "$0") bench --improve
   $(basename "$0") bench --summary
+  $(basename "$0") forge --from "je veux un agent pour les migrations DB"
+  $(basename "$0") forge --from-gap
+  $(basename "$0") forge --from-trace
+  $(basename "$0") forge --list
+  $(basename "$0") forge --install db-migrator
+
+Options forge:
+  forge --from "description"  Générer un squelette d'agent depuis une description textuelle
+  forge --from-gap            Générer depuis les requêtes inter-agents non résolues (shared-context.md)
+  forge --from-trace          Générer depuis les failure patterns sans agent (BMAD_TRACE)
+  forge --list                Lister les proposals en attente
+  forge --install AGENT       Installer un proposal reviewé dans le répertoire des agents
+  forge --archetype TYPE      Archétype de référence (défaut: custom)
+  forge --out DIR             Dossier de sortie (défaut: _bmad-output/forge-proposals/)
+
 EOF
     exit 0
 }
@@ -654,6 +669,90 @@ cmd_bench() {
     exit 0
 }
 
+# ─── Agent Forge (BM-52) ─────────────────────────────────────────────────────
+# Génération de scaffolds d'agents depuis des besoins détectés
+# Usage: bmad-init.sh forge [--from DESCRIPTION | --from-gap | --from-trace | --list | --install AGENT]
+cmd_forge() {
+    shift  # retirer "forge"
+    local from_desc=""
+    local mode=""
+    local install_name=""
+    local archetype="custom"
+    local out_dir="_bmad-output/forge-proposals"
+    local shared_context="_bmad/_memory/shared-context.md"
+    local trace_path="_bmad-output/BMAD_TRACE.md"
+    local agents_dir="_bmad/_config/custom/agents"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --from)         mode="from"; from_desc="$2"; shift 2 ;;
+            --from-gap)     mode="from-gap"; shift ;;
+            --from-trace)   mode="from-trace"; shift ;;
+            --list)         mode="list"; shift ;;
+            --install)      mode="install"; install_name="$2"; shift 2 ;;
+            --archetype)    archetype="$2"; shift 2 ;;
+            --out)          out_dir="$2"; shift 2 ;;
+            --shared-context) shared_context="$2"; shift 2 ;;
+            --trace)        trace_path="$2"; shift 2 ;;
+            --agents-dir)   agents_dir="$2"; shift 2 ;;
+            *) error "Option inconnue pour forge: $1" ;;
+        esac
+    done
+
+    if [[ -z "$mode" ]]; then
+        echo ""
+        echo -e "${YELLOW}Usage :${NC}"
+        echo "  $(basename "$0") forge --from \"description du besoin\""
+        echo "  $(basename "$0") forge --from-gap"
+        echo "  $(basename "$0") forge --from-trace"
+        echo "  $(basename "$0") forge --list"
+        echo "  $(basename "$0") forge --install <nom-agent>"
+        echo ""
+        echo "  Pipeline forge :"
+        echo "   1. forge --from \"...\"  → génère proposal dans _bmad-output/forge-proposals/"
+        echo "   2. [Réviser les [TODO] dans le fichier .proposed.md]"
+        echo "   3. forge --install <tag>  → copie dans _bmad/_config/custom/agents/"
+        echo "   4. Sentinel [AA] pour audit qualité"
+        exit 0
+    fi
+
+    local forge_script
+    forge_script="$(dirname "$(realpath "$0")")/framework/tools/agent-forge.py"
+
+    if [[ ! -f "$forge_script" ]]; then
+        error "framework/tools/agent-forge.py introuvable — lancez depuis la racine du kit"
+    fi
+
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour forge"
+    fi
+
+    local py_args=("$forge_script")
+
+    case "$mode" in
+        from)         py_args+=("--from" "$from_desc") ;;
+        from-gap)     py_args+=("--from-gap" "--shared-context" "$shared_context") ;;
+        from-trace)   py_args+=("--from-trace" "--trace" "$trace_path") ;;
+        list)         py_args+=("--list") ;;
+        install)      py_args+=("--install" "$install_name" "--agents-dir" "$agents_dir") ;;
+    esac
+
+    py_args+=("--archetype" "$archetype" "--out-dir" "$out_dir")
+
+    echo ""
+    info "BMAD Agent Forge — mode : ${mode}"
+    echo ""
+
+    python3 "${py_args[@]}"
+
+    if [[ "$mode" == "from" ]] || [[ "$mode" == "from-gap" ]] || [[ "$mode" == "from-trace" ]]; then
+        echo ""
+        echo -e "${CYAN}→  Proposals générés dans ${out_dir}/${NC}"
+        echo "   Étapes : 1) Réviser les [TODO]  2) forge --install <tag>  3) Sentinel [AA]"
+    fi
+    exit 0
+}
+
 # ─── Doctor (BM-33) ───────────────────────────────────────────────────────────
 # Health check de l'installation BMAD
 # Usage: bmad-init.sh doctor [--fix]
@@ -1123,6 +1222,9 @@ if [[ "${1:-}" == "hooks" ]]; then
 fi
 if [[ "${1:-}" == "bench" ]]; then
     cmd_bench "$@"
+fi
+if [[ "${1:-}" == "forge" ]]; then
+    cmd_forge "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────

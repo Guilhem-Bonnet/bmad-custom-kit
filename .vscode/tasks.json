@@ -195,6 +195,55 @@
       "problemMatcher": []
     },
 
+    // ── Groupe : Agent Forge (BM-52) ────────────────────────────────
+    {
+      "label": "BMAD: Forge agent (depuis description)",
+      "type": "shell",
+      "command": "bash bmad-init.sh forge --from '${input:agentDescription}'",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Forge --from-gap (inter-agents)",
+      "type": "shell",
+      "command": "bash bmad-init.sh forge --from-gap",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Forge --from-trace (failures sans agent)",
+      "type": "shell",
+      "command": "bash bmad-init.sh forge --from-trace",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Forge --list proposals",
+      "type": "shell",
+      "command": "bash bmad-init.sh forge --list",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
     // ── Groupe : Validation bmad-init.sh ─────────────────────────────
     {
       "label": "BMAD: Vérification syntaxe bash",
@@ -242,6 +291,12 @@
       "type": "promptString",
       "description": "Chemin vers le fichier .dna.yaml",
       "default": "archetypes/web-app/archetype.dna.yaml"
+    },
+    {
+      "id": "agentDescription",
+      "type": "promptString",
+      "description": "Décris le besoin de l'agent en langage naturel",
+      "default": "je veux un agent pour gérer les migrations de base de données"
     }
   ]
 }

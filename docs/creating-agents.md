@@ -1,5 +1,40 @@
 # Créer un agent — Guide
 
+## Voie rapide — Agent Forge (BM-52)
+
+`agent-forge.py` génère un scaffold rempli intelligemment depuis un besoin textuel ou des gaps détectés automatiquement.
+
+```bash
+# Depuis une description textuelle
+bash bmad-init.sh forge --from "je veux un agent pour les migrations de base de données"
+
+# Depuis les requêtes inter-agents non résolues (shared-context.md)
+bash bmad-init.sh forge --from-gap
+
+# Depuis les failures BMAD_TRACE sans agent propriétaire
+bash bmad-init.sh forge --from-trace
+
+# Lister les proposals en attente de review
+bash bmad-init.sh forge --list
+
+# Installer après review du [TODO]
+bash bmad-init.sh forge --install db-migrator
+```
+
+**Pipeline :**
+```
+forge --from "..."
+  → _bmad-output/forge-proposals/agent-[tag].proposed.md
+  → [ Réviser les [TODO] : identité, prompts métier ]
+  → forge --install [tag]
+  → Sentinel [AA] audit qualité
+```
+
+> **Note :** Le scaffold couvre la structure, les outils, l'icône et les protocoles inter-agents.  
+> Les prompts métier (sections `[TODO]`) nécessitent votre connaissance du domaine.
+
+---
+
 ## Anatomie d'un agent BMAD Custom
 
 Un agent est un fichier Markdown structuré avec des balises XML qui définissent sa personnalité, ses capacités et ses actions.
