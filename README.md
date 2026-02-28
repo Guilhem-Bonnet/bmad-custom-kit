@@ -336,9 +336,9 @@ bash _bmad/_config/custom/sil-collect.sh
 
 ## 🧪 Tests
 
-Le kit inclut une suite de tests complète (213+ tests) en deux catégories :
+Le kit inclut une suite de tests complète (244+ tests) en deux catégories :
 
-**Tests unitaires Python** (7 fichiers, 213 tests) :
+**Tests unitaires Python** (8 fichiers, 244 tests) :
 ```bash
 # Lancer tous les tests
 python3 -m unittest discover -s tests -v
@@ -356,6 +356,7 @@ python3 -m unittest tests.test_context_guard_advanced -v
 | `test_agent_bench.py` | Agent Bench | 19 |
 | `test_dna_evolve.py` | DNA Evolve | 25 |
 | `test_session_save.py` | Session Save | 11 |
+| `test_gen_tests.py` | Gen Tests (scaffolding) | 31 |
 
 **Smoke tests Bash** (78 assertions) :
 ```bash

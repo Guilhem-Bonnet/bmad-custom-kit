@@ -221,6 +221,24 @@ feat: Rust archetype + detect_stack Cargo.toml
 
 ## Tester localement
 
+### Tests automatisés
+
+```bash
+# Lancer tous les tests Python (244+ tests)
+cd bmad-custom-kit
+python3 -m unittest discover -s tests -v
+
+# Lancer un fichier spécifique
+python3 -m unittest tests.test_context_guard_advanced -v
+
+# Smoke tests Bash (78 assertions)
+bash tests/smoke-test.sh
+```
+
+**Convention** : tout nouveau tool Python dans `framework/tools/` ou `framework/memory/` doit avoir un fichier de test correspondant dans `tests/`. Les tests utilisent uniquement `unittest` (stdlib, pas de pytest).
+
+### Test d'intégration manuel
+
 ```bash
 # Smoke test complet
 cd /tmp && mkdir test-project && cd test-project && git init
