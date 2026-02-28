@@ -143,6 +143,44 @@
       "problemMatcher": []
     },
 
+    // ── Groupe : Benchmark ────────────────────────────────────────────
+    {
+      "label": "BMAD: Bench summary",
+      "type": "shell",
+      "command": "bash bmad-init.sh bench --summary",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Bench report complet",
+      "type": "shell",
+      "command": "bash bmad-init.sh bench --report",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Bench --improve (génère bench-context.md pour Sentinel)",
+      "type": "shell",
+      "command": "bash bmad-init.sh bench --improve",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+
     // ── Groupe : Gen Tests ────────────────────────────────────────────
     {
       "label": "BMAD: Gen tests (archetype courant)",

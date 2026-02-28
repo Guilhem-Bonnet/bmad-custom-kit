@@ -55,6 +55,7 @@ You must fully embody this agent's persona and follow all activation instruction
     <item cmd="QR or fuzzy match on quality-report or health" action="#quality-report">[QR] Agent Health Report — rapport de qualité périodique</item>
     <item cmd="OP or fuzzy match on optimize or améliorer" action="#optimize-prompt">[OP] Optimiser Prompt — analyser et proposer l'amélioration d'un prompt spécifique</item>
     <item cmd="FA or fuzzy match on failure or pattern or sil or self-improve" action="#failure-analysis">[FA] Self-Improvement Loop — analyser les patterns d'échec et proposer des améliorations framework</item>
+    <item cmd="BR or fuzzy match on bench-review or benchmark or performance" action="#bench-review">[BR] Bench Review — analyser les métriques agent-bench.py et produire des recommandations concrètes</item>
     <item cmd="PM or fuzzy match on party-mode" exec="{project-root}/_bmad/core/workflows/party-mode/workflow.md">[PM] Party Mode</item>
     <item cmd="DA or fuzzy match on exit, leave, goodbye or dismiss agent">[DA] Quitter</item>
   </menu>
@@ -342,6 +343,74 @@ You must fully embody this agent's persona and follow all activation instruction
       APRÈS AVOIR PRODUIT LE RAPPORT :
       Sauvegarder avec `{project-root}/_bmad-output/sil-report-latest.md`
       (indiquer à l'utilisateur de copier le contenu manuellement si nécessaire).
+    </prompt>
+
+    <prompt id="bench-review">
+      Sentinel examine le rapport quantitatif produit par agent-bench.py et produit
+      des recommandations d'amélioration basées sur les données objectives.
+
+      PRÉ-REQUIS : Le fichier `_bmad-output/bench-reports/bench-context.md` (ou
+      `latest.md`) doit être fourni en contexte avant d'activer ce prompt.
+      Commande pour le générer : `bash bmad-init.sh bench --improve`
+
+      RAISONNEMENT :
+      1. LIRE le bench-context.md fourni (métriques, agents faibles, patterns d'échec)
+      2. CROISER avec les fichiers agents correspondants :
+         - Pour chaque agent signalé faible : charger son fichier .md et identifier
+           les lacunes structurelles (persona insuffisant ? prompts faibles ? rules manquantes ?)
+      3. CORRÉLER : les patterns d'échec (ex: test-failure) pointent-ils vers des
+         agents sans guardrail préventif sur ce domaine ?
+      4. COMPARER avec les agents à score élevé : quels patterns de succès reproduire ?
+      5. PRODUIRE le rapport avec recommandations actionnables
+
+      FORMAT DE SORTIE :
+      ```
+      ## Bench Review — [date]
+
+      ### Contexte analysé
+      - Période : [start] → [end]
+      - Agents concernés : [liste]
+      - Principale anomalie : [description]
+
+      ### Recommandations par agent
+
+      #### `[agent-id]` — Score [X]/100
+      **Problème identifié** : [description basée sur les métriques]
+      **Cause prob dans le fichier agent** : [référence à la structure XML]
+      **Modification proposée** :
+      ```diff
+      - [ligne actuelle approximative]
+      + [ligne améliorée proposée]
+      ```
+      **Impact attendu** : [réduction du pattern d'échec / hausse AC pass rate]
+
+      ### Recommandations cross-agents
+      1. [pattern à dupliquer depuis agents performants]
+      2. [règle préventive à ajouter sur pattern d'échec récurrent]
+
+      ### Learnings Mnemo à promouvoir en règles permanentes
+      - [learning X] → rule `[agent]` : "[formulation]"
+
+      ### Plan d'action proposé
+      | Priorité | Agent | Action | Effort estimé |
+      |----------|-------|--------|---------------|
+      | 🔴 HAUTE | [agent] | [action] | [S/M/L] |
+      | 🟠 MOY. | [agent] | [action] | [S/M/L] |
+
+      ### Next steps
+      1. {user_name} valide les recommandations ci-dessus
+      2. Bond applique les modifications validées
+      3. Relancer `bash bmad-init.sh bench --report` après 2 semaines pour mesurer l'impact
+      4. Si amélioration confirmée : archiver dans `_bmad-output/bench-reports/[date]-reviewed.md`
+      ```
+
+      ⚠️ GUARDRAIL : Sentinel PROPOSE uniquement, basé sur des données objectives.
+      Aucune modification directe de fichier. Chaîne : Sentinel → {user_name} → Bond.
+
+      DIFFÉRENCE avec [FA] Self-Improvement Loop :
+      - [FA] démarre de patterns observés subjectivement (SIL — qualité des prompts).
+      - [BR] démarre de métriques quantitatives (failures, AC pass rate, cycle time).
+      Les deux sont complémentaires — BR fournit le "quoi" mesurable, FA fournit le "pourquoi" structurel.
     </prompt>
   </prompts>
 </agent>

@@ -1,0 +1,127 @@
+name: BMAD Weekly Benchmark
+
+on:
+  # ── Planification hebdomadaire (chaque lundi à 6h UTC) ──────────────────────
+  schedule:
+    - cron: "0 6 * * 1"
+
+  # ── Déclenchement manuel depuis GitHub UI ──────────────────────────────────
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Depuis (YYYY-MM-DD, laisser vide pour all-time)"
+        required: false
+        type: string
+      agent:
+        description: "Filtrer sur un agent spécifique (laisser vide pour tous)"
+        required: false
+        type: string
+
+permissions:
+  contents: write      # Pour commit le rapport
+  issues: write        # Pour créer une issue si dégradation critique
+  pull-requests: read
+
+concurrency:
+  group: weekly-bench
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    name: "BMAD Agent Benchmark"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Tout l'historique pour calculer cycle times
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install deps
+        run: pip install pyyaml
+
+      # ── Générer le rapport ────────────────────────────────────────────────
+      - name: Run agent-bench --report
+        id: bench
+        run: |
+          SINCE="${{ github.event.inputs.since || '' }}"
+          AGENT="${{ github.event.inputs.agent || '' }}"
+
+          ARGS="--report"
+          [[ -n "$SINCE" ]] && ARGS="$ARGS --since $SINCE"
+          [[ -n "$AGENT" ]] && ARGS="$ARGS --agent $AGENT"
+
+          mkdir -p _bmad-output/bench-reports
+
+          python3 framework/tools/agent-bench.py \
+            $ARGS \
+            --out _bmad-output/bench-reports/latest.md \
+            --trace _bmad-output/BMAD_TRACE.md \
+            2>&1 | tee bench-output.txt
+
+          # Copie historisée avec date
+          DATE=$(date +%Y-%m-%d)
+          cp _bmad-output/bench-reports/latest.md "_bmad-output/bench-reports/${DATE}.md"
+
+          # Extraire le nombre de failures pour metric
+          FAILURES=$(grep -oE "Total failures.*\| [0-9]+" _bmad-output/bench-reports/latest.md | grep -oE "[0-9]+$" || echo "0")
+          echo "failures=$FAILURES" >> $GITHUB_OUTPUT
+          echo "report_date=$DATE" >> $GITHUB_OUTPUT
+
+      # ── Publier dans GitHub Step Summary ─────────────────────────────────
+      - name: Publish to Step Summary
+        run: |
+          echo "## 📊 BMAD Agent Benchmark — ${{ steps.bench.outputs.report_date }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat _bmad-output/bench-reports/latest.md >> $GITHUB_STEP_SUMMARY
+
+      # ── Commit le rapport dans le repo ────────────────────────────────────
+      - name: Commit bench report
+        run: |
+          git config user.name "BMAD Bench Bot"
+          git config user.email "bmad-bench-bot@github-actions"
+          git add _bmad-output/bench-reports/
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "chore(bench): rapport hebdomadaire ${{ steps.bench.outputs.report_date }}"
+          git push
+
+      # ── Alerte si trop de failures ────────────────────────────────────────
+      - name: Alert on high failures
+        if: ${{ steps.bench.outputs.failures != '' && fromJSON(steps.bench.outputs.failures) >= 10 }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const failures = ${{ steps.bench.outputs.failures }};
+            const date = '${{ steps.bench.outputs.report_date }}';
+
+            // Vérifier si une issue est déjà ouverte pour ce bench
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'bmad-bench-alert',
+              state: 'open',
+            });
+
+            if (issues.data.length > 0) {
+              console.log('Issue déjà ouverte — skip');
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `⚠️ BMAD Bench Alert — ${failures} failures détectés (${date})`,
+              body: `## Alerte Benchmark BMAD\n\n` +
+                    `Le rapport hebdomadaire du ${date} détecte **${failures} failures**` +
+                    ` dans BMAD_TRACE.md, ce qui dépasse le seuil d'alerte (10).\n\n` +
+                    `**Actions recommandées :**\n` +
+                    `1. Consulter \`_bmad-output/bench-reports/${date}.md\`\n` +
+                    `2. Lancer \`bash bmad-init.sh bench --improve\`\n` +
+                    `3. Passer \`bench-context.md\` à Sentinel > \`bench-review\`\n\n` +
+                    `---\n*Créée automatiquement par BMAD Weekly Benchmark*`,
+              labels: ['bmad-bench-alert', 'agent-quality'],
+            });

@@ -105,6 +105,11 @@ Exemples:
   $(basename "$0") hooks --install --hook post-commit
   $(basename "$0") hooks --list
   $(basename "$0") hooks --status
+  $(basename "$0") bench --report
+  $(basename "$0") bench --report --since 2026-01-01
+  $(basename "$0") bench --report --agent forge
+  $(basename "$0") bench --improve
+  $(basename "$0") bench --summary
 EOF
     exit 0
 }
@@ -589,6 +594,66 @@ cmd_hooks() {
     exit 0
 }
 
+# ─── Bench (BM-51) ────────────────────────────────────────────────────────────
+# Benchmark de performance des agents depuis BMAD_TRACE
+# Usage: bmad-init.sh bench [--report|--improve|--summary] [--since YYYY-MM-DD] [--agent ID]
+cmd_bench() {
+    shift  # retirer "bench"
+    local action="summary"
+    local since=""
+    local agent_filter=""
+    local out_path="_bmad-output/bench-reports/latest.md"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --report)   action="report"; shift ;;
+            --improve)  action="improve"; shift ;;
+            --summary)  action="summary"; shift ;;
+            --since)    since="$2"; shift 2 ;;
+            --agent)    agent_filter="$2"; shift 2 ;;
+            --out)      out_path="$2"; shift 2 ;;
+            *) error "Option inconnue pour bench: $1" ;;
+        esac
+    done
+
+    local bench_script
+    bench_script="$(dirname "$(realpath "$0")")/framework/tools/agent-bench.py"
+
+    if [[ ! -f "$bench_script" ]]; then
+        error "framework/tools/agent-bench.py introuvable — lancez depuis la racine du kit"
+    fi
+
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour bench"
+    fi
+
+    local py_args=("$bench_script")
+
+    case "$action" in
+        report)  py_args+=("--report") ;;
+        improve) py_args+=("--report" "--improve") ;;
+        summary) py_args+=("--summary") ;;
+    esac
+
+    [[ -n "$since" ]]        && py_args+=("--since" "$since")
+    [[ -n "$agent_filter" ]] && py_args+=("--agent" "$agent_filter")
+    py_args+=("--out" "$out_path")
+
+    echo ""
+    info "BMAD Bench — analyse BMAD_TRACE en cours..."
+    echo ""
+
+    python3 "${py_args[@]}"
+
+    if [[ "$action" == "improve" ]] && [[ -f "_bmad-output/bench-reports/bench-context.md" ]]; then
+        echo ""
+        echo -e "${CYAN}→  bench-context.md prêt pour Sentinel${NC}"
+        echo "   Ouvrez Copilot Chat → activez l'agent Sentinel"
+        echo "   Passez le fichier en contexte et tapez : bench-review"
+    fi
+    exit 0
+}
+
 # ─── Doctor (BM-33) ───────────────────────────────────────────────────────────
 # Health check de l'installation BMAD
 # Usage: bmad-init.sh doctor [--fix]
@@ -1055,6 +1120,9 @@ if [[ "${1:-}" == "changelog" ]]; then
 fi
 if [[ "${1:-}" == "hooks" ]]; then
     cmd_hooks "$@"
+fi
+if [[ "${1:-}" == "bench" ]]; then
+    cmd_bench "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────
