@@ -33,6 +33,12 @@ forge --from "..."
 > **Note :** Le scaffold couvre la structure, les outils, l'icône et les protocoles inter-agents.  
 > Les prompts métier (sections `[TODO]`) nécessitent votre connaissance du domaine.
 
+> **Conseil budget :** Après avoir installé un nouvel agent, vérifiez qu'il ne sature pas la fenêtre de contexte :
+> ```bash
+> bash bmad-init.sh guard --agent [id-de-votre-agent] --detail --suggest
+> ```
+> Seuil recommandé : < 40% de la fenêtre du modèle cible.
+
 ---
 
 ## Anatomie d'un agent BMAD Custom

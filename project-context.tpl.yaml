@@ -126,8 +126,18 @@ installed_archetypes: []               # Rempli automatiquement par bmad-init.sh
 #   output: "_bmad-output/repo-map.md"
 #   stale_after_hours: 24
 
-# ─── Context Budget (BM-07) ─────────────────────────────────────────────────────────────────
+# ─── Context Budget (BM-07 + BM-55) ────────────────────────────────────────────────────────────
+# Utilisé par context-guard.py (bash bmad-init.sh guard) pour calibrer les alertes.
+# Si omis, guard utilise les défauts : modèle=copilot/200K, seuil=40%.
+#
+# context_guard:
+#   model: "claude-opus-4"             # Modèle LLM cible (définit la fenêtre)
+#   # Modèles disponibles : claude-opus-4 (200K) | gpt-4o (128K) | gemini-1.5-pro (1M)
+#   #                       gpt-4o-mini (128K) | llama3-8b (8K) | mistral-7b (32K)
+#   warn_threshold_pct: 40             # Alerte jaune à 40% de la fenêtre
+#   critical_threshold_pct: 70         # Alerte rouge à 70% (bloquant en CI)
+#
 # context_budget:
-#   default_max_tokens: 80000          # Claude Sonnet : 200k, GPT-4o : 128k
-#   warning_threshold: 0.75            # Alerte à 75% utilisé
+#   default_max_tokens: 80000          # Déprécié — utilisé context_guard.model à la place
+#   warning_threshold: 0.75            # Déprécié — utilisé context_guard.warn_threshold_pct
 #   overflow_strategy: "summarize"     # summarize | drop-oldest | ask-user

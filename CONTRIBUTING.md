@@ -18,6 +18,13 @@ bmad-custom-kit/
 │   ├── hooks/
 │   │   └── pre-commit-cc.sh  # Hook git CC
 │   ├── memory/               # Scripts Python mémoire
+│   ├── tools/                # Outils CLI Python (stdlib only)
+│   │   ├── agent-bench.py    # Bench performance agents
+│   │   ├── agent-forge.py    # Génération squelettes agents
+│   │   ├── context-guard.py  # Budget contexte LLM
+│   │   ├── dna-evolve.py     # Évolution DNA depuis usage réel
+│   │   ├── gen-tests.py      # Génération templates tests
+│   │   └── bmad-completion.zsh  # Autocomplétion zsh
 │   └── workflows/
 │       ├── github-cc-check.yml.tpl  # Template CI déployé dans les projets
 │       └── incident-response.md
@@ -78,6 +85,67 @@ bash -n bmad-init.sh && echo "✅ syntaxe OK"
 shellcheck bmad-init.sh  # si shellcheck disponible
 bash bmad-init.sh --help  # smoke test
 ```
+
+### 4. Tests pour les outils Python (framework/tools/*.py)
+
+Tout changement à un outil Python doit passer :
+
+```bash
+# Vérification syntaxe
+python3 -m py_compile framework/tools/[outil].py && echo "✅ syntaxe OK"
+
+# Smoke test (les tools supportent --help ou s'exécutent sans erreur)
+python3 framework/tools/context-guard.py --list-models
+python3 framework/tools/agent-forge.py --list
+python3 framework/tools/agent-bench.py --summary
+python3 framework/tools/dna-evolve.py --report
+```
+
+Règles obligatoires pour tout outil dans `framework/tools/` :
+- Stdlib Python uniquement (pas de dépendances externes)
+- Type hints sur toutes les fonctions
+- `if __name__ == "__main__"` clause
+- `argparse` pour la CLI
+- Exit codes normalisés : 0=OK, 1=warning, 2=critical
+- Un wrapper `cmd_<nom>()` dans `bmad-init.sh`
+- Les options ajoutées dans `bmad-completion.zsh`
+
+---
+
+## Ajouter un outil CLI (framework/tools/*.py)
+
+Les outils CLI s'intègrent dans le pipeline `bmad-init.sh` et VS Code.
+
+1. Créer `framework/tools/[nom].py` avec :
+   - `argparse` pour la CLI
+   - Type hints partout
+   - Stdlib uniquement
+   - Exit codes 0/1/2 (OK/warning/critical)
+
+2. Ajouter `cmd_[nom]()` dans `bmad-init.sh` :
+```bash
+cmd_monoutil() {
+    shift  # retirer "monoutil"
+    check_python3
+    python3 "$SCRIPT_DIR/framework/tools/mon-outil.py" \
+        --project-root "$PROJECT_ROOT" \
+        "$@"
+    exit $?
+}
+```
+
+3. Ajouter le dispatch dans `bmad-init.sh` (section dispatch) :
+```bash
+if [[ "${1:-}" == "monoutil" ]]; then
+    cmd_monoutil "$@"
+fi
+```
+
+4. Ajouter le subcommand + options dans `framework/tools/bmad-completion.zsh`
+
+5. Ajouter les tasks VS Code dans `.vscode/tasks.json`
+
+6. Documenter dans `framework/tools/README.md`
 
 ---
 

@@ -302,7 +302,18 @@ bash bmad-init.sh changelog
 # Voir l'audit trail des actions
 bash bmad-init.sh trace --tail 50
 bash bmad-init.sh trace --type DECISION
+
+# Budget de contexte LLM — vérifier que les agents ne saturent pas la fenêtre
+bash bmad-init.sh guard                  # tous les agents
+bash bmad-init.sh guard --suggest        # + recommandations de réduction
+bash bmad-init.sh guard --json           # sortie CI-compatible
+
+# DNA évolutive — proposer des mutations depuis l'usage réel (après quelques semaines)
+bash bmad-init.sh evolve --report        # rapport sans modifier la DNA
+bash bmad-init.sh evolve                 # proposer patch (revue humaine requise avant --apply)
 ```
+
+Voir [framework/tools/README.md](../framework/tools/README.md) pour la référence complète des outils.
 
 ---
 

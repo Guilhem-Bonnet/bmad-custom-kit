@@ -112,8 +112,8 @@
     "prefix": "bmad-ckpt",
     "description": "Appel de checkpoint dans un script bash",
     "body": [
-      "bash bmad-init.sh resume --checkpoint-new \"${1:Description du checkpoint}\" \\\\"
-      "  --agent \"${2:agent-name}\" \\\\"
+      "bash bmad-init.sh resume --checkpoint-new \"${1:Description du checkpoint}\" \\\\",
+      "  --agent \"${2:agent-name}\" \\\\",
       "  --story \"${3:story-id}\"",
       "$0"
     ]
@@ -166,5 +166,37 @@
       "  on_failure: ${9|stop,retry,skip|}",
       "$0"
     ]
-  }
+  },
+
+  // ── Context Guard TRACE ──────────────────────────────────────────
+  "BMAD Context Guard result trace": {
+    "scope": "markdown",
+    "prefix": "bmad-guard",
+    "description": "Entrée BMAD_TRACE suite à un résultat context-guard",
+    "body": [
+      "## ${1:YYYY-MM-DD} | copilot | guard",
+      "",
+      "[DECISION] Context budget review — agent ${2:agent-id}",
+      "**Budget** : ${3:X.X}% (${4|OK,WARNING,CRITICAL|})",
+      "**Modèle** : ${5:claude-opus-4} — fenêtre : ${6:200}K tokens",
+      "**Action** : ${7:Aucune action requise | Réduire agent-base.md | Déplacer les learnings vers Qdrant}",
+      "$0"
+    ]
+  },
+
+  // ── DNA Evolution Entry ───────────────────────────────────────────
+  "BMAD DNA Evolution decision": {
+    "scope": "markdown",
+    "prefix": "bmad-evolve",
+    "description": "Entrée BMAD_TRACE pour une évolution DNA appliquée",
+    "body": [
+      "## ${1:YYYY-MM-DD} | copilot | dna-evolve",
+      "",
+      "[DECISION] DNA mutation appliquée — archétype ${2:archetype-id}",
+      "**Mutation** : ${3|add_tool,deprecate_tool,add_trait,add_constraint|} — `${4:nom}`",
+      "**Confiance** : ${5|high,medium,low|} — ${6:N} occurrences dans BMAD_TRACE",
+      "**Patch** : `_bmad-output/dna-proposals/${7:archetype.dna.patch.YYYY-MM-DD.yaml}`",
+      "**Justification** : ${8:Description de la raison}",
+      "$0"
+    ]  }
 }

@@ -5,9 +5,9 @@
 This repository is the **BMAD Custom Kit** — a framework for bootstrapping AI-assisted software projects with specialized agents, archetype-based DNA constraints, and structured memory.
 
 **Key directories:**
-- `bmad-init.sh` — main CLI: `session-branch`, `install`, `doctor`, `validate`, `changelog`, `hooks`, `trace`, `resume`
+- `bmad-init.sh` — main CLI: `session-branch`, `install`, `doctor`, `validate`, `changelog`, `hooks`, `trace`, `resume`, `bench`, `forge`, `guard`, `evolve`
 - `archetypes/` — project archetypes (minimal, web-app, infra-ops, fix-loop, stack)
-- `framework/` — DNA schema, hooks, tools (gen-tests.py, bmad-completion.zsh), agent-rules, context-router, MCP server, BMAD_TRACE
+- `framework/` — DNA schema, hooks, tools (gen-tests.py, agent-bench.py, agent-forge.py, context-guard.py, dna-evolve.py, bmad-completion.zsh), agent-rules, context-router, MCP server, BMAD_TRACE
 - `_bmad/` — BMAD runtime (agents, workflows, memory)
 - `docs/` — human-readable documentation
 
@@ -73,7 +73,7 @@ Conventional Commits format preferred:
 - `refactor(<scope>): <description>` — no behavior change
 - `BM-XX: <description>` — also accepted for BMAD backlog items
 
-Scopes: `init`, `hooks`, `dna`, `stack`, `docs`, `vscode`, `ci`, `memory`, `mcp`
+Scopes: `init`, `hooks`, `dna`, `stack`, `docs`, `vscode`, `ci`, `memory`, `mcp`, `tools`
 
 ## Important Anti-Patterns to Avoid
 
@@ -83,3 +83,6 @@ Scopes: `init`, `hooks`, `dna`, `stack`, `docs`, `vscode`, `ci`, `memory`, `mcp`
 - ❌ Never add `--force` to git operations without explicit user confirmation
 - ❌ Never hardcode `/home/user/` paths — use `$HOME` or relative paths
 - ❌ Never generate Python without type hints in this project
+- ❌ Never create a `framework/tools/*.py` without a `cmd_<name>()` wrapper in `bmad-init.sh`
+- ❌ Never add a new `bmad-init.sh` subcommand without updating `bmad-completion.zsh`
+- ❌ Never modify `guard` exit codes — 0/1/2 are CI-contract (0=OK, 1=warn, 2=critical)
