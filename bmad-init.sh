@@ -96,6 +96,11 @@ Exemples:
   $(basename "$0") trace --tail 50
   $(basename "$0") trace --agent dev
   $(basename "$0") trace --type DECISION
+  $(basename "$0") doctor
+  $(basename "$0") doctor --fix
+  $(basename "$0") validate --dna archetypes/web-app/archetype.dna.yaml
+  $(basename "$0") validate --all
+  $(basename "$0") changelog
 EOF
     exit 0
 }
@@ -422,6 +427,291 @@ YAMLEOF
     exit 0
 }
 
+# ─── Doctor (BM-33) ───────────────────────────────────────────────────────────
+# Health check de l'installation BMAD
+# Usage: bmad-init.sh doctor [--fix]
+cmd_doctor() {
+    local do_fix=false
+    shift  # retirer "doctor"
+    [[ "${1:-}" == "--fix" ]] && do_fix=true
+
+    local errors=0
+    local warnings=0
+
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}║  BMAD Doctor — Diagnostic de l'installation$([ "$do_fix" = true ] && echo " + auto-fix")${NC}"
+    echo -e "${CYAN}╙═══════════════════════════════════════════════════════${NC}"
+    echo ""
+
+    # ─ 1. Outils système ──────────────────────────────────────────────────
+    echo -e "${YELLOW}▶ Outils système${NC}"
+    local tools=("bash:bash --version" "git:git --version" "python3:python3 --version")
+    for entry in "${tools[@]}"; do
+        local tool="${entry%%:*}"
+        local cmd="${entry#*:}"
+        if $cmd &>/dev/null; then
+            local ver
+            ver="$(${cmd} 2>&1 | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+            echo -e "  ${GREEN}✓${NC}  ${tool} (${ver})"
+        else
+            echo -e "  ${RED}✗${NC}  ${tool} — MANQUANT"
+            ((errors++))
+        fi
+    done
+
+    # PyYAML
+    if python3 -c "import yaml" 2>/dev/null; then
+        echo -e "  ${GREEN}✓${NC}  PyYAML disponible"
+    else
+        echo -e "  ${YELLOW}⚠${NC}  PyYAML manquant (requis pour gen-tests.py + validate)"
+        ((warnings++))
+        if $do_fix; then
+            info "  → Installation PyYAML..."
+            python3 -m pip install pyyaml -q && ok "  PyYAML installé" || warn "  Échec install PyYAML"
+        fi
+    fi
+    echo ""
+
+    # ─ 2. Structure BMAD ─────────────────────────────────────────────────
+    echo -e "${YELLOW}▶ Structure BMAD${NC}"
+    local bmad_dir="${TARGET_DIR:-$SCRIPT_DIR}/_bmad"
+    local critical_dirs=("_bmad/_config" "_bmad/_memory" "_bmad/bmm/agents" "_bmad-output")
+    for d in "${critical_dirs[@]}"; do
+        local full="${TARGET_DIR:-$SCRIPT_DIR}/${d}"
+        if [[ -d "$full" ]]; then
+            echo -e "  ${GREEN}✓${NC}  ${d}/"
+        else
+            echo -e "  ${RED}✗${NC}  ${d}/ — manquant"
+            ((errors++))
+        fi
+    done
+
+    # shared-context.md
+    local sc="${bmad_dir}/_memory/shared-context.md"
+    if [[ -f "$sc" ]]; then
+        local wc
+        wc="$(wc -l < "$sc" | tr -d ' ')"
+        echo -e "  ${GREEN}✓${NC}  _bmad/_memory/shared-context.md (${wc} lignes)"
+    else
+        echo -e "  ${YELLOW}⚠${NC}  shared-context.md manquant — projet non initialisé"
+        ((warnings++))
+    fi
+
+    # project-context.yaml
+    local pc="${TARGET_DIR:-$SCRIPT_DIR}/project-context.yaml"
+    if [[ -f "$pc" ]]; then
+        echo -e "  ${GREEN}✓${NC}  project-context.yaml"
+    else
+        echo -e "  ${YELLOW}⚠${NC}  project-context.yaml manquant — lancez : bmad-init.sh --name ..."
+        ((warnings++))
+    fi
+    echo ""
+
+    # ─ 3. Mémoire / Qdrant ─────────────────────────────────────────────
+    echo -e "${YELLOW}▶ Mémoire${NC}"
+    local bridge="${bmad_dir}/_memory/mem0-bridge.py"
+    if [[ -f "$bridge" ]]; then
+        echo -e "  ${GREEN}✓${NC}  mem0-bridge.py présent"
+        # Vérif Qdrant
+        if curl -sf http://localhost:6333/healthz &>/dev/null 2>&1; then
+            echo -e "  ${GREEN}✓${NC}  Qdrant accessible (localhost:6333)"
+        else
+            echo -e "  ${YELLOW}⚠${NC}  Qdrant non détecté — mémoire structurée désactivée"
+            echo -e "       Pour activer : docker run -p 6333:6333 qdrant/qdrant"
+            ((warnings++))
+        fi
+    else
+        echo -e "  ${YELLOW}⚠${NC}  mem0-bridge.py manquant"
+        ((warnings++))
+    fi
+    echo ""
+
+    # ─ 4. DNA des archétypes ──────────────────────────────────────────
+    echo -e "${YELLOW}▶ DNA des archétypes${NC}"
+    local arch_base="$SCRIPT_DIR/archetypes"
+    if [[ -d "$arch_base" ]]; then
+        for dna_file in "${arch_base}"/*/archetype.dna.yaml; do
+            [[ -f "$dna_file" ]] || continue
+            local arch_name
+            arch_name="$(basename "$(dirname "$dna_file")")"
+            if python3 -c "import yaml; yaml.safe_load(open('${dna_file}'))" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC}  ${arch_name}/archetype.dna.yaml (YAML valide)"
+            else
+                echo -e "  ${RED}✗${NC}  ${arch_name}/archetype.dna.yaml — YAML invalide"
+                ((errors++))
+            fi
+        done
+        # Stack DNA files
+        local stack_dna_count
+        stack_dna_count="$(find "${arch_base}/stack/agents" -name '*.dna.yaml' 2>/dev/null | wc -l | tr -d ' ')"
+        echo -e "  ${GREEN}✓${NC}  stack agents DNA : ${stack_dna_count}/7 présents"
+    fi
+    echo ""
+
+    # ─ 5. Résumé ───────────────────────────────────────────────────────
+    if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
+        echo -e "${GREEN}✅  Tout est OK — BMAD Custom Kit prêt à l'usage${NC}"
+    elif [[ $errors -eq 0 ]]; then
+        echo -e "${YELLOW}⚠  ${warnings} avertissement(s) — fonctionnel mais vérifiez les warnings ci-dessus${NC}"
+        [[ "$do_fix" == false ]] && info "Relancez avec --fix pour corriger automatiquement les problèmes simples"
+    else
+        echo -e "${RED}❌  ${errors} erreur(s) critique(s) + ${warnings} avertissement(s) — installation incomplète${NC}"
+        [[ "$do_fix" == false ]] && info "Relancez avec --fix pour tenter la correction automatique"
+    fi
+    exit 0
+}
+
+# ─── Validate DNA (BM-34) ─────────────────────────────────────────────────────
+# Validation d'un ou plusieurs fichiers DNA archetype
+# Usage: bmad-init.sh validate [--dna path] [--all]
+cmd_validate() {
+    shift  # retirer "validate"
+    local dna_file=""
+    local validate_all=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dna)  dna_file="$2"; shift 2 ;;
+            --all)  validate_all=true; shift ;;
+            *) error "Option inconnue pour validate: $1" ;;
+        esac
+    done
+
+    if ! python3 -c "import yaml" 2>/dev/null; then
+        error "PyYAML requis : pip install pyyaml"
+    fi
+
+    validate_one_dna() {
+        local f="$1"
+        local result
+        result="$(python3 - "$f" << 'PYEOF'
+import sys, yaml, os
+path = sys.argv[1]
+try:
+    with open(path) as fh:
+        data = yaml.safe_load(fh)
+except Exception as e:
+    print(f"YAML_ERROR: {e}")
+    sys.exit(1)
+required = ["$schema", "id", "name", "version", "description"]
+missing = [k for k in required if k not in data]
+if missing:
+    print(f"MISSING_FIELDS: {', '.join(missing)}")
+    sys.exit(1)
+# Vérifier le schéma
+if data.get("$schema") != "bmad-archetype-dna/v1":
+    print(f"SCHEMA_MISMATCH: attendu bmad-archetype-dna/v1, trouvé {data.get('$schema')}")
+print(f"OK: id={data['id']} name='{data['name']}' version={data.get('version','?')}")
+# Compter les AC et tools
+ac_count = len(data.get('acceptance_criteria', []))
+for t in data.get('traits', []):
+    ac_count += len(t.get('acceptance_criteria', []))
+tools_count = len(data.get('tools_required', []))
+print(f"STATS: {ac_count} AC, {tools_count} tools_required")
+PYEOF
+        )"
+        local exit_code=$?
+        if [[ $exit_code -eq 0 ]]; then
+            echo -e "  ${GREEN}✓${NC}  $(basename "$f")"
+            echo "      $(echo "$result" | grep '^OK:' | sed 's/^OK: //')"
+            echo "      $(echo "$result" | grep '^STATS:' | sed 's/^STATS: //')"
+        else
+            echo -e "  ${RED}✗${NC}  $(basename "$f") — ${result}"
+            return 1
+        fi
+    }
+
+    local errors=0
+
+    if [[ "$validate_all" == true ]]; then
+        echo -e "${CYAN}Validation de tous les fichiers DNA :${NC}"
+        echo ""
+        while IFS= read -r -d '' f; do
+            validate_one_dna "$f" || ((errors++))
+        done < <(find "$SCRIPT_DIR/archetypes" -name "*.dna.yaml" -print0 2>/dev/null)
+    elif [[ -n "$dna_file" ]]; then
+        echo -e "${CYAN}Validation : ${dna_file}${NC}"
+        echo ""
+        validate_one_dna "$dna_file" || ((errors++))
+    else
+        error "Spécifiez --dna chemin/archetype.dna.yaml ou --all"
+    fi
+
+    echo ""
+    if [[ $errors -eq 0 ]]; then
+        ok "Tous les fichiers DNA sont valides"
+    else
+        warn "${errors} fichier(s) DNA invalide(s) — corrigez les erreurs ci-dessus"
+    fi
+    exit 0
+}
+
+# ─── Changelog (BM-37) ─────────────────────────────────────────────────────────
+# Génère CHANGELOG.md depuis les entrées [DECISION] du BMAD_TRACE
+# Usage: bmad-init.sh changelog [--output path] [--since YYYY-MM-DD]
+cmd_changelog() {
+    local TRACE_FILE="${TARGET_DIR:-$SCRIPT_DIR}/_bmad-output/BMAD_TRACE.md"
+    local output_file="${TARGET_DIR:-$SCRIPT_DIR}/CHANGELOG.md"
+    local since_date=""
+
+    shift  # retirer "changelog"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --output) output_file="$2"; shift 2 ;;
+            --since)  since_date="$2"; shift 2 ;;
+            *) error "Option inconnue pour changelog: $1" ;;
+        esac
+    done
+
+    if [[ ! -f "$TRACE_FILE" ]]; then
+        warn "Pas de BMAD_TRACE.md trouvé dans _bmad-output/"
+        info "Le trace est créé automatiquement lors des actions agents."
+        exit 0
+    fi
+
+    local project_name
+    project_name="$(basename "${TARGET_DIR:-$SCRIPT_DIR}")"
+    local now
+    now="$(date +%Y-%m-%d)"
+
+    echo "# Changelog — ${project_name}" > "$output_file"
+    echo "" >> "$output_file"
+    echo "> Généré automatiquement depuis BMAD_TRACE.md le ${now}" >> "$output_file"
+    echo "> Source des décisions : entrées [DECISION] et [REMEMBER:decisions]" >> "$output_file"
+    echo "" >> "$output_file"
+
+    # Extraire les dates uniques présentes dans la trace
+    local dates
+    dates="$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$TRACE_FILE" | sort -r | uniq)"
+
+    local entries=0
+    while IFS= read -r date; do
+        [[ -n "$since_date" && "$date" < "$since_date" ]] && continue
+        local day_decisions
+        day_decisions="$(grep "^\[${date}" "$TRACE_FILE" | grep '\[DECISION\]\|\[REMEMBER:decisions\]')"
+        [[ -z "$day_decisions" ]] && continue
+
+        echo "## ${date}" >> "$output_file"
+        echo "" >> "$output_file"
+        while IFS= read -r line; do
+            local agent
+            agent="$(echo "$line" | grep -oP '\[\K[^\]]+(?=\])' | sed -n '2p')"
+            local payload
+            payload="$(echo "$line" | sed 's/^\[[^]]*\] \[[^]]*\] \[[^]]*\] //')"
+            echo "- **${agent}** : ${payload}" >> "$output_file"
+            ((entries++))
+        done <<< "$day_decisions"
+        echo "" >> "$output_file"
+    done <<< "$dates"
+
+    if [[ $entries -eq 0 ]]; then
+        echo "_(Aucune décision enregistrée dans BMAD_TRACE.md)_" >> "$output_file"
+    fi
+
+    ok "CHANGELOG.md généré : ${output_file} (${entries} entrées)"
+    exit 0
+}
+
 # ─── Resume (BM-26) ──────────────────────────────────────────────────────────
 # Reprise d'un workflow interrompu depuis un checkpoint
 # Usage: bmad-init.sh resume [--checkpoint ID] [--list]
@@ -562,6 +852,15 @@ if [[ "${1:-}" == "resume" ]]; then
 fi
 if [[ "${1:-}" == "trace" ]]; then
     cmd_trace "$@"
+fi
+if [[ "${1:-}" == "doctor" ]]; then
+    cmd_doctor "$@"
+fi
+if [[ "${1:-}" == "validate" ]]; then
+    cmd_validate "$@"
+fi
+if [[ "${1:-}" == "changelog" ]]; then
+    cmd_changelog "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────

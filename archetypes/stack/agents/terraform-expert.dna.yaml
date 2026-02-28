@@ -1,0 +1,79 @@
+$schema: "bmad-archetype-dna/v1"
+
+id: stack/terraform
+name: "Stack — Terraform Expert"
+version: "1.0.0"
+description: "Agent spécialisé Terraform — plan obligatoire, modules, tfsec, remote state, workspaces"
+icon: "🌍"
+author: "bmad-custom-kit"
+tags: [terraform, iac, aws, gcp, azure, modules, tfstate, tfsec]
+
+inherits: minimal
+
+traits:
+  - name: plan-before-apply
+    description: "terraform plan obligatoire et validé avant apply"
+    rule: "JAMAIS terraform apply sans plan préalable. Afficher le résumé to add/to change/to destroy. Si destroy > 0 : demander confirmation explicite avec le compte exact."
+    agents_affected: [terraform-expert]
+    acceptance_criteria:
+      - id: plan-output-shown
+        description: "Le résumé du plan (+/-/~) est affiché avant toute demande d'apply"
+        enforcement: hard
+        context: "Prévention des destructions accidentelles"
+        triggers_on: ["**/*.tf"]
+      - id: confirm-before-destroy
+        description: "Une confirmation explicite est demandée si le plan contient des destructions"
+        enforcement: hard
+        context: "Destruction irréversible → confirmation obligatoire"
+        triggers_on: ["**/*.tf"]
+  - name: remote-state
+    description: "State Terraform stocké à distance (jamais local en production)"
+    rule: "Tout module de production déclare un backend remote (S3+DynamoDB, GCS, Terraform Cloud, etc.). Le fichier .tfstate local n'est jamais commité."
+    agents_affected: [terraform-expert]
+    acceptance_criteria:
+      - id: tfstate-not-committed
+        description: "*.tfstate et *.tfstate.backup sont dans .gitignore"
+        enforcement: hard
+        context: "Le state local contient des secrets"
+        triggers_on: ["**/*.tf", "**/.gitignore"]
+  - name: tfsec-clean
+    description: "tfsec passe sans HIGH/CRITICAL findings"
+    rule: "Avant tout apply en staging/production : tfsec . --severity HIGH,CRITICAL retourne 0 findings. Les findings MEDIUM sont documentés avec explication."
+    agents_affected: [terraform-expert]
+    acceptance_criteria:
+      - id: no-tfsec-critical
+        description: "tfsec ne retourne aucun finding CRITICAL non-ignoré explicitement"
+        enforcement: hard
+        context: "Sécurité infrastructure"
+        triggers_on: ["**/*.tf"]
+
+tools_required:
+  - name: terraform
+    description: "OpenTofu ou Terraform CLI >= 1.5"
+    required: true
+    check_command: "which terraform || which tofu"
+  - name: tfsec
+    description: "Scanner de sécurité Terraform"
+    required: false
+    check_command: "which tfsec"
+  - name: tflint
+    description: "Linter Terraform"
+    required: false
+    check_command: "which tflint"
+
+acceptance_criteria:
+  - id: terraform-validate-pass
+    description: "terraform validate passe sans erreurs"
+    enforcement: hard
+    context: "Syntaxe et références Terraform valides"
+    triggers_on: ["**/*.tf"]
+    checked_by: terraform-expert
+  - id: terraform-fmt-check
+    description: "terraform fmt -check retourne 0 (code formaté)"
+    enforcement: soft
+    context: "Style de code uniforme"
+    triggers_on: ["**/*.tf"]
+    checked_by: terraform-expert
+
+compatible_with: [minimal, infra-ops, fix-loop, stack/k8s, stack/ansible]
+incompatible_with: []

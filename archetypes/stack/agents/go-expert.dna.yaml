@@ -1,0 +1,80 @@
+$schema: "bmad-archetype-dna/v1"
+
+id: stack/go
+name: "Stack — Go Expert"
+version: "1.0.0"
+description: "Agent spécialisé Go — backend performant, tests table-driven, gestion des goroutines"
+icon: "🐹"
+author: "bmad-custom-kit"
+tags: [go, golang, backend, api, grpc, performance, concurrency]
+
+inherits: minimal
+
+traits:
+  - name: table-driven-tests
+    description: "Tests Go en style table-driven obligatoires"
+    rule: "Tout test Go utilise des table-driven tests avec []struct{name, input, expected}. Zéro test répété sans table."
+    agents_affected: [go-expert]
+    acceptance_criteria:
+      - id: table-driven-style
+        description: "Les tests Go sont structurés en table-driven ([]struct avec name/input/expected)"
+        enforcement: hard
+        context: "Pattern Go idiomatique — évite la duplication"
+        triggers_on: ["**/*_test.go"]
+  - name: error-wrapping
+    description: "Erreurs wrappées avec contexte via fmt.Errorf"
+    rule: "Toute erreur retournée utilise fmt.Errorf(\"context: %w\", err). Jamais return err sans contexte sauf au niveau top."
+    agents_affected: [go-expert]
+    acceptance_criteria:
+      - id: errors-wrapped
+        description: "Les erreurs sont wrappées avec fmt.Errorf et %w pour préserver la chaîne"
+        enforcement: soft
+        context: "Permet errors.Is/As en amont"
+        triggers_on: ["**/*.go"]
+  - name: no-goroutine-leak
+    description: "Zéro goroutine leak — chaque goroutine a un mécanisme de fin"
+    rule: "Toute goroutine lancée doit avoir : context.Context pour l'annulation, ou sync.WaitGroup, ou channel de done. Jamais go func() sans mécanisme de terminaison."
+    agents_affected: [go-expert]
+    acceptance_criteria:
+      - id: goroutine-cancellation
+        description: "Toute goroutine reçoit un context.Context ou a un mécanisme d'arrêt explicite"
+        enforcement: hard
+        context: "Prévention des goroutine leaks en production"
+        triggers_on: ["**/*.go"]
+
+tools_required:
+  - name: go
+    description: "Compilateur Go (>= 1.21 recommandé)"
+    required: true
+    check_command: "which go"
+  - name: golangci-lint
+    description: "Linter Go multi-règles"
+    required: false
+    check_command: "which golangci-lint"
+
+constraints:
+  - id: no-global-state
+    description: "Pas de variables globales mutables — passer par injection de dépendances"
+    enforcement: soft
+    checked_by: go-expert
+  - id: interfaces-small
+    description: "Les interfaces Go ont ≤ 3 méthodes (principe de ségrégation)"
+    enforcement: soft
+    checked_by: go-expert
+
+acceptance_criteria:
+  - id: go-vet-pass
+    description: "go vet ./... passe sans warnings avant tout commit"
+    enforcement: hard
+    context: "Vérification statique Go natif"
+    triggers_on: ["**/*.go"]
+    checked_by: go-expert
+  - id: go-test-pass
+    description: "go test ./... -race passe avec le race detector activé"
+    enforcement: hard
+    context: "Détection des data races en CI"
+    triggers_on: ["**/*.go"]
+    checked_by: go-expert
+
+compatible_with: [minimal, web-app, fix-loop, stack/docker, stack/k8s]
+incompatible_with: []

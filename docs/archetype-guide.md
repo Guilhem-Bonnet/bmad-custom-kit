@@ -2,101 +2,319 @@
 
 ## Qu'est-ce qu'un archétype ?
 
-Un archétype est un ensemble pré-configuré d'agents, de templates et de configurations adapté à un type de projet spécifique. Il fournit un point de départ fonctionnel que vous personnalisez pour votre contexte.
+Un archétype est un ensemble pré-configuré d'agents, de workflows, d'un DNA de comportements et de templates adapté à un type de projet spécifique. Chaque archétype déclare ses **traits** (règles comportementales), ses **constraints** (bloquants), ses **tools_required** et ses **acceptance_criteria** machine-lisibles.
+
+```bash
+# Installer un archétype dans un projet existant
+bash bmad-init.sh install --archetype web-app
+bash bmad-init.sh install --archetype stack/go
+bash bmad-init.sh install --list          # voir tous les disponibles
+bash bmad-init.sh install --inspect infra-ops  # détails avant install
+
+# Valider les fichiers DNA
+bash bmad-init.sh validate --all
+
+# Diagnostiquer l'installation
+bash bmad-init.sh doctor
+```
 
 ## Archétypes disponibles
 
-### `minimal`
+### `minimal` — Archétype racine universel
 
 **Cas d'usage** : Tout type de projet — le strict nécessaire pour démarrer.
 
+**Traits DNA :** Plan/Act Mode `[PLAN]/[ACT]`, Extended Thinking `[THINK]`, Failure Museum, CC-aware  
+**Tools requis :** bash, git (python3 recommandé)
+
 **Agents inclus :**
 | Agent | Icône | Rôle |
 |-------|-------|------|
-| Atlas (project-navigator) | 🗺️ | Navigation projet, registre des services, cartographie |
-| Sentinel (agent-optimizer) | 🔍 | Audit qualité des agents, optimisation prompts, **Self-Improvement Loop** |
-| Mnemo (memory-keeper) | 🧠 | Gestion mémoire, contradictions, consolidation |
+| Atlas (project-navigator) | 🗺️ | Navigation projet, registre des services, Repo Map `[RM]` |
+| Sentinel (agent-optimizer) | 🔍 | Audit qualité des agents, optimisation prompts, Self-Improvement Loop |
+| Mnemo (memory-keeper) | 🧠 | Mémoire Qdrant, contradictions, consolidation |
 
 **+ 1 template vierge** (`custom-agent.tpl.md`) pour créer vos propres agents.
 
-**Quand l'utiliser :**
-- Projets non-infrastructure (web apps, APIs, data pipelines)
-- Quand vous voulez construire vos agents de zéro
-- Pour tester le framework avant d'investir dans un archétype complet
+**Acceptance Criteria (générables via `gen-tests.py`) :**
+- `cc-pass-before-done` — cc-verify.sh PASS avant toute déclaration terminé (**hard**)
+- `memory-updated-end-of-session` — Qdrant agent-learnings mis à jour (**soft**)
+- `no-raw-secrets-committed` — zéro secret en clair commité (**hard**)
+
+**Quand l'utiliser :** projets de tout type, base pour tous les autres archétypes.
 
 ---
 
-### `stack` — Modal Team Engine
+### `web-app` — Full-Stack Web
 
-**Cas d'usage** : Déployé automatiquement par `--auto` en fonction du stack détecté. Les agents `stack` s'ajoutent à l'archétype de base choisi.
+**Cas d'usage** : SPA + API REST, fullstack Next.js, backend headless.
 
-**Agents disponibles (déployés sélectivement) :**
-| Agent | Icône | Stack détecté par | Domaine |
-|-------|-------|-----------------|--------|
-| Gopher | 🐹 | `go.mod` | Go — backend, tests table-driven, performance |
-| Pixel | ⚛️ | `package.json` + react/vue/next/vite | TypeScript & React — types, hooks, RTL |
-| Serpent | 🐍 | `requirements.txt` / `pyproject.toml` | Python — types, pytest, ruff |
-| Container | 🐋 | `Dockerfile` / `docker-compose.yml` | Docker — multi-stage, sécurité, healthchecks |
-| Terra | 🌍 | `*.tf` (jusqu'à depth 7) | Terraform — plan obligatoire, modules, tfsec |
-| Kube | ⎈ | `k8s/`, `kind: Deployment` | Kubernetes — workloads, troubleshooting, RBAC |
-| Playbook | 🎭 | `ansible/`, `playbook*.yml`, `ansible.cfg` | Ansible — idémpotence, vault, lint |
+**Traits DNA :** TDD obligatoire, TypeScript strict, API Contract First, Accessibilité WCAG 2.1 AA  
+**Tools requis :** node, docker (recommandé), navigateur headless (E2E)
 
-**Comment ça marche (Modal Team Engine) :**
+**Acceptance Criteria notables :**
+- `tests-written-before-code` — tests avant implémentation (**hard**)
+- `typescript-strict-no-any` — zéro `any` explicite (**hard**)
+- `api-schema-before-impl` — OpenAPI/type avant code API (**soft**)
+- `aria-labels-on-interactive` — WCAG 2.1 AA (**soft**)
+
+**Détection automatique :**
 ```bash
-# L'option --auto fait tout automatiquement :
 bash bmad-init.sh --name "Mon App" --user "Guilhem" --auto
-
-# → 1. detect_stack() scan le répertoire courant
-# → 2. Identifie les stacks : ex. "go frontend docker"
-# → 3. Choisit l'archétype : minimal si app, infra-ops si terraform/k8s/ansible
-# → 4. deploy_stack_agents() copie les agents correspondants
-# Résultat : équipe exactement adaptée à votre projet
+# → stack détecté : go frontend docker
+# → archétype : web-app
+# → agents stack : Gopher + Pixel + Container
 ```
 
-**# `fix-loop`
+---
 
-**Cas d'usage** : Projets nécessitant une boucle de correction rigoureuse — zéro "done" sans preuve d'exécution.
+### `infra-ops` — Infrastructure & DevOps
+
+**Cas d'usage** : Homelab, clusters K8s, IaC Terraform/Ansible, monitoring.
+
+**Traits DNA :** Infrastructure-as-Code, Plan-before-Apply, Security First, Backup-before-Change, Observability Mandatory  
+**Tools requis :** terraform, docker, kubectl (optionnel), ansible (optionnel)
+
+**Agents inclus (3 meta + 7 spécialisés) :**
+
+| Agent | Icône | Rôle |
+|-------|-------|------|
+| Atlas | 🗺️ | Navigation & Mémoire projet |
+| Sentinel | 🔍 | Qualité & Optimisation agents |
+| Mnemo | 🧠 | Mémoire & Qualité connaissances |
+| Forge (ops-engineer) | 🔧 | Infrastructure & Provisioning |
+| Vault (security-hardener) | 🛡️ | Sécurité & Hardening (SOPS, TLS) |
+| Flow (pipeline-architect) | ⚡ | CI/CD & Automation |
+| Hawk (monitoring-specialist) | 📡 | Observabilité (Prometheus, Grafana) |
+| Helm (k8s-navigator) | ☸️ | Kubernetes & Orchestration |
+| Phoenix (backup-dr-specialist) | 🏰 | Backup & Disaster Recovery |
+| Probe (systems-debugger) | 🔬 | Systems Debugging |
+
+**Acceptance Criteria notables :**
+- `terraform-plan-before-apply` — plan validé avant apply (**hard**)
+- `no-secrets-in-tf-state` — zéro secret dans state (**hard**)
+- `backup-snapshot-before-destructive` — snapshot avant migration (**hard**)
+- `monitoring-alert-on-new-service` — alerte sur chaque nouveau service (**soft**)
+
+---
+
+### `fix-loop` — Boucle de Correction Certifiée
+
+**Cas d'usage** : Tout projet avec bugs récurrents — zéro "done" sans preuve d'exécution.
+
+**Traits DNA :** Proof of Execution, FER Isolation, Severity Adaptive S1/S2/S3, Never-Assume-Fixed  
+**Tools requis :** bash, python3 (recommandé)
 
 **Agents inclus :**
 | Agent | Icône | Rôle |
 |-------|-------|------|
-| fix-loop-orchestrator (Loop) | 🔁 | Orchestrateur boucle fermée, sévérité adaptative, META-REVIEW |
+| Loop (fix-loop-orchestrator) | 🔁 | Orchestrateur boucle fermée, FER, META-REVIEW |
 
-**Workflows inclus :**
-| Workflow | Description |
-|----------|-------------|
-| `workflow-closed-loop-fix.tpl.md` | 9 phases, 86 fixes, FER session isolation, auto-amélioration |
-
-**Quand l'utiliser :**
-- Tout projet avec des bugs récurrents ou des régressions
-- Quand l'équipe a besoin de preuves d'exécution systématiques
-- Quand les fixes "ça marche" sans test réel sont un problème
-- En complément de `infra-ops` pour les projets infrastructure
-
-**Combinaison recommandée :** `infra-ops` + `fix-loop` = stack maximale pour l'infrastructure production.
+**Acceptance Criteria notables :**
+- `fer-created-before-fix` — FER YAML créé avant d'écrire du code (**hard**)
+- `all-tests-rerun-after-fix` — toute la suite relancée après fix (**hard**)
+- `fer-closed-with-cc-pass` — CC PASS attaché au FER (**hard**)
 
 **Concepts clés :**
-- **FER** (Fix Evidence Record) : fichier YAML de session isolant chaque cycle de fix
-- **Sévérité S1/S2/S3** : processus adaptatif (S3 = rapide, S1 = toutes phases)
-- **META-REVIEW** : auto-amélioration du workflow après chaque cycle certifié
-- **Challenger adversarial** : tente activement de casser le fix avec preuves
+- **FER** (Fix Evidence Record) : fichier YAML isolant chaque cycle de fix
+- **Sévérité** : S3 = 3 phases, S2 = 6, S1 = 9 phases obligatoires
+- **META-REVIEW** : auto-amélioration du workflow après cycle certifié
 
 ---
 
-##Exemple Anime-Sama-Downloader (Go + React + Docker) :**
-```
-Stack détecté : go frontend docker
-Agent déployés : Gopher 🐹 + Pixel ⚛️ + Container 🐋
+### `stack` — Modal Team Engine (7 experts spécialisés)
+
+**Cas d'usage** : Agents stack déployés automatiquement selon le tech stack détecté.
+
+**Agents et leurs DNA :**
+
+| Agent | Icône | Stack | AC notables |
+|-------|-------|-------|-------------|
+| Gopher | 🐹 | `go.mod` | table-driven tests, error wrapping, no goroutine leak |
+| Pixel | ⚛️ | `package.json` + react/vue | no `any`, props typées, async error handling |
+| Serpent | 🐍 | `requirements.txt` / `pyproject.toml` | type hints, ruff clean, no blocking in async |
+| Container | 🐋 | `Dockerfile` / `docker-compose.yml` | multi-stage, non-root user, healthchecks |
+| Terra | 🌍 | `*.tf` | plan before apply, remote state, tfsec clean |
+| Kube | ⎈ | `k8s/`, `kind: Deployment` | resource limits, RBAC least-privilege, probes |
+| Playbook | 🎭 | `ansible/`, `playbook*.yml` | idempotence, vault for secrets, ansible-lint |
+
+**Génération automatique de tests depuis les DNA :**
+```bash
+# Générer les squelettes de tests pour un agent stack
+python3 framework/tools/gen-tests.py \
+  --dna archetypes/stack/agents/go-expert.dna.yaml \
+  --framework pytest
+
+python3 framework/tools/gen-tests.py \
+  --dna archetypes/stack/agents/typescript-expert.dna.yaml \
+  --framework jest
 ```
 
-**Exemple Terraform-HouseServer (Terraform + Ansible + K8s) :**
-```
-Stack détecté : terraform ansible k8s docker
-Archétype auto : infra-ops
-Agents stack déployés : Terra 🌍 + Playbook 🎭 + Kube ⎈ + Container 🐋
+**Déploiement automatique :**
+```bash
+bash bmad-init.sh --name "Mon API" --user "Guilhem" --auto
+# → stack détecté : go docker
+# → agents stack : Gopher 🐹 + Container 🐋
 ```
 
-> Les agents `stack` complètent l'archétype (ils ne le remplacent pas). Ils intègrent tous le Completion Contract : `cc-verify.sh --stack X` avant tout "terminé".
+**Installation manuelle d'un agent stack :**
+```bash
+bash bmad-init.sh install --archetype stack/go
+bash bmad-init.sh install --archetype stack/typescript
+bash bmad-init.sh install --archetype stack/python
+bash bmad-init.sh install --archetype stack/docker
+bash bmad-init.sh install --archetype stack/k8s
+bash bmad-init.sh install --archetype stack/terraform
+bash bmad-init.sh install --archetype stack/ansible
+```
+
+---
+
+## Accept Criteria & gen-tests.py (BM-27 + BM-29)
+
+Chaque archétype déclare des `acceptance_criteria` dans son DNA. L'outil `gen-tests.py` les convertit en squelettes de tests dans le framework de votre choix.
+
+```bash
+# Lister les AC sans générer
+python3 framework/tools/gen-tests.py \
+  --dna archetypes/infra-ops/archetype.dna.yaml \
+  --list-ac
+
+# Générer les tests (bats pour infra)
+python3 framework/tools/gen-tests.py \
+  --dna archetypes/infra-ops/archetype.dna.yaml \
+  --framework bats \
+  --output tests/infra/
+
+# Frameworks supportés : pytest | jest | bats | go-test | rspec | vitest
+```
+
+---
+
+## .agent-rules — Override DNA par dossier (BM-25)
+
+Un fichier `.agent-rules` dans n'importe quel dossier surcharge localement le DNA global :
+
+```yaml
+# src/payments/.agent-rules
+scope: "src/payments/"
+priority: 1
+rules:
+  - id: "pci-mandatory"
+    description: "Validation Sentinel obligatoire avant toute modification payments"
+    enforcement: hard
+auto_load:
+  - "docs/pci-dss-checklist.md"
+reminders:
+  - "⚠️  Module PCI-DSS — double review obligatoire"
+```
+
+Référence : [framework/agent-rules.md](../framework/agent-rules.md)
+
+---
+
+## Créer un nouvel archétype
+
+```bash
+# Structure minimale
+mkdir -p archetypes/mon-archetype/agents/
+cat > archetypes/mon-archetype/archetype.dna.yaml << 'EOF'
+$schema: "bmad-archetype-dna/v1"
+id: mon-archetype
+name: "Mon Archétype"
+version: "1.0.0"
+description: "Description courte"
+icon: "🎯"
+author: "votre-nom"
+tags: [custom]
+inherits: minimal
+traits: []
+tools_required: []
+acceptance_criteria: []
+compatible_with: [minimal, fix-loop]
+incompatible_with: []
+EOF
+
+# Valider le DNA
+bash bmad-init.sh validate --dna archetypes/mon-archetype/archetype.dna.yaml
+
+# Installer
+bash bmad-init.sh install --archetype mon-archetype
+```
+
+Voir : [creating-agents.md](creating-agents.md) et [framework/archetype-dna.schema.yaml](../framework/archetype-dna.schema.yaml)
+
+---
+
+## Personnaliser un archétype installé
+
+### Étape 1 : Adapter les identités agents
+
+Chaque agent a des `{{placeholders}}` à remplacer :
+
+```markdown
+<!-- AVANT -->
+Tu es Forge, expert IaC pour {{network_cidr}}, déploiement via {{infra_dir}}.
+
+<!-- APRÈS -->
+Tu es Forge, expert IaC pour 10.0.0.0/8, déploiement via terraform-prod/.
+```
+
+### Étape 2 : Remplir `shared-context.md`
+
+Source de vérité lue par tous les agents — décrire stack, architecture, services, conventions.
+
+### Étape 3 : Configurer `project-context.yaml`
+
+```yaml
+session_branch: "main"
+installed_archetypes:
+  - id: web-app
+    installed_at: "2026-02-27"
+context_budget:
+  default_max_tokens: 80000
+repo_map:
+  enabled: true
+  strategy: find
+```
+
+### Étape 4 : Créer des `.agent-rules` pour les modules critiques
+
+```bash
+echo 'rules: [{id: no-plaintext-secrets, description: "No secrets in yaml", enforcement: hard}]' \
+  > src/config/.agent-rules
+```
+
+---
+
+## Diagnostics
+
+```bash
+# Health check complet
+bash bmad-init.sh doctor
+
+# Valider tous les DNA
+bash bmad-init.sh validate --all
+
+# Générer CHANGELOG depuis les décisions agents
+bash bmad-init.sh changelog
+
+# Voir l'audit trail des actions
+bash bmad-init.sh trace --tail 50
+bash bmad-init.sh trace --type DECISION
+```
+
+---
+
+## Ressources complémentaires
+
+- [getting-started.md](getting-started.md) — Démarrage en 7 étapes
+- [memory-system.md](memory-system.md) — Mémoire Qdrant multi-collection
+- [workflow-design-patterns.md](workflow-design-patterns.md) — 13 patterns universels
+- [creating-agents.md](creating-agents.md) — Créer un agent custom
+- [framework/archetype-dna.schema.yaml](../framework/archetype-dna.schema.yaml) — Schéma DNA complet
+- [framework/context-router.md](../framework/context-router.md) — Gestion du budget contexte
+- [framework/agent-rules.md](../framework/agent-rules.md) — Override DNA par dossier
 
 ---
 
