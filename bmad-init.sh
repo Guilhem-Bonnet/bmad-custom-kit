@@ -142,6 +142,15 @@ Exemples:
   $(basename "$0") reasoning log --agent dev --type HYPOTHESIS --text "..."  # Log reasoning
   $(basename "$0") reasoning query --type DOUBT # Interroger le stream
   $(basename "$0") reasoning analyze            # Analyse du flux de raisonnement
+  $(basename "$0") migrate export               # Exporter un bundle de migration
+  $(basename "$0") migrate import --bundle B    # Importer un bundle
+  $(basename "$0") migrate inspect --bundle B   # Inspecter un bundle
+  $(basename "$0") migrate diff --bundle B      # Diff bundle vs projet
+  $(basename "$0") darwinism evaluate           # Évaluer la fitness des agents
+  $(basename "$0") darwinism leaderboard        # Classement des agents
+  $(basename "$0") darwinism evolve             # Actions évolutives
+  $(basename "$0") darwinism history            # Historique des générations
+  $(basename "$0") darwinism lineage --agent X  # Lignée d'un agent
 
 Options guard:
   guard                    Analyser le budget de contexte de tous les agents
@@ -206,6 +215,27 @@ Options reasoning:
   reasoning compact [--before DATE]  Compacter les anciennes entrées
   reasoning stats                    Statistiques rapides
   reasoning resolve --timestamp TS --status STATUS  Changer le statut
+
+Options migrate:
+  migrate export                  Exporter les artefacts dans un bundle portable
+  migrate export --only TYPE,...  Filtrer par type (learnings,rules,dna_patches,agents,consensus,antifragile)
+  migrate export --since DATE     Exporter depuis une date
+  migrate export --output PATH    Fichier de sortie (défaut: _bmad-output/migration-bundle.json)
+  migrate import --bundle PATH    Importer un bundle dans le projet
+  migrate import --bundle P --dry-run  Preview sans modifier
+  migrate inspect --bundle PATH   Inspecter le contenu d'un bundle
+  migrate diff --bundle PATH      Comparer un bundle avec le projet
+
+Options darwinism:
+  darwinism evaluate              Évaluer la fitness de tous les agents
+  darwinism evaluate --since DATE Évaluer depuis une date
+  darwinism evaluate --json       Sortie JSON
+  darwinism leaderboard           Classement par score fitness
+  darwinism evolve                Proposer des actions évolutives
+  darwinism evolve --dry-run      Preview sans sauvegarder
+  darwinism evolve --json         Sortie JSON
+  darwinism history               Historique des générations
+  darwinism lineage --agent ID    Lignée évolutive d'un agent
 
 EOF
     exit 0
@@ -963,6 +993,48 @@ cmd_reasoning() {
     exit $?
 }
 
+# ─── Cross-Project Migration ─────────────────────────────────────────────────
+# Migration d'artefacts entre projets BMAD (learnings, rules, DNA, agents)
+# Usage: bmad-init.sh migrate export|import|inspect|diff [...]
+cmd_migrate() {
+    shift  # retirer "migrate"
+
+    local mg_script
+    mg_script="$(dirname "$(realpath "$0")")/framework/tools/cross-migrate.py"
+
+    if [[ ! -f "$mg_script" ]]; then
+        error "framework/tools/cross-migrate.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour migrate"
+    fi
+
+    echo ""
+    python3 "$mg_script" --project-root "$(pwd)" "$@"
+    exit $?
+}
+
+# ─── Agent Darwinism ─────────────────────────────────────────────────────────
+# Sélection naturelle des agents — fitness, évolution, leaderboard
+# Usage: bmad-init.sh darwinism evaluate|leaderboard|evolve|history|lineage [...]
+cmd_darwinism() {
+    shift  # retirer "darwinism"
+
+    local dw_script
+    dw_script="$(dirname "$(realpath "$0")")/framework/tools/agent-darwinism.py"
+
+    if [[ ! -f "$dw_script" ]]; then
+        error "framework/tools/agent-darwinism.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour darwinism"
+    fi
+
+    echo ""
+    python3 "$dw_script" --project-root "$(pwd)" "$@"
+    exit $?
+}
+
 # ─── Upgrade (NEW) ─────────────────────────────────────────────────────────
 # Mise à jour du framework dans un projet existant
 # Usage: bmad-init.sh upgrade [--dry-run] [--force]
@@ -1687,6 +1759,12 @@ if [[ "${1:-}" == "antifragile" ]]; then
 fi
 if [[ "${1:-}" == "reasoning" ]]; then
     cmd_reasoning "$@"
+fi
+if [[ "${1:-}" == "migrate" ]]; then
+    cmd_migrate "$@"
+fi
+if [[ "${1:-}" == "darwinism" ]]; then
+    cmd_darwinism "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────

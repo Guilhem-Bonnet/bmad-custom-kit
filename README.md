@@ -32,6 +32,8 @@ Chaque agent a une persona forte, un domaine d'expertise précis, et s'inscrit d
 - 🏛️ **Adversarial Consensus** — protocole BFT simplifié pour les décisions critiques : 3 votants + 1 avocat du diable
 - 🛡️ **Anti-Fragile Score** — mesure la résilience adaptative du système (recovery, learning velocity, signal trend, etc.)
 - 🧠 **Reasoning Stream** — flux de raisonnement structuré : capture HYPOTHESIS, DOUBT, ASSUMPTION, ALTERNATIVE avec analyse et compaction
+- 📦 **Cross-Project Migration** — exporte et importe des artefacts BMAD entre projets (learnings, rules, DNA, agents, consensus, anti-fragile)
+- 🧬 **Agent Darwinism** — sélection naturelle des agents : fitness multi-dimensionnelle, évolution par générations, leaderboard, hybridation
 
 ## Quick Start
 
@@ -322,6 +324,19 @@ bash bmad-init.sh reasoning query --type DOUBT --status open
 bash bmad-init.sh reasoning analyze          # rapport d'analyse
 bash bmad-init.sh reasoning compact --before 2026-01-01  # archiver les anciennes entrées
 bash bmad-init.sh reasoning stats            # statistiques rapides
+
+# Cross-Project Migration — pollinisation entre projets
+bash bmad-init.sh migrate export              # exporter un bundle
+bash bmad-init.sh migrate export --only learnings,rules --since 2026-01-01
+bash bmad-init.sh migrate inspect --bundle migration-bundle.json
+bash bmad-init.sh migrate import --bundle migration-bundle.json --dry-run
+
+# Agent Darwinism — sélection naturelle des agents
+bash bmad-init.sh darwinism evaluate           # évaluer la fitness
+bash bmad-init.sh darwinism leaderboard        # classement
+bash bmad-init.sh darwinism evolve             # actions évolutives
+bash bmad-init.sh darwinism history            # historique des générations
+bash bmad-init.sh darwinism lineage --agent dev # lignée d'un agent
 ```
 
 Voir [framework/tools/README.md](framework/tools/README.md) pour la référence complète.
@@ -366,9 +381,9 @@ bash _bmad/_config/custom/sil-collect.sh
 
 ## 🧪 Tests
 
-Le kit inclut une suite de tests complète (520+ tests) en deux catégories :
+Le kit inclut une suite de tests complète (641+ tests) en deux catégories :
 
-**Tests unitaires Python** (12 fichiers, 520 tests) :
+**Tests unitaires Python** (14 fichiers, 641 tests) :
 ```bash
 # Lancer tous les tests
 python3 -m unittest discover -s tests -v
@@ -391,6 +406,8 @@ python3 -m unittest tests.test_context_guard_advanced -v
 | `test_adversarial_consensus.py` | Adversarial Consensus | 76 |
 | `test_antifragile_score.py` | Anti-Fragile Score | 76 |
 | `test_reasoning_stream.py` | Reasoning Stream | 56 |
+| `test_cross_migrate.py` | Cross-Project Migration | 59 |
+| `test_agent_darwinism.py` | Agent Darwinism | 62 |
 
 **Smoke tests Bash** (78 assertions) :
 ```bash

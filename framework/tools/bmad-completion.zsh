@@ -70,6 +70,8 @@ _bmad_init_complete() {
         'consensus:Protocole de consensus adversarial'
         'antifragile:Score d'anti-fragilité — résilience adaptative'
         'reasoning:Flux de raisonnement structuré'
+        'migrate:Migration cross-projet d'artefacts BMAD'
+        'darwinism:Sélection naturelle des agents — fitness et évolution'
     )
     
     local context curcontext="$curcontext" line state
@@ -251,6 +253,37 @@ _bmad_init_complete() {
                     case "$state" in
                         reasoning_sub)
                             _describe 'sous-commande reasoning' reasoning_cmds
+                            ;;
+                    esac
+                    ;;
+                migrate)
+                    local -a migrate_cmds
+                    migrate_cmds=('export:Exporter un bundle' 'import:Importer un bundle' 'inspect:Inspecter un bundle' 'diff:Comparer bundle vs projet')
+                    _arguments \
+                        '1:sous-commande:->migrate_sub' \
+                        '--output[Fichier de sortie]:output_file:_files' \
+                        '--only[Types à exporter]:types:(learnings rules dna_patches agents consensus antifragile)' \
+                        '--since[Depuis une date]:date:' \
+                        '--bundle[Fichier bundle]:bundle_file:_files -g "*.json"' \
+                        '--dry-run[Preview sans modifier]'
+                    case "$state" in
+                        migrate_sub)
+                            _describe 'sous-commande migrate' migrate_cmds
+                            ;;
+                    esac
+                    ;;
+                darwinism)
+                    local -a darwinism_cmds
+                    darwinism_cmds=('evaluate:Évaluer la fitness' 'leaderboard:Classement' 'evolve:Actions évolutives' 'history:Historique' 'lineage:Lignée d'un agent')
+                    _arguments \
+                        '1:sous-commande:->darwinism_sub' \
+                        '--since[Depuis une date]:date:' \
+                        '--agent[Agent spécifique]:agent_id:' \
+                        '--dry-run[Preview sans sauvegarder]' \
+                        '--json[Sortie JSON]'
+                    case "$state" in
+                        darwinism_sub)
+                            _describe 'sous-commande darwinism' darwinism_cmds
                             ;;
                     esac
                     ;;

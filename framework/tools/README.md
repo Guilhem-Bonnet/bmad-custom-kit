@@ -16,6 +16,8 @@ Ce dossier contient les outils Python (stdlib only, Python 3.10+) invocables via
 | `adversarial-consensus.py` | `consensus` | Protocole de consensus adversarial pour décisions critiques |
 | `antifragile-score.py` | `antifragile` | Score d'anti-fragilité — mesure la résilience adaptative |
 | `reasoning-stream.py` | `reasoning` | Flux de raisonnement structuré — hypothèses, doutes, assumptions |
+| `cross-migrate.py` | `migrate` | Migration cross-projet d'artefacts BMAD (learnings, rules, DNA, agents) |
+| `agent-darwinism.py` | `darwinism` | Sélection naturelle des agents — fitness, évolution, leaderboard |
 | `gen-tests.py` | *(direct)* | Génère des templates de tests pour les agents |
 | `bmad-completion.zsh` | *(source)* | Autocomplétion zsh pour `bmad-init.sh` |
 
@@ -232,7 +234,75 @@ echo "source /chemin/vers/bmad-custom-kit/framework/tools/bmad-completion.zsh" >
 source ~/.zshrc
 ```
 
-**Subcommands complétés :** session-branch, install, resume, trace, doctor, validate, changelog, hooks, bench, forge, guard, evolve, dream, consensus, antifragile, reasoning
+**Subcommands complétés :** session-branch, install, resume, trace, doctor, validate, changelog, hooks, bench, forge, guard, evolve, dream, consensus, antifragile, reasoning, migrate, darwinism
+
+---
+
+## `cross-migrate.py` — Cross-Project Migration
+
+Exporte et importe des artefacts BMAD entre projets : learnings, règles du Failure Museum, DNA patches, agents forgés, historique consensus, historique anti-fragile.
+
+```bash
+# Exporter un bundle complet
+bash bmad-init.sh migrate export
+bash bmad-init.sh migrate export --only learnings,rules
+bash bmad-init.sh migrate export --since 2026-01-01 --output my-bundle.json
+
+# Inspecter un bundle
+bash bmad-init.sh migrate inspect --bundle migration-bundle.json
+
+# Comparer avec le projet
+bash bmad-init.sh migrate diff --bundle migration-bundle.json
+
+# Importer
+bash bmad-init.sh migrate import --bundle migration-bundle.json
+bash bmad-init.sh migrate import --bundle migration-bundle.json --dry-run
+```
+
+**Types d'artefacts :** learnings, rules, dna_patches, agents, consensus, antifragile
+
+**Format :** bundle JSON portable (`.bmad-bundle.json`) avec manifeste, déduplication à l'import
+
+**Sortie :** `_bmad-output/migration-bundle.json` (défaut)
+
+---
+
+## `agent-darwinism.py` — Agent Darwinism
+
+Évalue la fitness des agents sur des générations successives et propose des actions évolutives : promotion, amélioration, hybridation, dépréciation.
+
+```bash
+# Évaluer la fitness
+bash bmad-init.sh darwinism evaluate
+bash bmad-init.sh darwinism evaluate --since 2026-01-01 --json
+
+# Classement
+bash bmad-init.sh darwinism leaderboard
+
+# Actions évolutives
+bash bmad-init.sh darwinism evolve
+bash bmad-init.sh darwinism evolve --dry-run
+
+# Historique des générations
+bash bmad-init.sh darwinism history
+
+# Lignée d'un agent
+bash bmad-init.sh darwinism lineage --agent dev
+```
+
+**Dimensions de fitness (pondérées, total 100) :**
+- Fiabilité (0.25) — AC pass rate, faible taux de failures
+- Productivité (0.20) — commits, décisions
+- Apprentissage (0.20) — learnings capitalisés
+- Adaptabilité (0.15) — diversité stories
+- Résilience (0.10) — récupération après failures
+- Influence (0.10) — checkpoints, décisions collectives
+
+**Niveaux :** 🟢 ELITE (≥75) | 🟡 VIABLE (40-74) | 🟠 FRAGILE (20-39) | 🔴 OBSOLETE (<20)
+
+**Actions :** ⬆️ PROMOTE | 🔧 IMPROVE | 🧬 HYBRIDIZE | ⬇️ DEPRECATE | 👁️ OBSERVE
+
+**Sortie :** `_bmad-output/darwinism-history.json`
 
 ---
 
