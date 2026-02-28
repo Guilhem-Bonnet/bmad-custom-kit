@@ -129,6 +129,13 @@ Exemples:
   $(basename "$0") evolve --apply               # Appliquer le dernier patch
   $(basename "$0") upgrade                      # Mettre à jour le framework
   $(basename "$0") upgrade --dry-run            # Voir les changements sans appliquer
+  $(basename "$0") dream                        # Dream Mode — insights hors-session
+  $(basename "$0") dream --since 2026-01-01     # Depuis une date
+  $(basename "$0") dream --agent dev            # Focus un agent
+  $(basename "$0") dream --dry-run              # Preview sans écrire
+  $(basename "$0") consensus --proposal "..."   # Adversarial Consensus Protocol
+  $(basename "$0") consensus --history          # Historique des décisions
+  $(basename "$0") consensus --stats            # Statistiques
 
 Options guard:
   guard                    Analyser le budget de contexte de tous les agents
@@ -160,6 +167,23 @@ Options forge:
   forge --install AGENT       Installer un proposal reviewé dans le répertoire des agents
   forge --archetype TYPE      Archétype de référence (défaut: custom)
   forge --out DIR             Dossier de sortie (défaut: _bmad-output/forge-proposals/)
+
+Options dream:
+  dream                    Exécuter un cycle de Dream Mode (consolidation hors-session)
+  dream --since YYYY-MM-DD Analyser depuis une date
+  dream --agent AGENT_ID   Filtrer les sources par agent
+  dream --validate         Activer la validation stricte des insights
+  dream --dry-run          Afficher sans écrire le journal
+  dream --json             Sortie JSON
+
+Options consensus:
+  consensus --proposal "texte"  Évaluer une proposition via le protocole adversarial
+  consensus --proposal-file F   Charger la proposition depuis un fichier
+  consensus --threshold PCT     Seuil de consensus (défaut: 0.66)
+  consensus --history           Afficher l'historique des décisions
+  consensus --stats             Statistiques agrégées
+  consensus --json              Sortie JSON
+  consensus --dry-run           Ne pas sauvegarder dans l'historique
 
 EOF
     exit 0
@@ -830,6 +854,48 @@ cmd_evolve() {
     echo ""
     info "BMAD DNA Evolution Engine"
     python3 "$evolve_script" "$@"
+    exit $?
+}
+
+# ─── Dream Mode ──────────────────────────────────────────────────────────────
+# Consolidation hors-session : insights émergents depuis la mémoire
+# Usage: bmad-init.sh dream [--since DATE] [--agent ID] [--validate] [--dry-run]
+cmd_dream() {
+    shift  # retirer "dream"
+
+    local dream_script
+    dream_script="$(dirname "$(realpath "$0")")/framework/tools/dream.py"
+
+    if [[ ! -f "$dream_script" ]]; then
+        error "framework/tools/dream.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour dream"
+    fi
+
+    echo ""
+    python3 "$dream_script" --project-root "$(pwd)" "$@"
+    exit $?
+}
+
+# ─── Adversarial Consensus Protocol ──────────────────────────────────────────
+# Protocole de consensus BFT pour les décisions critiques
+# Usage: bmad-init.sh consensus --proposal "..." [--threshold N] [--history] [--stats]
+cmd_consensus() {
+    shift  # retirer "consensus"
+
+    local consensus_script
+    consensus_script="$(dirname "$(realpath "$0")")/framework/tools/adversarial-consensus.py"
+
+    if [[ ! -f "$consensus_script" ]]; then
+        error "framework/tools/adversarial-consensus.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour consensus"
+    fi
+
+    echo ""
+    python3 "$consensus_script" --project-root "$(pwd)" "$@"
     exit $?
 }
 
@@ -1545,6 +1611,12 @@ if [[ "${1:-}" == "evolve" ]]; then
 fi
 if [[ "${1:-}" == "upgrade" ]]; then
     cmd_upgrade "$@"
+fi
+if [[ "${1:-}" == "dream" ]]; then
+    cmd_dream "$@"
+fi
+if [[ "${1:-}" == "consensus" ]]; then
+    cmd_consensus "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────

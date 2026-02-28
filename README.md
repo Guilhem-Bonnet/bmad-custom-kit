@@ -28,6 +28,8 @@ Chaque agent a une persona forte, un domaine d'expertise précis, et s'inscrit d
 - 🧬 **DNA Evolution Engine** — fait évoluer `archetype.dna.yaml` depuis l'usage réel du projet (BMAD_TRACE)
 - 🔨 **Agent Forge** — génère des squelettes d'agents depuis une description textuelle ou les lacunes détectées
 - 📊 **Agent Bench** — mesure les scores de performance des agents et produit un plan d'amélioration
+- 🌙 **Dream Mode** — consolidation hors-session : croise mémoire, trace, decisions et failure museum pour produire des insights émergents
+- 🏛️ **Adversarial Consensus** — protocole BFT simplifié pour les décisions critiques : 3 votants + 1 avocat du diable
 
 ## Quick Start
 
@@ -268,7 +270,7 @@ bash bmad-init.sh upgrade --force      # écrase même les fichiers modifiés lo
 
 ### Outils CLI avancés
 
-Quatre outils CLI pour maintenir le kit en bonne santé sur la durée :
+Six outils CLI pour maintenir le kit en bonne santé sur la durée :
 
 ```bash
 # Bench — mesurer les scores de performance des agents
@@ -292,6 +294,19 @@ bash bmad-init.sh evolve                    # proposer évolutions depuis BMAD_T
 bash bmad-init.sh evolve --report           # rapport Markdown seul
 bash bmad-init.sh evolve --since 2026-01-01 # période spécifique
 bash bmad-init.sh evolve --apply            # appliquer le dernier patch (après review)
+
+# Dream — consolidation hors-session et insights émergents
+bash bmad-init.sh dream                     # dream complet (toutes les sources)
+bash bmad-init.sh dream --since 2026-01-01  # depuis une date
+bash bmad-init.sh dream --agent dev         # focus un agent
+bash bmad-init.sh dream --validate          # valider les insights (no hallucination)
+bash bmad-init.sh dream --dry-run           # preview sans écrire
+
+# Consensus — protocole de consensus adversarial pour décisions critiques
+bash bmad-init.sh consensus --proposal "Utiliser PostgreSQL pour le cache sessions"
+bash bmad-init.sh consensus --proposal-file proposal.md --threshold 0.75
+bash bmad-init.sh consensus --history       # voir les décisions passées
+bash bmad-init.sh consensus --stats         # statistiques de consensus
 ```
 
 Voir [framework/tools/README.md](framework/tools/README.md) pour la référence complète.
@@ -336,9 +351,9 @@ bash _bmad/_config/custom/sil-collect.sh
 
 ## 🧪 Tests
 
-Le kit inclut une suite de tests complète (244+ tests) en deux catégories :
+Le kit inclut une suite de tests complète (388+ tests) en deux catégories :
 
-**Tests unitaires Python** (8 fichiers, 244 tests) :
+**Tests unitaires Python** (10 fichiers, 388 tests) :
 ```bash
 # Lancer tous les tests
 python3 -m unittest discover -s tests -v
@@ -357,6 +372,8 @@ python3 -m unittest tests.test_context_guard_advanced -v
 | `test_dna_evolve.py` | DNA Evolve | 25 |
 | `test_session_save.py` | Session Save | 11 |
 | `test_gen_tests.py` | Gen Tests (scaffolding) | 31 |
+| `test_dream.py` | Dream Mode | 68 |
+| `test_adversarial_consensus.py` | Adversarial Consensus | 76 |
 
 **Smoke tests Bash** (78 assertions) :
 ```bash

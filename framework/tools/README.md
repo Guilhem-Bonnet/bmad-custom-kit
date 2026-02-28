@@ -12,6 +12,8 @@ Ce dossier contient les outils Python (stdlib only, Python 3.10+) invocables via
 | `agent-forge.py` | `forge` | Génère des squelettes d'agents depuis le besoin projet |
 | `context-guard.py` | `guard` | Analyse le budget de contexte LLM des agents |
 | `dna-evolve.py` | `evolve` | Fait évoluer la DNA archétype depuis l'usage réel |
+| `dream.py` | `dream` | Consolidation hors-session — insights émergents cross-domaine |
+| `adversarial-consensus.py` | `consensus` | Protocole de consensus adversarial pour décisions critiques |
 | `gen-tests.py` | *(direct)* | Génère des templates de tests pour les agents |
 | `bmad-completion.zsh` | *(source)* | Autocomplétion zsh pour `bmad-init.sh` |
 
@@ -111,6 +113,52 @@ bash bmad-init.sh evolve --dna path/custom.dna.yaml  # DNA source spécifique
 
 ---
 
+## `dream.py` — Dream Mode
+
+Simule une phase de "rêve" : les agents relisent learnings, decisions, trace, failure museum et shared-context, puis produisent des insights cross-domaine qu'aucun agent n'aurait formulés en session. Mode read-only : aucun fichier source n'est modifié.
+
+```bash
+bash bmad-init.sh dream                     # dream complet (toutes les sources)
+bash bmad-init.sh dream --since 2026-01-01  # depuis une date
+bash bmad-init.sh dream --agent dev         # focus un agent
+bash bmad-init.sh dream --validate          # valider les insights (no hallucination)
+bash bmad-init.sh dream --dry-run           # preview sans écrire
+bash bmad-init.sh dream --json              # sortie JSON
+```
+
+**6 sources analysées :** learnings, decisions-log, BMAD_TRACE, failure-museum, shared-context, contradiction-log
+
+**4 dimensions d'analyse :**
+1. Connexions croisées entre sources de types différents
+2. Patterns récurrents (keywords dans ≥ 2 sources)
+3. Tensions et contradictions (marqueurs positifs vs négatifs)
+4. Opportunités d'amélioration (TODO, "à améliorer", "not yet"…)
+
+**Sortie :** `_bmad-output/dream-journal.md` (avec auto-archive des précédents)
+
+---
+
+## `adversarial-consensus.py` — Consensus
+
+Protocole BFT simplifié pour les décisions architecturales / techniques majeures. 3 votants (technique, business, risque) + 1 avocat du diable qui tente activement de casser la proposition.
+
+```bash
+bash bmad-init.sh consensus --proposal "Utiliser PostgreSQL pour le cache sessions"
+bash bmad-init.sh consensus --proposal-file proposal.md
+bash bmad-init.sh consensus --proposal "..." --threshold 0.75
+bash bmad-init.sh consensus --history       # décisions passées
+bash bmad-init.sh consensus --stats         # statistiques agrégées
+bash bmad-init.sh consensus --json          # sortie JSON
+```
+
+**3 perspectives :** technique (🔧), business (📊), risque (⚠️) + Devil's Advocate (😈)
+
+**Seuil de consensus :** 66% par défaut (2/3 des votants), ajustable via `--threshold`
+
+**Sortie :** rapport Markdown + historique JSON dans `_bmad-output/consensus-history.json`
+
+---
+
 ## `bmad-completion.zsh` — Autocomplétion
 
 Fournit l'autocomplétion zsh pour tous les subcommands et options de `bmad-init.sh`.
@@ -122,7 +170,7 @@ echo "source /chemin/vers/bmad-custom-kit/framework/tools/bmad-completion.zsh" >
 source ~/.zshrc
 ```
 
-**Subcommands complétés :** session-branch, install, resume, trace, doctor, validate, changelog, hooks, bench, forge, guard, evolve
+**Subcommands complétés :** session-branch, install, resume, trace, doctor, validate, changelog, hooks, bench, forge, guard, evolve, dream, consensus
 
 ---
 
