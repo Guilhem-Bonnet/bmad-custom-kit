@@ -1433,6 +1433,44 @@ deploy_stack_agents() {
     fi
 }
 
+# ─── Détection automatique du backend mémoire ────────────────────────────────
+detect_memory_backend() {
+    # Qdrant local (docker)
+    if curl -sf http://localhost:6333/healthz &>/dev/null 2>&1; then
+        echo "qdrant-local"
+        return
+    fi
+    # Ollama
+    if curl -sf http://localhost:11434/api/tags &>/dev/null 2>&1; then
+        echo "ollama"
+        return
+    fi
+    # Fallback : local JSON
+    echo "local"
+}
+
+# ─── Déploiement des agents features selon le backend mémoire ────────────────
+# Copie les agents features (ex: vectus pour vector-memory) si le backend le
+# supporte. Appelé uniquement pendant l'init.
+deploy_feature_agents() {
+    local backend="$1"
+    local target_agents_dir="$2"
+    local features_dir="$SCRIPT_DIR/archetypes/features"
+
+    [[ ! -d "$features_dir" ]] && return 0
+
+    # vector-memory : déployer Vectus si backend sémantique
+    case "$backend" in
+        qdrant-*|ollama|semantic)
+            local vectus="$features_dir/vector-memory/vectus.md"
+            if [[ -f "$vectus" ]] && [[ ! -f "$target_agents_dir/vectus.md" ]]; then
+                cp "$vectus" "$target_agents_dir/vectus.md"
+                ok "Agent feature déployé : vectus.md (vector-memory)"
+            fi
+            ;;
+    esac
+}
+
 # ─── Validation ──────────────────────────────────────────────────────────────
 [[ -z "$PROJECT_NAME" ]] && error "--name est requis"
 [[ -z "$USER_NAME" ]]    && error "--user est requis"
@@ -1768,12 +1806,12 @@ echo "     ${CYAN}npx bmad-install${NC}"
 echo ""
 echo "  Pour vérifier l'installation :"
 echo "     ${CYAN}python3 _bmad/_memory/maintenance.py health-check${NC}"
-  echo ""
-  echo "  Completion Contract — vérifier votre code :"
-  echo "     ${CYAN}bash _bmad/_config/custom/cc-verify.sh${NC}"
-  echo ""
+echo ""
+echo "  Completion Contract — vérifier votre code :"
+echo "     ${CYAN}bash _bmad/_config/custom/cc-verify.sh${NC}"
+echo ""
 
-  if $AUTO_DETECT && [[ -n "${DETECTED_STACKS:-}" ]]; then
+if $AUTO_DETECT && [[ -n "${DETECTED_STACKS:-}" ]]; then
     echo -e "  ${CYAN}Stack(s) détecté(s) : ${GREEN}$DETECTED_STACKS${NC}"
     echo ""
-  fi
+fi

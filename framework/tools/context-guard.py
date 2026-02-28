@@ -48,7 +48,7 @@ MODEL_WINDOWS: dict[str, int] = {
     "codex":             192_000,
     # Google
     "gemini-1.5-pro":  1_000_000,
-    "gemini-2.0-flash":1_000_000,
+    "gemini-2.0-flash":  1_000_000,
     # Local
     "codestral":         32_000,
     "llama3":            8_000,

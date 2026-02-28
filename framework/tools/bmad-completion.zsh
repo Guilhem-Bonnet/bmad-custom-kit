@@ -186,7 +186,7 @@ _bmad_init_complete() {
                     ;;
                 guard)
                     local -a models
-                    models=(claude-opus-4 claude-sonnet-4 gpt-4o gpt-4o-mini gemini-1.5-pro gemini-1.0-pro llama3-8b)
+                    models=(claude-opus-4 claude-sonnet-4 claude-3-7-sonnet claude-haiku gpt-4o gpt-4o-mini gpt-4-turbo o1 o3 codex gemini-1.5-pro gemini-2.0-flash codestral llama3 mistral qwen2.5 copilot)
                     _arguments \
                         '--agent[Agent spécifique à analyser]:agent_id:' \
                         '--detail[Détail fichier par fichier]' \
