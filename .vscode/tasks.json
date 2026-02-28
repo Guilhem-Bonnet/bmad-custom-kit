@@ -195,6 +195,69 @@
       "problemMatcher": []
     },
 
+    // ── Groupe : Context Budget Guard (BM-55) ───────────────────────────
+    {
+      "label": "BMAD: Guard — budget contexte (tous agents)",
+      "type": "shell",
+      "command": "bash bmad-init.sh guard --suggest",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Guard — agent spécifique",
+      "type": "shell",
+      "command": "bash bmad-init.sh guard --agent '${input:agentId}' --detail",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+
+    // ── Groupe : DNA Evolution Engine (BM-56) ────────────────────────────
+    {
+      "label": "BMAD: Evolve — proposer des évolutions DNA",
+      "type": "shell",
+      "command": "bash bmad-init.sh evolve",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Evolve — rapport seul (sans patch)",
+      "type": "shell",
+      "command": "bash bmad-init.sh evolve --report",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMAD: Evolve — appliquer le dernier patch DNA",
+      "type": "shell",
+      "command": "bash bmad-init.sh evolve --apply",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
     // ── Groupe : Agent Forge (BM-52) ────────────────────────────────
     {
       "label": "BMAD: Forge agent (depuis description)",
@@ -297,6 +360,12 @@
       "type": "promptString",
       "description": "Décris le besoin de l'agent en langage naturel",
       "default": "je veux un agent pour gérer les migrations de base de données"
+    },
+    {
+      "id": "agentId",
+      "type": "promptString",
+      "description": "ID ou nom de l'agent à analyser (ex: atlas, dev, sentinel)",
+      "default": "atlas"
     }
   ]
 }

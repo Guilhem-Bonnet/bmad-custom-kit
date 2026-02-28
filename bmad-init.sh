@@ -115,6 +115,30 @@ Exemples:
   $(basename "$0") forge --from-trace
   $(basename "$0") forge --list
   $(basename "$0") forge --install db-migrator
+  $(basename "$0") guard                          # Budget contexte de tous les agents
+  $(basename "$0") guard --agent atlas --detail   # Détail d'un agent
+  $(basename "$0") guard --suggest               # + recommandations Mnemo
+  $(basename "$0") evolve                        # Proposer évolutions DNA
+  $(basename "$0") evolve --report              # Rapport seul
+  $(basename "$0") evolve --since 2026-01-01    # Depuis une date
+  $(basename "$0") evolve --apply               # Appliquer le dernier patch
+
+Options guard:
+  guard                    Analyser le budget de contexte de tous les agents
+  guard --agent AGENT_ID   Analyser un agent spécifique
+  guard --detail           Détail fichier par fichier
+  guard --model MODEL      Modèle cible (défaut: copilot / 200K tokens)
+  guard --threshold PCT    Seuil d'alerte en %% (défaut: 40)
+  guard --suggest          Afficher des recommandations de réduction
+  guard --list-models      Lister les modèles supportés
+  guard --json             Sortie JSON (pour CI)
+
+Options evolve:
+  evolve                   Analyser le projet et proposer des évolutions DNA
+  evolve --report          Générer seulement le rapport (sans patch)
+  evolve --apply           Appliquer le dernier patch généré
+  evolve --since YYYY-MM-DD Analyser depuis une date
+  evolve --dna PATH        Chemin vers archetype.dna.yaml
 
 Options forge:
   forge --from "description"  Générer un squelette d'agent depuis une description textuelle
@@ -753,6 +777,51 @@ cmd_forge() {
     exit 0
 }
 
+# ─── Context Budget Guard (BM-55) ─────────────────────────────────────────────
+# Estime le budget de contexte LLM consommé par les agents au démarrage
+# Usage: bmad-init.sh guard [--agent ID] [--detail] [--model MODEL] [--suggest]
+cmd_guard() {
+    shift  # retirer "guard"
+
+    local guard_script
+    guard_script="$(dirname "$(realpath "$0")")/framework/tools/context-guard.py"
+
+    if [[ ! -f "$guard_script" ]]; then
+        error "framework/tools/context-guard.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour guard"
+    fi
+
+    echo ""
+    info "BMAD Context Budget Guard"
+    echo ""
+    python3 "$guard_script" "$@"
+    exit $?
+}
+
+# ─── DNA Evolution Engine (BM-56) ─────────────────────────────────────────────
+# Fait évoluer la DNA d'un archétype depuis l'usage réel (TRACE + decisions)
+# Usage: bmad-init.sh evolve [--report] [--apply] [--since DATE] [--dna PATH]
+cmd_evolve() {
+    shift  # retirer "evolve"
+
+    local evolve_script
+    evolve_script="$(dirname "$(realpath "$0")")/framework/tools/dna-evolve.py"
+
+    if [[ ! -f "$evolve_script" ]]; then
+        error "framework/tools/dna-evolve.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour evolve"
+    fi
+
+    echo ""
+    info "BMAD DNA Evolution Engine"
+    python3 "$evolve_script" "$@"
+    exit $?
+}
+
 # ─── Doctor (BM-33) ───────────────────────────────────────────────────────────
 # Health check de l'installation BMAD
 # Usage: bmad-init.sh doctor [--fix]
@@ -1225,6 +1294,12 @@ if [[ "${1:-}" == "bench" ]]; then
 fi
 if [[ "${1:-}" == "forge" ]]; then
     cmd_forge "$@"
+fi
+if [[ "${1:-}" == "guard" ]]; then
+    cmd_guard "$@"
+fi
+if [[ "${1:-}" == "evolve" ]]; then
+    cmd_evolve "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────
