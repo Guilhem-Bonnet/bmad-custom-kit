@@ -133,11 +133,52 @@ jobs:
           fi
           echo "✅ Doctor OK (hors connectivité Qdrant)"
 
-  # ── 6. Résumé ─────────────────────────────────────────────────────────────
+  # ── 6. Context Budget Guard ───────────────────────────────────────────────
+  context-guard:
+    name: "Context Budget Guard"
+    runs-on: ubuntu-latest
+    needs: bash-syntax
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run context-guard (seuil alerte 40%, bloquant 70%)
+        run: |
+          set +e
+          python3 framework/tools/context-guard.py \
+            --project-root . \
+            --threshold 40 \
+            --json 2>&1 | tee guard-output.json
+          GUARD_EXIT=${PIPESTATUS[0]}
+          set -e
+          if [[ "$GUARD_EXIT" -ge 2 ]]; then
+            echo "❌ Context Guard CRITICAL — un agent dépasse 70% de la fenêtre"
+            cat guard-output.json
+            exit 2
+          fi
+          if [[ "$GUARD_EXIT" -eq 1 ]]; then
+            echo "⚠️  Context Guard WARNING — certains agents approchent 40%"
+          else
+            echo "✅ Context Guard OK — tous les agents dans les limites"
+          fi
+
+      - name: Upload guard report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: context-guard-report
+          path: guard-output.json
+          retention-days: 14
+
+  # ── 7. Résumé ─────────────────────────────────────────────────────────────
   summary:
     name: "CI Summary"
     runs-on: ubuntu-latest
-    needs: [bash-syntax, dna-validate, shellcheck, yaml-lint, doctor]
+    needs: [bash-syntax, dna-validate, shellcheck, yaml-lint, doctor, context-guard]
     if: always()
     steps:
       - name: Print summary
@@ -151,3 +192,4 @@ jobs:
           echo "| ShellCheck | ${{ needs.shellcheck.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| YAML lint | ${{ needs.yaml-lint.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Doctor | ${{ needs.doctor.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Context Guard | ${{ needs.context-guard.result }} |" >> $GITHUB_STEP_SUMMARY

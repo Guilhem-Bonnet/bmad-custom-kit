@@ -61,6 +61,11 @@ _bmad_init_complete() {
         'doctor:Diagnostic et health check du kit'
         'validate:Valider des fichiers DNA archétype'
         'changelog:Générer CHANGELOG.md depuis BMAD_TRACE'
+        'hooks:Installer les hooks Git du kit'
+        'bench:Mesurer et améliorer les performances des agents'
+        'forge:Générer des squelettes d'agents depuis le besoin projet'
+        'guard:Analyser le budget de contexte LLM des agents'
+        'evolve:Faire évoluer la DNA archétype depuis l'usage réel'
     )
     
     local context curcontext="$curcontext" line state
@@ -156,6 +161,54 @@ _bmad_init_complete() {
                     _arguments \
                         '--output[Fichier de sortie]:output_file:_files' \
                         '--since[Depuis une date (YYYY-MM-DD)]:date:'
+                    ;;
+                hooks)
+                    _arguments \
+                        '--install[Installer les hooks dans .git/hooks du projet cible]' \
+                        '--target[Répertoire cible]:directory:_directories' \
+                        '--list[Lister les hooks disponibles]'
+                    ;;
+                bench)
+                    _arguments \
+                        '--summary[Résumé des scores agents]' \
+                        '--report[Rapport détaillé par agent]' \
+                        '--improve[Générer bench-context.md pour amélioration]' \
+                        '--since[Filtrer depuis une date (YYYY-MM-DD)]:date:' \
+                        '--agent[Agent spécifique]:agent_id:'
+                    ;;
+                forge)
+                    _arguments \
+                        '--from[Générer depuis une description textuelle]:description:' \
+                        '--from-gap[Générer depuis les lacunes détectées dans BMAD_TRACE]' \
+                        '--from-trace[Analyser la trace pour proposer des agents]' \
+                        '--list[Lister les proposals existants]' \
+                        '--install[Installer un agent proposé]:tag:'
+                    ;;
+                guard)
+                    local -a models
+                    models=(claude-opus-4 claude-sonnet-4 gpt-4o gpt-4o-mini gemini-1.5-pro gemini-1.0-pro llama3-8b)
+                    _arguments \
+                        '--agent[Agent spécifique à analyser]:agent_id:' \
+                        '--detail[Détail fichier par fichier]' \
+                        '--model[Modèle cible]:model:->models' \
+                        '--threshold[Seuil alerte en %]:pct:(20 30 40 50 60 70)' \
+                        '--suggest[Afficher recommandations de réduction]' \
+                        '--list-models[Lister les modèles supportés]' \
+                        '--json[Sortie JSON pour CI]'
+                    case "$state" in
+                        models)
+                            _describe 'modèle' models
+                        ;;
+                    esac
+                    ;;
+                evolve)
+                    _arguments \
+                        '--dna[Fichier DNA source]:dna_file:_files -g "*.dna.yaml"' \
+                        '--trace[Fichier BMAD_TRACE source]:trace_file:_files' \
+                        '--since[Analyser depuis une date (YYYY-MM-DD)]:date:' \
+                        '--report[Générer seulement le rapport Markdown]' \
+                        '--apply[Appliquer le dernier patch DNA généré]' \
+                        '--project-root[Racine du projet cible]:directory:_directories'
                     ;;
             esac
             ;;

@@ -24,6 +24,10 @@ Chaque agent a une persona forte, un domaine d'expertise précis, et s'inscrit d
 - 🎯 **Prompt Skills Library** — prompts réutilisables par team dans `.github/prompts/{team}/`
 - ⚡ **Qualité automatisée** — détection contradictions, consolidation learnings, drift check
 - 🔁 **Self-Improvement Loop** — `sil-collect.sh` analyse les patterns d'échec et Sentinel améliore le framework
+- 🧭 **Context Budget Guard** — mesure précise du budget LLM consommé par chaque agent avant la première question
+- 🧬 **DNA Evolution Engine** — fait évoluer `archetype.dna.yaml` depuis l'usage réel du projet (BMAD_TRACE)
+- 🔨 **Agent Forge** — génère des squelettes d'agents depuis une description textuelle ou les lacunes détectées
+- 📊 **Agent Bench** — mesure les scores de performance des agents et produit un plan d'amélioration
 
 ## Quick Start
 
@@ -247,6 +251,36 @@ Voir [docs/creating-agents.md](docs/creating-agents.md) pour le guide complet.
 3. Ajouter dans `agent-manifest.csv`
 4. Créer son fichier learnings dans `agent-learnings/`
 5. Si applicable, créer son dossier dans `.github/prompts/{team-name}/`
+
+## ⚡ Outils de Performance & Évolution
+
+Quatre outils CLI pour maintenir le kit en bonne santé sur la durée :
+
+```bash
+# Bench — mesurer les scores de performance des agents
+bash bmad-init.sh bench --summary           # tableau de bord global
+bash bmad-init.sh bench --report            # détail par agent + tendance
+bash bmad-init.sh bench --improve           # génère bench-context.md pour Sentinel
+
+# Forge — générer des squelettes d'agents
+bash bmad-init.sh forge --from "migrations DB PostgreSQL"
+bash bmad-init.sh forge --from-gap          # depuis les lacunes détectées
+bash bmad-init.sh forge --install db-migrator
+
+# Guard — budget de contexte LLM
+bash bmad-init.sh guard                     # tous les agents (exit 1=warn, 2=crit)
+bash bmad-init.sh guard --agent atlas --detail --model gpt-4o
+bash bmad-init.sh guard --suggest           # + recommandations de réduction
+bash bmad-init.sh guard --json              # sortie JSON (CI-compatible)
+
+# Evolve — DNA vivante
+bash bmad-init.sh evolve                    # proposer évolutions depuis BMAD_TRACE
+bash bmad-init.sh evolve --report           # rapport Markdown seul
+bash bmad-init.sh evolve --since 2026-01-01 # période spécifique
+bash bmad-init.sh evolve --apply            # appliquer le dernier patch (après review)
+```
+
+Voir [framework/tools/README.md](framework/tools/README.md) pour la référence complète.
 
 ## Système de mémoire
 

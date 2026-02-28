@@ -201,6 +201,60 @@ bash _bmad/_config/custom/sil-collect.sh
 # Sentinel propose des règles à ajouter au framework
 ```
 
+## Outils de performance & évolution
+
+Après quelques semaines d'utilisation, quatre outils CLI vous aident à maintenir le kit performant.
+
+### Bench — mesurer les performances agents
+
+```bash
+bash bmad-init.sh bench --summary           # scoreboard global
+bash bmad-init.sh bench --report            # détail par agent
+bash bmad-init.sh bench --improve           # génère bench-context.md pour Sentinel [FA]
+```
+
+Sortie : scores 0-100, tendance semaine, agents en dégradation.
+
+### Forge — générer des squelettes d'agents
+
+```bash
+bash bmad-init.sh forge --from "agent expert en migrations DB PostgreSQL"
+bash bmad-init.sh forge --from-gap          # depuis lacunes détectées dans BMAD_TRACE
+bash bmad-init.sh forge --list              # lister les proposals générés
+bash bmad-init.sh forge --install db-migrator  # installer un proposal
+```
+
+Sortie : `_bmad-output/forge-proposals/agent-[tag].proposed.md`
+
+### Guard — budget de contexte LLM
+
+Mesure le budget de contexte consommé par chaque agent **avant la première question** :
+
+```bash
+bash bmad-init.sh guard                          # tous les agents
+bash bmad-init.sh guard --suggest                # + recommandations réduction
+bash bmad-init.sh guard --agent atlas --detail   # détail fichier par fichier
+bash bmad-init.sh guard --model gpt-4o           # fenetre GPT-4o (128K)
+bash bmad-init.sh guard --json                   # CI-compatible (exit 2 = critique)
+```
+
+Seuils : < 40% ✅ OK — 40-70% ⚠️ WARNING — > 70% 🔴 CRITICAL
+
+### Evolve — DNA vivante
+
+Fait évoluer `archetype.dna.yaml` depuis l'usage réel (BMAD_TRACE, decisions, learnings) :
+
+```bash
+bash bmad-init.sh evolve                     # proposer évolutions
+bash bmad-init.sh evolve --report            # rapport Markdown seul
+bash bmad-init.sh evolve --since 2026-01-01  # depuis une date
+bash bmad-init.sh evolve --apply             # appliquer après votre review
+```
+
+Sorties : `_bmad-output/dna-proposals/archetype.dna.patch.{date}.yaml` + rapport Markdown.
+
+> ⚠️ `--apply` ne modifie jamais la DNA sans votre accord explicite — le gate humain est toujours conservé.
+
 ## Hooks pre-commit (optionnel)
 
 Si votre projet utilise `pre-commit`, ajoutez dans `.pre-commit-config.yaml` :

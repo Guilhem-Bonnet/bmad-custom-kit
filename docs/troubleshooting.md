@@ -208,10 +208,86 @@ pip3 install -r requirements.txt
 
 ---
 
+## 10. `guard` ne trouve aucun agent
+
+```bash
+# Vérifier depuis le bon répertoire (doit être la racine du kit ou du projet)
+bash bmad-init.sh guard --list-models    # doit lister les modèles connus
+
+# Lancer avec le project-root explicite
+python3 framework/tools/context-guard.py --project-root /chemin/vers/projet
+```
+
+`guard` cherche des agents dans :  
+- `_bmad/_config/custom/agents/`  
+- `_bmad/bmm/agents/`  
+- `archetypes/**/agents/`  
+
+Si aucun agent trouvé, vérifiez que `<activation` ou `NEVER break character` est présent dans les fichiers `.md`.
+
+---
+
+## 11. `evolve` génère 0 mutations
+
+C'est **normal** pour un projet neuf ou le repo kit lui-même (pas de BMAD_TRACE).
+
+`dna-evolve.py` a besoin de données réelles pour proposer des mutations :
+
+```bash
+# Vérifier que BMAD_TRACE existe avec du contenu
+wc -l BMAD_TRACE.md 2>/dev/null || echo "Pas de BMAD_TRACE dans ce répertoire"
+
+# Renseigner explicitement le fichier TRACE (si dans un sous-dossier)
+bash bmad-init.sh evolve --trace _bmad/_config/custom/BMAD_TRACE.md
+
+# Forcer un rapport même sans données
+bash bmad-init.sh evolve --report
+```
+
+Après quelques semaines d'usage réel (5+ interactions par agent), les mutations apparaîtront.
+
+---
+
+## 12. `forge` génère un agent avec de mauvais tags / nommage incorrect
+
+```bash
+# Vérifier la description (éviter les caractères spéciaux)
+bash bmad-init.sh forge --from "migrations base de donnees PostgreSQL"
+
+# Lister les proposals déjà générés pour éviter les doublons
+bash bmad-init.sh forge --list
+
+# Installer manuellement un proposal spécifique
+bash bmad-init.sh forge --install db-migrator
+```
+
+Les tags sont dérivés des 12 domaines prédéfinis (database, security, frontend, api, testing, data, devops, monitoring, networking, storage, documentation, performance). Si le domaine n'est pas reconnu, `forge` utilise `custom`.
+
+---
+
+## 13. `bench` ne trouve pas de données / rapport vide
+
+```bash
+# Vérifier que des sessions existent
+ls _bmad-output/bench-sessions/ 2>/dev/null || echo "Aucune session bench"
+
+# Lancer bench depuis la racine du projet (là où _bmad-output/ existe)
+cd /chemin/vers/projet && bash /chemin/vers/kit/bmad-init.sh bench --summary
+
+# Générer un premier rapport même sans données historiques
+bash bmad-init.sh bench --report
+```
+
+`bench` analyse les fichiers dans `_bmad-output/bench-sessions/`. Si ce dossier est vide, le rapport affichera "Données insuffisantes" — c'est normal pour une installation fraîche.
+
+---
+
 ## Obtenir de l'aide
 
 Si le problème persiste :
 
 1. `python3 _bmad/_memory/mem0-bridge.py status` — état complet de la mémoire
 2. `bash _bmad/_config/custom/cc-verify.sh` — état du CC
-3. Ouvrir une issue sur GitHub avec la sortie de ces deux commandes
+3. `bash bmad-init.sh doctor` — diagnostic global du kit
+4. `bash bmad-init.sh guard --json` — budget de contexte agents (JSON pour le partager)
+5. Ouvrir une issue sur GitHub avec la sortie de ces commandes
