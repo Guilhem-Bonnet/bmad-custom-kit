@@ -75,6 +75,13 @@ Conventional Commits format preferred:
 
 Scopes: `init`, `hooks`, `dna`, `stack`, `docs`, `vscode`, `ci`, `memory`, `mcp`, `tools`
 
+## Rate Limit Best Practices
+
+- Keep conversation context minimal — start fresh chats after ~20 exchanges
+- Reference only immediately needed files (avoid broad `@workspace`)
+- Use local tools (`guard`, `bench`, `evolve`) for analysis — they consume zero API quota
+- If rate-limited on one model, switch to another (quotas are per-model)
+
 ## Important Anti-Patterns to Avoid
 
 - ❌ Never suggest `rm -rf` without guard on path variables

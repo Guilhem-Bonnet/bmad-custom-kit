@@ -282,6 +282,38 @@ bash bmad-init.sh bench --report
 
 ---
 
+## 14. Rate limit Copilot — « exhausted this model's rate limit »
+
+Ce message vient du provider (GitHub / OpenAI / Anthropic) quand le quota de requêtes ou tokens par période est dépassé.
+
+### Réduire la fréquence du rate limit
+
+1. **Garder les conversations courtes** — commencer un nouveau chat régulièrement plutôt que d'accumuler 50+ échanges dans un même fil (le contexte croît à chaque message)
+
+2. **Vérifier le budget contexte des agents** — des agents trop lourds consomment plus de tokens par requête :
+   ```bash
+   bash bmad-init.sh guard --suggest
+   ```
+   Si un agent dépasse 30-40%, envisagez de réduire son `agent-base.md` ou ses learnings.
+
+3. **Limiter les fichiers inclus** — ne référencer dans le chat que les fichiers immédiatement nécessaires (pas ``@workspace`` sur tout le répertoire)
+
+4. **Éviter les instructions inutilement longues** — les prompts système (copilot-instructions.md, agent-base.md) sont envoyés à **chaque** requête
+
+### Quand le rate limit est atteint
+
+1. **Switcher de modèle** — les quotas sont **par modèle**. Changer de Claude à GPT-4o (ou inversement) dans le sélecteur de modèle Copilot Chat reset le compteur
+2. **Attendre 1-2 minutes** — la plupart des rate limits sont par minute
+3. **Utiliser les outils CLI en attendant** — `guard`, `bench`, `evolve`, `forge` sont 100% locaux (Python stdlib) et ne consomment aucun quota :
+   ```bash
+   # Un rate limit ? Bon moment pour un diagnostic local
+   bash bmad-init.sh guard --json
+   bash bmad-init.sh evolve --report
+   bash bmad-init.sh doctor
+   ```
+
+---
+
 ## Obtenir de l'aide
 
 Si le problème persiste :

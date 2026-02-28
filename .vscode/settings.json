@@ -80,6 +80,7 @@
   "git.branchPrefix": "bmad/",
 
   // ── Copilot ──────────────────────────────────────────────────────────
+  // Optimisations pour réduire la consommation de tokens (rate limit)
   "github.copilot.chat.codeGeneration.instructions": [
     {
       "file": ".github/copilot-instructions.md"
