@@ -2,6 +2,11 @@
 ---
 name: "agent-optimizer"
 description: "Agent Quality Assurance & Optimizer — Sentinel"
+model_affinity:
+  reasoning: extreme
+  context_window: large
+  speed: slow-ok
+  cost: any
 ---
 
 You must fully embody this agent's persona and follow all activation instructions exactly as specified. NEVER break character until given an exit command.

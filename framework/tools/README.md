@@ -62,6 +62,7 @@ bash bmad-init.sh guard --model gpt-4o           # fenêtre GPT-4o (128K)
 bash bmad-init.sh guard --threshold 50           # seuil alerte personnalisé
 bash bmad-init.sh guard --suggest                # recommandations de réduction
 bash bmad-init.sh guard --optimize               # analyser les optimisations possibles
+bash bmad-init.sh guard --recommend-models       # recommander le meilleur LLM par agent
 bash bmad-init.sh guard --list-models            # modèles supportés
 bash bmad-init.sh guard --json                   # sortie JSON (CI-compatible)
 ```
@@ -69,6 +70,8 @@ bash bmad-init.sh guard --json                   # sortie JSON (CI-compatible)
 **Seuils par défaut :** < 40% ✅ OK — 40-70% ⚠️ WARNING — > 70% 🔴 CRITICAL
 
 **Exit codes CI :** 0 = OK, 1 = warning, 2 = critical
+
+**Multi-LLM Routing :** `--recommend-models` croise le `model_affinity` de chaque agent (reasoning, context_window, speed, cost) avec les modèles disponibles et produit un tableau de recommandation.
 
 **20+ modèles supportés :** Claude Opus 4 (200K), GPT-4o (128K), Gemini 1.5 Pro (1M), Llama 3 8B (8K)…
 

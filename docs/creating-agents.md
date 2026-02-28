@@ -74,6 +74,31 @@ cp _bmad/_config/custom/agents/custom-agent.tpl.md \
 | `{{learnings_file}}` | Nom du fichier learnings | "security-app" |
 | `{{domain_word}}` | Mot-clé pour decisions-log | "sécurité" |
 
+### 2b. Configurer model_affinity (optionnel)
+
+Déclarez les besoins LLM de votre agent dans le frontmatter YAML :
+
+```yaml
+---
+name: "mon-agent"
+description: "Mon Agent — Alias"
+model_affinity:
+  reasoning: high       # low | medium | high | extreme
+  context_window: medium  # small (≤32K) | medium (≤128K) | large (≤200K) | massive (>1M)
+  speed: fast           # fast | medium | slow-ok
+  cost: medium          # cheap | medium | any
+---
+```
+
+| Axe | Quand utiliser `extreme`/`massive` | Quand utiliser `low`/`small`/`cheap` |
+|---|---|---|
+| **reasoning** | Debug deep, audit sécurité, architecture | CRUD, mémoire, monitoring |
+| **context_window** | Scan codebase entier, refactoring large | Tâches ciblées, corrections ponctuelles |
+| **speed** | Boucles rapides fix→test, CI | Décisions stratégiques, audits |
+| **cost** | Tâches critiques, sécurité | Tâches répétitives, consolidation |
+
+Vérifiez la recommandation : `bash bmad-init.sh guard --recommend-models`
+
 ### 3. Écrire l'identité
 
 La section `<identity>` est la plus importante. Elle doit :

@@ -63,6 +63,54 @@ DEFAULT_MODEL = "copilot"
 THRESHOLD_WARN = 40   # % — Jaune
 THRESHOLD_CRIT = 70   # % — Rouge
 
+# ── Capacités LLM par modèle ─────────────────────────────────────────────────
+# Chaque modèle est classé sur 4 axes (matching model_affinity des agents)
+# reasoning: low | medium | high | extreme
+# context_window: small (≤32K) | medium (≤128K) | large (≤200K) | massive (>200K)
+# speed: fast | medium | slow-ok
+# cost/tier: economy | standard | premium
+
+REASONING_RANK = {"low": 1, "medium": 2, "high": 3, "extreme": 4}
+WINDOW_RANK = {"small": 1, "medium": 2, "large": 3, "massive": 4}
+SPEED_RANK = {"fast": 3, "medium": 2, "slow-ok": 1}
+TIER_RANK = {"economy": 1, "standard": 2, "premium": 3}
+# Reverse maps for naming (rank → label)
+TIER_FROM_RANK = {1: "economy", 2: "standard", 3: "premium"}
+
+@dataclass
+class ModelProfile:
+    """Profil de capacités d'un modèle LLM."""
+    id: str
+    reasoning: str        # low | medium | high | extreme
+    context_window: str   # small | medium | large | massive
+    speed: str            # fast | medium | slow-ok
+    tier: str             # economy | standard | premium
+    window_tokens: int = 0
+
+MODEL_PROFILES: dict[str, ModelProfile] = {
+    # Anthropic
+    "claude-opus-4":     ModelProfile("claude-opus-4",     "extreme", "large",   "slow-ok", "premium",  200_000),
+    "claude-sonnet-4":   ModelProfile("claude-sonnet-4",   "high",    "large",   "fast",    "standard", 200_000),
+    "claude-haiku":      ModelProfile("claude-haiku",      "medium",  "large",   "fast",    "economy",  200_000),
+    "claude-3-7-sonnet": ModelProfile("claude-3-7-sonnet", "high",    "large",   "fast",    "standard", 200_000),
+    "claude-3-5-sonnet": ModelProfile("claude-3-5-sonnet", "high",    "large",   "fast",    "standard", 200_000),
+    # OpenAI
+    "o3":                ModelProfile("o3",                "extreme", "large",   "slow-ok", "premium",  200_000),
+    "o1":                ModelProfile("o1",                "extreme", "large",   "slow-ok", "premium",  200_000),
+    "gpt-4o":            ModelProfile("gpt-4o",            "high",    "medium",  "fast",    "standard", 128_000),
+    "gpt-4o-mini":       ModelProfile("gpt-4o-mini",       "medium",  "medium",  "fast",    "economy",  128_000),
+    "gpt-4-turbo":       ModelProfile("gpt-4-turbo",       "high",    "medium",  "medium",  "standard", 128_000),
+    # Google
+    "gemini-1.5-pro":    ModelProfile("gemini-1.5-pro",    "high",    "massive", "medium",  "standard", 1_000_000),
+    "gemini-2.0-flash":  ModelProfile("gemini-2.0-flash",  "medium",  "massive", "fast",    "economy",  1_000_000),
+    # Local
+    "codestral":         ModelProfile("codestral",         "medium",  "small",   "fast",    "economy",  32_000),
+    "llama3":            ModelProfile("llama3",            "low",     "small",   "fast",    "economy",   8_000),
+    "mistral":           ModelProfile("mistral",           "medium",  "small",   "fast",    "economy",  32_000),
+    "qwen2.5":           ModelProfile("qwen2.5",           "medium",  "small",   "fast",    "economy",  32_000),
+    "copilot":           ModelProfile("copilot",           "high",    "large",   "fast",    "standard", 200_000),
+}
+
 # ── Estimation tokens ─────────────────────────────────────────────────────────
 # Approximation : 1 token ≈ 4 chars (EN) / 3.5 chars (FR)
 # On utilise 3.7 comme compromis FR/EN
@@ -498,6 +546,287 @@ def do_optimize(
     print("      renvoyer vers docs/ pour les détails verbeux.")
     print()
 
+
+# ── Model Recommendation ─────────────────────────────────────────────────────
+
+@dataclass
+class ModelAffinity:
+    """Affinité de modèle déclarée par un agent."""
+    reasoning: str = "medium"
+    context_window: str = "medium"
+    speed: str = "medium"
+    cost: str = "medium"
+
+
+def parse_model_affinity(agent_path: Path) -> Optional[ModelAffinity]:
+    """Parse le frontmatter YAML d'un agent et extrait model_affinity."""
+    content = read_file_safe(agent_path)
+    if not content:
+        return None
+    # Chercher le bloc frontmatter YAML entre ---
+    lines = content.splitlines()
+    in_fm = False
+    fm_lines: list[str] = []
+    for line in lines:
+        if line.strip() == "---":
+            if in_fm:
+                break  # fin du frontmatter
+            in_fm = True
+            continue
+        if in_fm:
+            fm_lines.append(line)
+    if not fm_lines:
+        return None
+    # Parser simple (pas de dépendance PyYAML)
+    affinity: dict[str, str] = {}
+    in_affinity = False
+    for line in fm_lines:
+        stripped = line.strip()
+        if stripped.startswith("model_affinity:"):
+            in_affinity = True
+            continue
+        if in_affinity:
+            if not line.startswith("  ") and not line.startswith("\t"):
+                break  # sortie du bloc indenté
+            if ":" in stripped:
+                key, val = stripped.split(":", 1)
+                affinity[key.strip()] = val.strip().strip('"').strip("'")
+    if not affinity:
+        return None
+    return ModelAffinity(
+        reasoning=affinity.get("reasoning", "medium"),
+        context_window=affinity.get("context_window", "medium"),
+        speed=affinity.get("speed", "medium"),
+        cost=affinity.get("cost", "medium"),
+    )
+
+
+def _cost_to_tier(cost: str) -> str:
+    """Convertit le champ cost de model_affinity en tier."""
+    return {"cheap": "economy", "medium": "standard", "any": "premium"}.get(cost, "standard")
+
+
+def score_model_for_agent(
+    profile: ModelProfile, affinity: ModelAffinity, agent_tokens: int
+) -> float:
+    """Score un modèle par rapport aux besoins d'un agent (0-100)."""
+    score = 0.0
+
+    # Reasoning match (40 points max)
+    needed = REASONING_RANK.get(affinity.reasoning, 2)
+    has = REASONING_RANK.get(profile.reasoning, 2)
+    if has >= needed:
+        score += 40
+    elif has == needed - 1:
+        score += 20  # acceptable, un cran en dessous
+    # Surqualifié = fonctionnel mais gaspillage → léger malus plus tard via cost
+
+    # Context window fit (25 points max)
+    needed_w = WINDOW_RANK.get(affinity.context_window, 2)
+    has_w = WINDOW_RANK.get(profile.context_window, 2)
+    if has_w >= needed_w:
+        score += 25
+        # Bonus si l'agent tient réellement dans la fenêtre
+        if profile.window_tokens > 0 and agent_tokens > 0:
+            usage_pct = agent_tokens / profile.window_tokens * 100
+            if usage_pct < THRESHOLD_WARN:
+                score += 5  # confortable
+    else:
+        # Fenêtre trop petite
+        if profile.window_tokens > 0 and agent_tokens > 0:
+            if agent_tokens / profile.window_tokens * 100 > THRESHOLD_CRIT:
+                score -= 20  # inutilisable
+
+    # Speed match (20 points max)
+    needed_s = SPEED_RANK.get(affinity.speed, 2)
+    has_s = SPEED_RANK.get(profile.speed, 2)
+    if has_s >= needed_s:
+        score += 20
+    elif has_s == needed_s - 1:
+        score += 10
+
+    # Cost efficiency (15 points max) — plus le tier est bas et suffisant, mieux c'est
+    needed_tier = TIER_RANK.get(_cost_to_tier(affinity.cost), 2)
+    has_tier = TIER_RANK.get(profile.tier, 2)
+    if has_tier <= needed_tier:
+        score += 15  # dans le budget
+    elif has_tier == needed_tier + 1:
+        score += 5   # un cran au-dessus = acceptable
+    # Si le modèle est surqualifié en reasoning ET coûteux → malus
+    reasoning_surplus = REASONING_RANK.get(profile.reasoning, 2) - REASONING_RANK.get(affinity.reasoning, 2)
+    if reasoning_surplus >= 2 and has_tier >= 3:
+        score -= 10  # gaspillage flagrant
+
+    return max(0, min(100, score))
+
+
+def load_available_models(project_root: Path) -> Optional[list[dict[str, str]]]:
+    """Charge la section models.available depuis project-context.yaml."""
+    ctx_path = project_root / "project-context.yaml"
+    if not ctx_path.exists():
+        return None
+    content = read_file_safe(ctx_path)
+    # Parser léger YAML pour la section models.available
+    models: list[dict[str, str]] = []
+    in_models = False
+    in_available = False
+    current: dict[str, str] = {}
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("models:"):
+            in_models = True
+            continue
+        if in_models and stripped.startswith("available:"):
+            in_available = True
+            continue
+        if in_available:
+            if not line.startswith(" ") and not line.startswith("\t") and stripped:
+                break  # sortie du bloc
+            if stripped.startswith("- id:"):
+                if current:
+                    models.append(current)
+                current = {"id": stripped.split(":", 1)[1].strip().strip('"')}
+            elif ":" in stripped and current:
+                key, val = stripped.split(":", 1)
+                current[key.strip()] = val.strip().strip('"').strip("#").strip()
+        if in_models and not in_available and stripped.startswith("routing_strategy:"):
+            pass  # on pourrait l'utiliser plus tard
+    if current:
+        models.append(current)
+    return models if models else None
+
+
+def do_recommend_models(
+    project_root: Path,
+    agent_id: Optional[str] = None,
+) -> None:
+    """Recommande le meilleur modèle LLM pour chaque agent basé sur model_affinity."""
+    agents = find_agents(project_root)
+    if agent_id:
+        agents = [a for a in agents if agent_id.lower() in a.stem.lower()]
+        if not agents:
+            print(f"❌ Agent '{agent_id}' introuvable.", file=sys.stderr)
+            sys.exit(1)
+
+    # Charger la config des modèles disponibles (optionnel)
+    user_models = load_available_models(project_root)
+    if user_models:
+        available_ids = {m["id"] for m in user_models}
+        # Filtrer MODEL_PROFILES aux modèles disponibles
+        profiles_to_use = {k: v for k, v in MODEL_PROFILES.items() if k in available_ids}
+        if not profiles_to_use:
+            profiles_to_use = MODEL_PROFILES  # fallback
+    else:
+        profiles_to_use = MODEL_PROFILES
+
+    # Collecter les recommandations
+    @dataclass
+    class Recommendation:
+        agent_id: str
+        affinity: ModelAffinity
+        best_model: str
+        best_score: float
+        alt_model: str
+        alt_score: float
+        agent_tokens: int
+        reason: str
+
+    recs: list[Recommendation] = []
+
+    for ap in agents:
+        affinity = parse_model_affinity(ap)
+        if not affinity:
+            continue
+
+        # Calculer les tokens de l'agent avec le modèle par défaut
+        budget = compute_budget(ap, project_root, DEFAULT_MODEL)
+        agent_tokens = budget.total_tokens
+
+        # Scorer chaque modèle
+        scores: list[tuple[str, float]] = []
+        for mid, profile in profiles_to_use.items():
+            s = score_model_for_agent(profile, affinity, agent_tokens)
+            scores.append((mid, s))
+
+        scores.sort(key=lambda x: x[1], reverse=True)
+
+        if len(scores) >= 2:
+            best_id, best_score = scores[0]
+            alt_id, alt_score = scores[1]
+        elif scores:
+            best_id, best_score = scores[0]
+            alt_id, alt_score = best_id, best_score
+        else:
+            continue
+
+        # Construire la raison
+        parts = []
+        if affinity.reasoning in ("extreme", "high"):
+            parts.append(f"reasoning={affinity.reasoning}")
+        if affinity.context_window in ("large", "massive"):
+            parts.append(f"window={affinity.context_window}")
+        if affinity.speed == "fast":
+            parts.append("speed=fast")
+        if affinity.cost == "cheap":
+            parts.append("cost=cheap")
+        reason = ", ".join(parts) if parts else "balanced"
+
+        recs.append(Recommendation(
+            agent_id=ap.stem,
+            affinity=affinity,
+            best_model=best_id,
+            best_score=best_score,
+            alt_model=alt_id,
+            alt_score=alt_score,
+            agent_tokens=agent_tokens,
+            reason=reason,
+        ))
+
+    # Affichage
+    print()
+    source = "project-context.yaml" if user_models else "tous les modèles connus"
+    print(f"  BMAD Model Recommender  ·  source: {source}")
+    print(f"  {len(recs)} agents avec model_affinity / {len(agents)} agents total")
+    print()
+
+    if not recs:
+        print("  ℹ️  Aucun agent avec model_affinity trouvé.")
+        print("      Ajoutez model_affinity dans le frontmatter YAML de vos agents.")
+        print("      Voir docs/creating-agents.md pour le format.")
+        return
+
+    print(f"  {'Agent':<28} {'Recommandé':<20} {'Score':>6} {'Alternatif':<20} {'Score':>6} {'Raison'}")
+    print(f"  {'─' * 110}")
+
+    # Trier par score décroissant du best
+    recs.sort(key=lambda r: r.best_score, reverse=True)
+
+    tier_savings = {"economy": 0, "standard": 0, "premium": 0}
+    for rec in recs:
+        best_profile = MODEL_PROFILES.get(rec.best_model)
+        tier_icon = {"economy": "💚", "standard": "💛", "premium": "❤️ "}.get(
+            best_profile.tier if best_profile else "standard", "💛")
+        print(f"  {rec.agent_id:<28} {tier_icon} {rec.best_model:<17} {rec.best_score:>5.0f}/100"
+              f"   {rec.alt_model:<20} {rec.alt_score:>5.0f}/100  {rec.reason}")
+        if best_profile:
+            tier_savings[best_profile.tier] = tier_savings.get(best_profile.tier, 0) + 1
+
+    # Résumé
+    print()
+    print(f"  ─────────────────────────────────────────────")
+    total = len(recs)
+    for tier_name, icon in [("economy", "💚"), ("standard", "💛"), ("premium", "❤️ ")]:
+        count = tier_savings.get(tier_name, 0)
+        if count:
+            pct = count / total * 100
+            print(f"    {icon} {tier_name:<10} : {count} agents ({pct:.0f}%)")
+    print()
+    economy_pct = tier_savings.get("economy", 0) / total * 100 if total else 0
+    if economy_pct >= 30:
+        print(f"  💡 {economy_pct:.0f}% des agents peuvent tourner sur des modèles economy")
+        print(f"      → réduction significative des rate limits et coûts API")
+    print()
+
 def generate_recommendations(budgets: list[AgentBudget]) -> list[str]:
     """Génère des recommandations actionnables basées sur les budgets."""
     recs: list[str] = []
@@ -624,6 +953,7 @@ Exemples :
   python3 context-guard.py --model gpt-4o --threshold 50
   python3 context-guard.py --suggest
   python3 context-guard.py --optimize
+  python3 context-guard.py --recommend-models
   python3 context-guard.py --json > context-report.json
         """,
     )
@@ -647,6 +977,8 @@ Exemples :
                         help="Lister les modèles supportés et leur fenêtre de contexte")
     parser.add_argument("--optimize", action="store_true",
                         help="Analyser les fichiers framework pour des optimisations de tokens")
+    parser.add_argument("--recommend-models", action="store_true",
+                        help="Recommander le meilleur modèle LLM pour chaque agent")
 
     args = parser.parse_args()
 
@@ -661,6 +993,11 @@ Exemples :
     # Mode optimize
     if args.optimize:
         do_optimize(project_root, args.model, agent_id=args.agent)
+        return
+
+    # Mode recommend-models
+    if args.recommend_models:
+        do_recommend_models(project_root, agent_id=args.agent)
         return
 
     # Trouver les agents

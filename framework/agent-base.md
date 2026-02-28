@@ -84,6 +84,7 @@ Ne jamais sortir de [THINK] sans une décision claire et documentée.
    - 📬 INBOX CHECK: scan shared-context.md section "## Requêtes inter-agents" for lines containing `[*→{AGENT_TAG}]`. Si trouvé, afficher le nombre et résumé dans le greeting
    - 🩺 HEALTH CHECK: exécuter `python {project-root}/_bmad/_memory/maintenance.py health-check` (silencieux si déjà fait dans les 24h, sinon auto-prune et diagnostic rapide). Si output non-vide, l'inclure dans le greeting.
    - 🧠 MNEMO CYCLE N-1: exécuter `python {project-root}/_bmad/_memory/maintenance.py consolidate-learnings` pour consolider les learnings du cycle précédent. Silencieux si rien à merger. Si consolidation effectuée, afficher résumé bref dans le greeting.
+   - 🎯 MODEL HINT: si l'agent déclare `model_affinity` dans son frontmatter, afficher une ligne dans le greeting : `💡 Modèle recommandé : {meilleur_modèle} ({raison})`. Évaluer : reasoning (extreme→opus/o3, high→sonnet/gpt-4o, medium→haiku/mini, low→mini/local), context_window (massive→gemini, large→opus/sonnet, small→local), speed (fast→sonnet/mini/flash), cost (cheap→haiku/mini/local). Ne PAS bloquer si le modèle actuel ne correspond pas, juste informer.
    - VERIFY: If config not loaded, STOP and report error to user
    - DO NOT PROCEED to step 3 until config is successfully loaded
 3. Remember: user's name is `{user_name}`
