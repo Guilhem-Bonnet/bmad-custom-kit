@@ -30,6 +30,8 @@ Chaque agent a une persona forte, un domaine d'expertise précis, et s'inscrit d
 - 📊 **Agent Bench** — mesure les scores de performance des agents et produit un plan d'amélioration
 - 🌙 **Dream Mode** — consolidation hors-session : croise mémoire, trace, decisions et failure museum pour produire des insights émergents
 - 🏛️ **Adversarial Consensus** — protocole BFT simplifié pour les décisions critiques : 3 votants + 1 avocat du diable
+- 🛡️ **Anti-Fragile Score** — mesure la résilience adaptative du système (recovery, learning velocity, signal trend, etc.)
+- 🧠 **Reasoning Stream** — flux de raisonnement structuré : capture HYPOTHESIS, DOUBT, ASSUMPTION, ALTERNATIVE avec analyse et compaction
 
 ## Quick Start
 
@@ -307,6 +309,19 @@ bash bmad-init.sh consensus --proposal "Utiliser PostgreSQL pour le cache sessio
 bash bmad-init.sh consensus --proposal-file proposal.md --threshold 0.75
 bash bmad-init.sh consensus --history       # voir les décisions passées
 bash bmad-init.sh consensus --stats         # statistiques de consensus
+
+# Anti-Fragile Score — mesure la résilience adaptative
+bash bmad-init.sh antifragile                # score compact
+bash bmad-init.sh antifragile --detail       # rapport complet avec recommandations
+bash bmad-init.sh antifragile --trend        # tendance historique
+bash bmad-init.sh antifragile --since 2026-01-01  # depuis une date
+
+# Reasoning Stream — flux de raisonnement structuré
+bash bmad-init.sh reasoning log --agent dev --type HYPOTHESIS --text "Redis pourrait remplacer memcached"
+bash bmad-init.sh reasoning query --type DOUBT --status open
+bash bmad-init.sh reasoning analyze          # rapport d'analyse
+bash bmad-init.sh reasoning compact --before 2026-01-01  # archiver les anciennes entrées
+bash bmad-init.sh reasoning stats            # statistiques rapides
 ```
 
 Voir [framework/tools/README.md](framework/tools/README.md) pour la référence complète.
@@ -351,9 +366,9 @@ bash _bmad/_config/custom/sil-collect.sh
 
 ## 🧪 Tests
 
-Le kit inclut une suite de tests complète (388+ tests) en deux catégories :
+Le kit inclut une suite de tests complète (520+ tests) en deux catégories :
 
-**Tests unitaires Python** (10 fichiers, 388 tests) :
+**Tests unitaires Python** (12 fichiers, 520 tests) :
 ```bash
 # Lancer tous les tests
 python3 -m unittest discover -s tests -v
@@ -374,6 +389,8 @@ python3 -m unittest tests.test_context_guard_advanced -v
 | `test_gen_tests.py` | Gen Tests (scaffolding) | 31 |
 | `test_dream.py` | Dream Mode | 68 |
 | `test_adversarial_consensus.py` | Adversarial Consensus | 76 |
+| `test_antifragile_score.py` | Anti-Fragile Score | 76 |
+| `test_reasoning_stream.py` | Reasoning Stream | 56 |
 
 **Smoke tests Bash** (78 assertions) :
 ```bash

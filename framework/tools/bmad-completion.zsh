@@ -66,6 +66,10 @@ _bmad_init_complete() {
         'forge:Générer des squelettes d'agents depuis le besoin projet'
         'guard:Analyser le budget de contexte LLM des agents'
         'evolve:Faire évoluer la DNA archétype depuis l'usage réel'
+        'dream:Dream Mode — consolidation hors-session'
+        'consensus:Protocole de consensus adversarial'
+        'antifragile:Score d'anti-fragilité — résilience adaptative'
+        'reasoning:Flux de raisonnement structuré'
     )
     
     local context curcontext="$curcontext" line state
@@ -211,6 +215,44 @@ _bmad_init_complete() {
                         '--report[Générer seulement le rapport Markdown]' \
                         '--apply[Appliquer le dernier patch DNA généré]' \
                         '--project-root[Racine du projet cible]:directory:_directories'
+                    ;;
+                dream)
+                    _arguments \
+                        '--since[Depuis une date (YYYY-MM-DD)]:date:' \
+                        '--agent[Agent spécifique]:agent_id:' \
+                        '--validate[Valider les insights]' \
+                        '--dry-run[Preview sans écrire]' \
+                        '--json[Sortie JSON]'
+                    ;;
+                consensus)
+                    _arguments \
+                        '--proposal[Proposition à évaluer]:proposition:' \
+                        '--proposal-file[Charger depuis un fichier]:file:_files' \
+                        '--threshold[Seuil de consensus]:pct:(0.5 0.66 0.75 0.8)' \
+                        '--history[Afficher l'historique]' \
+                        '--stats[Statistiques]' \
+                        '--json[Sortie JSON]' \
+                        '--dry-run[Ne pas sauvegarder]'
+                    ;;
+                antifragile)
+                    _arguments \
+                        '--since[Depuis une date (YYYY-MM-DD)]:date:' \
+                        '--detail[Rapport détaillé avec recommandations]' \
+                        '--trend[Tendance historique des scores]' \
+                        '--json[Sortie JSON]' \
+                        '--dry-run[Calculer sans sauvegarder]'
+                    ;;
+                reasoning)
+                    local -a reasoning_cmds
+                    reasoning_cmds=('log:Ajouter une entrée' 'query:Interroger' 'analyze:Analyser' 'compact:Compacter' 'stats:Statistiques' 'resolve:Changer statut')
+                    _arguments \
+                        '1:sous-commande:->reasoning_sub' \
+                        '*::options:->reasoning_opts'
+                    case "$state" in
+                        reasoning_sub)
+                            _describe 'sous-commande reasoning' reasoning_cmds
+                            ;;
+                    esac
                     ;;
             esac
             ;;

@@ -136,6 +136,12 @@ Exemples:
   $(basename "$0") consensus --proposal "..."   # Adversarial Consensus Protocol
   $(basename "$0") consensus --history          # Historique des décisions
   $(basename "$0") consensus --stats            # Statistiques
+  $(basename "$0") antifragile                  # Score d'anti-fragilité
+  $(basename "$0") antifragile --detail         # Rapport détaillé
+  $(basename "$0") antifragile --trend          # Tendance historique
+  $(basename "$0") reasoning log --agent dev --type HYPOTHESIS --text "..."  # Log reasoning
+  $(basename "$0") reasoning query --type DOUBT # Interroger le stream
+  $(basename "$0") reasoning analyze            # Analyse du flux de raisonnement
 
 Options guard:
   guard                    Analyser le budget de contexte de tous les agents
@@ -184,6 +190,22 @@ Options consensus:
   consensus --stats             Statistiques agrégées
   consensus --json              Sortie JSON
   consensus --dry-run           Ne pas sauvegarder dans l'historique
+
+Options antifragile:
+  antifragile                   Calculer le score d'anti-fragilité
+  antifragile --since YYYY-MM-DD  Analyser depuis une date
+  antifragile --detail          Rapport détaillé avec recommandations
+  antifragile --trend           Tendance historique des scores
+  antifragile --json            Sortie JSON
+  antifragile --dry-run         Calculer sans sauvegarder
+
+Options reasoning:
+  reasoning log --agent ID --type TYPE --text "..."   Ajouter une entrée
+  reasoning query [--agent ID] [--type TYPE] [--status STATUS]  Interroger
+  reasoning analyze [--since DATE]   Analyser le flux de raisonnement
+  reasoning compact [--before DATE]  Compacter les anciennes entrées
+  reasoning stats                    Statistiques rapides
+  reasoning resolve --timestamp TS --status STATUS  Changer le statut
 
 EOF
     exit 0
@@ -896,6 +918,48 @@ cmd_consensus() {
 
     echo ""
     python3 "$consensus_script" --project-root "$(pwd)" "$@"
+    exit $?
+}
+
+# ─── Anti-Fragile Score ──────────────────────────────────────────────────────
+# Mesure la résilience adaptative du système BMAD
+# Usage: bmad-init.sh antifragile [--detail] [--trend] [--since DATE] [--json]
+cmd_antifragile() {
+    shift  # retirer "antifragile"
+
+    local af_script
+    af_script="$(dirname "$(realpath "$0")")/framework/tools/antifragile-score.py"
+
+    if [[ ! -f "$af_script" ]]; then
+        error "framework/tools/antifragile-score.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour antifragile"
+    fi
+
+    echo ""
+    python3 "$af_script" --project-root "$(pwd)" "$@"
+    exit $?
+}
+
+# ─── Reasoning Stream ────────────────────────────────────────────────────────
+# Flux de raisonnement structuré pour capturer le POURQUOI des décisions
+# Usage: bmad-init.sh reasoning log|query|analyze|compact|stats|resolve [...]
+cmd_reasoning() {
+    shift  # retirer "reasoning"
+
+    local rs_script
+    rs_script="$(dirname "$(realpath "$0")")/framework/tools/reasoning-stream.py"
+
+    if [[ ! -f "$rs_script" ]]; then
+        error "framework/tools/reasoning-stream.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour reasoning"
+    fi
+
+    echo ""
+    python3 "$rs_script" --project-root "$(pwd)" "$@"
     exit $?
 }
 
@@ -1617,6 +1681,12 @@ if [[ "${1:-}" == "dream" ]]; then
 fi
 if [[ "${1:-}" == "consensus" ]]; then
     cmd_consensus "$@"
+fi
+if [[ "${1:-}" == "antifragile" ]]; then
+    cmd_antifragile "$@"
+fi
+if [[ "${1:-}" == "reasoning" ]]; then
+    cmd_reasoning "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────

@@ -14,6 +14,8 @@ Ce dossier contient les outils Python (stdlib only, Python 3.10+) invocables via
 | `dna-evolve.py` | `evolve` | Fait évoluer la DNA archétype depuis l'usage réel |
 | `dream.py` | `dream` | Consolidation hors-session — insights émergents cross-domaine |
 | `adversarial-consensus.py` | `consensus` | Protocole de consensus adversarial pour décisions critiques |
+| `antifragile-score.py` | `antifragile` | Score d'anti-fragilité — mesure la résilience adaptative |
+| `reasoning-stream.py` | `reasoning` | Flux de raisonnement structuré — hypothèses, doutes, assumptions |
 | `gen-tests.py` | *(direct)* | Génère des templates de tests pour les agents |
 | `bmad-completion.zsh` | *(source)* | Autocomplétion zsh pour `bmad-init.sh` |
 
@@ -159,6 +161,66 @@ bash bmad-init.sh consensus --json          # sortie JSON
 
 ---
 
+## `antifragile-score.py` — Anti-Fragile Score
+
+Mesure comment le système apprend et s'améliore à partir de ses échecs. Croise Failure Museum, SIL signals, contradictions, learnings et decisions pour un score composite 0-100.
+
+```bash
+bash bmad-init.sh antifragile                # score compact
+bash bmad-init.sh antifragile --detail       # rapport complet
+bash bmad-init.sh antifragile --trend        # tendance historique
+bash bmad-init.sh antifragile --since 2026-01-01  # depuis une date
+bash bmad-init.sh antifragile --json         # sortie JSON
+bash bmad-init.sh antifragile --dry-run      # sans sauvegarder
+```
+
+**6 dimensions pondérées :**
+- **Récupération** (25%) — failures → leçons → règles instaurées
+- **Vélocité d'apprentissage** (20%) — volume et distribution des learnings
+- **Résolution contradictions** (15%) — taux de résolution
+- **Tendance signaux SIL** (15%) — moins de signaux = mieux
+- **Qualité des décisions** (10%) — taux de reversal
+- **Non-récurrence patterns** (15%) — diversité vs concentration des failures
+
+**Niveaux :** 🔴 FRAGILE (<30) | 🟡 ROBUST (30-60) | 🟢 ANTIFRAGILE (60-100)
+
+**Sortie :** rapport Markdown + historique JSON dans `_bmad-output/antifragile-history.json`
+
+---
+
+## `reasoning-stream.py` — Reasoning Stream
+
+Flux de raisonnement structuré pour capturer le POURQUOI des décisions. Enregistre hypothèses, doutes, assumptions et alternatives dans un stream JSONL avec analyse et compaction.
+
+```bash
+# Ajouter une entrée
+bash bmad-init.sh reasoning log --agent dev --type HYPOTHESIS --text "Redis pourrait remplacer memcached" --confidence 0.7
+bash bmad-init.sh reasoning log --agent qa --type DOUBT --text "Les tests E2E couvrent-ils ce cas?" --tags perf,e2e
+
+# Interroger
+bash bmad-init.sh reasoning query --type DOUBT --status open
+bash bmad-init.sh reasoning query --agent dev --limit 10
+
+# Analyser
+bash bmad-init.sh reasoning analyze            # rapport complet
+bash bmad-init.sh reasoning stats              # stats rapides
+
+# Compacter
+bash bmad-init.sh reasoning compact --before 2026-01-01
+bash bmad-init.sh reasoning compact --dry-run  # preview
+
+# Résoudre
+bash bmad-init.sh reasoning resolve --timestamp 2026-01-15T10:30:00 --status validated
+```
+
+**Types d'entrées :** 🔬 HYPOTHESIS | ❓ DOUBT | 🧠 REASONING | 📌 ASSUMPTION | 🔀 ALTERNATIVE
+
+**Statuts :** ⏳ open | ✅ validated | ❌ invalidated | 🚫 abandoned
+
+**Sortie :** stream JSONL dans `_bmad-output/reasoning-stream.jsonl`, compaction dans `reasoning-stream-compacted.md`
+
+---
+
 ## `bmad-completion.zsh` — Autocomplétion
 
 Fournit l'autocomplétion zsh pour tous les subcommands et options de `bmad-init.sh`.
@@ -170,7 +232,7 @@ echo "source /chemin/vers/bmad-custom-kit/framework/tools/bmad-completion.zsh" >
 source ~/.zshrc
 ```
 
-**Subcommands complétés :** session-branch, install, resume, trace, doctor, validate, changelog, hooks, bench, forge, guard, evolve, dream, consensus
+**Subcommands complétés :** session-branch, install, resume, trace, doctor, validate, changelog, hooks, bench, forge, guard, evolve, dream, consensus, antifragile, reasoning
 
 ---
 
