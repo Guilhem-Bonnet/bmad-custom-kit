@@ -61,6 +61,7 @@ bash bmad-init.sh guard --agent atlas --detail   # détail fichier par fichier
 bash bmad-init.sh guard --model gpt-4o           # fenêtre GPT-4o (128K)
 bash bmad-init.sh guard --threshold 50           # seuil alerte personnalisé
 bash bmad-init.sh guard --suggest                # recommandations de réduction
+bash bmad-init.sh guard --optimize               # analyser les optimisations possibles
 bash bmad-init.sh guard --list-models            # modèles supportés
 bash bmad-init.sh guard --json                   # sortie JSON (CI-compatible)
 ```

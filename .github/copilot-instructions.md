@@ -41,38 +41,24 @@ This repository is the **BMAD Custom Kit** — a framework for bootstrapping AI-
 
 ## Agent DNA Constraints
 
-When generating code for an archetype, respect its `acceptance_criteria`:
-
-| Archetype | Key constraints |
-|-----------|----------------|
-| `stack/go` | table-driven tests, `go vet` clean, no goroutine leak |
-| `stack/typescript` | `strict: true` tsconfig, no `any`, typed props |
-| `stack/python` | type hints everywhere, `ruff` clean, `pytest` |
-| `stack/terraform` | `terraform validate` + `terraform fmt`, `tfsec` |
-| `stack/k8s` | resource limits required, readiness/liveness probes |
-| `stack/docker` | multi-stage builds, non-root user (`USER 1000`) |
-| `stack/ansible` | idempotent tasks, `ansible-lint` clean |
-| `infra-ops` | Completion Contract (`cc-verify.sh`) before any "done" |
-| `fix-loop` | FER (Fix Evidence Record) YAML for every fix session |
-| `minimal` | `cc-verify.sh` passes, shared-context.md filled |
+Respect `acceptance_criteria` per archetype:
+- `stack/go`: table-driven tests, `go vet`, no goroutine leak
+- `stack/typescript`: `strict: true`, no `any`, typed props
+- `stack/python`: type hints, `ruff`, `pytest`
+- `stack/terraform`: `terraform validate` + `fmt`, `tfsec`
+- `stack/k8s`: resource limits, readiness/liveness probes
+- `stack/docker`: multi-stage, non-root (`USER 1000`)
+- `stack/ansible`: idempotent, `ansible-lint`
+- `infra-ops`/`minimal`: CC (`cc-verify.sh`) before "done"
+- `fix-loop`: FER YAML for every fix session
 
 ## BMAD_TRACE Convention
 
-Every significant decision or code generation should be traceable. When generating non-trivial code, suggest adding a TRACE entry:
-```markdown
-[DECISION] <description> | agent:copilot | <rationale>
-```
+Non-trivial decisions → `[DECISION] <desc> | agent:copilot | <rationale>` in BMAD_TRACE.md
 
 ## Git Commit Convention
 
-Conventional Commits format preferred:
-- `feat(<scope>): <description>` — new feature
-- `fix(<scope>): <description>` — bug fix
-- `chore(<scope>): <description>` — maintenance
-- `docs(<scope>): <description>` — documentation only
-- `refactor(<scope>): <description>` — no behavior change
-- `BM-XX: <description>` — also accepted for BMAD backlog items
-
+Conventional Commits: `feat|fix|chore|docs|refactor(<scope>): <desc>` or `BM-XX: <desc>`
 Scopes: `init`, `hooks`, `dna`, `stack`, `docs`, `vscode`, `ci`, `memory`, `mcp`, `tools`
 
 ## Rate Limit Best Practices

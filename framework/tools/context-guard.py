@@ -273,6 +273,231 @@ CONSOLIDATION_RULES = {
     ),
 }
 
+
+# ── Optimize ──────────────────────────────────────────────────────────────────
+
+# Seuils de détection
+OPTIMIZE_COMMENT_RATIO = 0.30  # Si > 30% du fichier est commentaires → flag
+OPTIMIZE_MIN_TOKENS = 500      # Ignorer les petits fichiers
+
+@dataclass
+class OptimizeHint:
+    """Une suggestion d'optimisation pour un fichier."""
+    path: Path
+    category: str        # "comments" | "verbose-yaml" | "extractable" | "duplicate"
+    description: str
+    current_tokens: int
+    estimated_savings: int
+
+    @property
+    def pct_savings(self) -> float:
+        return (self.estimated_savings / self.current_tokens * 100) if self.current_tokens else 0
+
+
+def _count_comment_lines(content: str, ext: str) -> tuple[int, int]:
+    """Retourne (lignes_commentaires, lignes_totales)."""
+    lines = content.splitlines()
+    total = len(lines)
+    comments = 0
+    in_block = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if ext in (".yaml", ".yml"):
+            if stripped.startswith("#"):
+                comments += 1
+        elif ext == ".md":
+            # Blocs de code ``` comptés comme contenu
+            if stripped.startswith("```"):
+                in_block = not in_block
+            # En-dehors des blocs, les blockquotes longs sont verbeux
+        elif ext == ".py":
+            if stripped.startswith("#"):
+                comments += 1
+            elif stripped.startswith('"""') or stripped.startswith("'''"):
+                in_block = not in_block
+            elif in_block:
+                comments += 1
+    return comments, total
+
+
+def _find_extractable_sections(content: str) -> list[tuple[str, int]]:
+    """Détecte les sections Markdown extractibles (tables, exemples longs)."""
+    sections: list[tuple[str, int]] = []
+    lines = content.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # Détection de tables (> 10 lignes)
+        if "|" in line and "---" in line:
+            table_start = max(0, i - 1)
+            table_lines = 0
+            while i < len(lines) and "|" in lines[i]:
+                table_lines += 1
+                i += 1
+            if table_lines > 10:
+                table_text = "\n".join(lines[table_start:i])
+                sections.append((f"Table ({table_lines} lignes)", estimate_tokens(table_text)))
+            continue
+        # Détection de blocs de code (> 15 lignes)
+        if line.strip().startswith("```"):
+            block_start = i
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                i += 1
+            block_lines = i - block_start
+            if block_lines > 15:
+                block_text = "\n".join(lines[block_start:i + 1])
+                sections.append((f"Bloc de code ({block_lines} lignes)", estimate_tokens(block_text)))
+        i += 1
+    return sections
+
+
+def analyze_file_for_optimize(path: Path, role: str) -> list[OptimizeHint]:
+    """Analyse un fichier et retourne les suggestions d'optimisation."""
+    hints: list[OptimizeHint] = []
+    content = read_file_safe(path)
+    if not content:
+        return hints
+
+    tokens = estimate_tokens(content)
+    if tokens < OPTIMIZE_MIN_TOKENS:
+        return hints
+
+    ext = path.suffix.lower()
+
+    # 1. Ratio de commentaires élevé (YAML, Python)
+    if ext in (".yaml", ".yml", ".py"):
+        comment_lines, total_lines = _count_comment_lines(content, ext)
+        if total_lines > 0:
+            ratio = comment_lines / total_lines
+            if ratio > OPTIMIZE_COMMENT_RATIO:
+                savings = int(tokens * ratio * 0.7)  # On peut supprimer ~70% des commentaires
+                hints.append(OptimizeHint(
+                    path=path,
+                    category="comments",
+                    description=f"{comment_lines}/{total_lines} lignes de commentaires ({ratio:.0%}) "
+                                f"— compresser en one-liners ou renvoyer vers docs/",
+                    current_tokens=tokens,
+                    estimated_savings=savings,
+                ))
+
+    # 2. Sections extractibles (tables, blocs de code longs) dans .md
+    if ext == ".md":
+        extractable = _find_extractable_sections(content)
+        for name, section_tokens in extractable:
+            if section_tokens > 200:
+                hints.append(OptimizeHint(
+                    path=path,
+                    category="extractable",
+                    description=f"{name} extractible vers un fichier on-demand "
+                                f"(~{section_tokens} tokens récupérables)",
+                    current_tokens=tokens,
+                    estimated_savings=int(section_tokens * 0.85),
+                ))
+
+    # 3. Fichiers partagés très lourds (base-protocol, project)
+    if role in ("base-protocol", "project") and tokens > 2000:
+        hints.append(OptimizeHint(
+            path=path,
+            category="shared-heavy",
+            description=f"Fichier partagé ({role}) chargé par TOUS les agents — "
+                        f"chaque token économisé ici est multiplié × N agents",
+            current_tokens=tokens,
+            estimated_savings=0,  # informatif
+        ))
+
+    return hints
+
+
+def do_optimize(
+    project_root: Path,
+    model: str,
+    agent_id: Optional[str] = None,
+) -> None:
+    """Analyse les fichiers framework et agents pour trouver des optimisations de tokens."""
+    window = MODEL_WINDOWS.get(model, MODEL_WINDOWS[DEFAULT_MODEL])
+
+    # Collecter tous les fichiers chargés
+    agents = find_agents(project_root)
+    if agent_id:
+        agents = [a for a in agents if agent_id.lower() in a.stem.lower()]
+        if not agents:
+            print(f"❌ Agent '{agent_id}' introuvable.", file=sys.stderr)
+            sys.exit(1)
+
+    # Collecter les fichiers uniques toutes charges confondues
+    seen_files: dict[str, tuple[Path, str, int]] = {}  # path_str → (path, role, tokens)
+    agent_count = len(agents)
+
+    for ap in agents:
+        loads = resolve_agent_loads(ap, project_root)
+        for fl in loads:
+            fl.compute()
+            key = str(fl.path)
+            if fl.loaded and fl.tokens > 0 and key not in seen_files:
+                seen_files[key] = (fl.path, fl.role, fl.tokens)
+
+    # Analyser chaque fichier pour des optimisations
+    all_hints: list[OptimizeHint] = []
+    for path, role, tokens in seen_files.values():
+        all_hints.extend(analyze_file_for_optimize(path, role))
+
+    # Aussi analyser copilot-instructions.md (envoyé à CHAQUE requête, pas analysé par resolve_agent_loads)
+    copilot_instr = project_root / ".github" / "copilot-instructions.md"
+    if copilot_instr.exists():
+        content = read_file_safe(copilot_instr)
+        tokens_ci = estimate_tokens(content)
+        if tokens_ci > OPTIMIZE_MIN_TOKENS:
+            all_hints.append(OptimizeHint(
+                path=copilot_instr,
+                category="always-loaded",
+                description=f"Envoyé avec CHAQUE requête Copilot ({tokens_ci} tokens) — "
+                            f"chaque token économisé ici a le plus grand impact",
+                current_tokens=tokens_ci,
+                estimated_savings=0,
+            ))
+
+    # Affichage
+    print()
+    print(f"  BMAD Context Optimizer  ·  modèle: {model}  ·  fenêtre: {fmt_tokens(window)} tokens")
+    print(f"  {agent_count} agents analysés  ·  {len(seen_files)} fichiers uniques")
+    print()
+
+    if not all_hints:
+        print("  ✅ Aucune optimisation évidente détectée — le framework est déjà compact.")
+        return
+
+    # Trier par savings estimé décroissant (informatifs en dernier)
+    all_hints.sort(key=lambda h: h.estimated_savings, reverse=True)
+
+    total_savings = 0
+    print(f"  {'Fichier':<40} {'Catégorie':<14} {'Actuel':>8} {'Gain':>8} {'%':>6}")
+    print(f"  {'─' * 80}")
+
+    for hint in all_hints:
+        short_name = hint.path.name
+        gain_str = f"-{fmt_tokens(hint.estimated_savings)}" if hint.estimated_savings > 0 else "info"
+        pct_str = f"-{hint.pct_savings:.0f}%" if hint.estimated_savings > 0 else ""
+        print(f"  {short_name:<40} {hint.category:<14} {fmt_tokens(hint.current_tokens):>8} {gain_str:>8} {pct_str:>6}")
+        print(f"    💡 {hint.description}")
+        total_savings += hint.estimated_savings
+
+    print()
+    if total_savings > 0:
+        per_agent = total_savings
+        total_fleet = total_savings * agent_count
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  Gain estimé par agent  : ~{fmt_tokens(per_agent)} tokens")
+        print(f"  Gain total (× {agent_count} agents) : ~{fmt_tokens(total_fleet)} tokens")
+        print(f"  Équivalent fenêtre     : {per_agent / window * 100:.1f}% du budget {model}")
+        print()
+    print("  💡 Pour appliquer : optimiser manuellement les fichiers listés ci-dessus.")
+    print("      Stratégies : compresser les commentaires, extraire les sections on-demand,")
+    print("      renvoyer vers docs/ pour les détails verbeux.")
+    print()
+
 def generate_recommendations(budgets: list[AgentBudget]) -> list[str]:
     """Génère des recommandations actionnables basées sur les budgets."""
     recs: list[str] = []
@@ -398,6 +623,7 @@ Exemples :
   python3 context-guard.py --agent atlas --detail
   python3 context-guard.py --model gpt-4o --threshold 50
   python3 context-guard.py --suggest
+  python3 context-guard.py --optimize
   python3 context-guard.py --json > context-report.json
         """,
     )
@@ -419,6 +645,8 @@ Exemples :
                         help="Sortie JSON pour intégration CI")
     parser.add_argument("--list-models", action="store_true",
                         help="Lister les modèles supportés et leur fenêtre de contexte")
+    parser.add_argument("--optimize", action="store_true",
+                        help="Analyser les fichiers framework pour des optimisations de tokens")
 
     args = parser.parse_args()
 
@@ -429,6 +657,11 @@ Exemples :
         return
 
     project_root = Path(args.project_root).resolve()
+
+    # Mode optimize
+    if args.optimize:
+        do_optimize(project_root, args.model, agent_id=args.agent)
+        return
 
     # Trouver les agents
     if args.agent:

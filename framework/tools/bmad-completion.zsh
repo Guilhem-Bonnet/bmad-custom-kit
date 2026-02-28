@@ -193,6 +193,7 @@ _bmad_init_complete() {
                         '--model[Modèle cible]:model:->models' \
                         '--threshold[Seuil alerte en %]:pct:(20 30 40 50 60 70)' \
                         '--suggest[Afficher recommandations de réduction]' \
+                        '--optimize[Analyser les fichiers pour optimisations de tokens]' \
                         '--list-models[Lister les modèles supportés]' \
                         '--json[Sortie JSON pour CI]'
                     case "$state" in

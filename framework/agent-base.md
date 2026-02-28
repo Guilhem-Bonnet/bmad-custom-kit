@@ -10,58 +10,13 @@
 
 > **LE PRINCIPE FONDATEUR** : Un agent qui dit "terminé" sans preuve est un agent qui ment.
 
-### Ce qui est INTERDIT
-```
-❌ "C'est fait."
-❌ "J'ai implémenté X."
-❌ "Voici les changements."
-❌ "La fonctionnalité est prête."
-```
-…SANS avoir exécuté et affiché le résultat d'une vérification objective.
+**Avant chaque "terminé" / "fait" / "implémenté" / "corrigé" :**
+1. Détecter le stack des fichiers modifiés (go→build+test+vet, ts→tsc+vitest, tf→validate+fmt, py→pytest+ruff, sh→shellcheck, docker→build, k8s→dry-run, ansible→lint, md→aucune)
+2. Exécuter la vérification via `bash {project-root}/_bmad/_config/custom/cc-verify.sh`
+3. Afficher `✅ CC PASS — [stack] — [date]` ou `🔴 CC FAIL`
+4. Si FAIL → corriger immédiatement, relancer, ne rendre la main qu'une fois CC PASS
 
-### Ce qui est OBLIGATOIRE
-
-Avant chaque `"terminé"` / `"fait"` / `"implémenté"` / `"corrigé"` :
-
-**Étape 1 — Détecter le contexte du code modifié** (auto, basé sur les fichiers touchés) :
-
-| Fichiers touchés | Vérifications obligatoires | Commande |
-|---|---|---|
-| `*.go` | Build + Tests + Vet | `go build ./... && go test ./... && go vet ./...` |
-| `*.ts` / `*.tsx` | Types + Tests | `npx tsc --noEmit && npx vitest run` (ou `npm test`) |
-| `*.tf` / `*.tfvars` | Validate + Format | `terraform validate && terraform fmt -check` |
-| `ansible/` / `playbook*.yml` | Lint | `ansible-lint && yamllint .` |
-| `*.py` | Tests + Types | `pytest && (mypy . \|\| ruff check .)` |
-| `Dockerfile` / `docker-compose*.yml` | Build | `docker build . --no-cache` (ou `docker compose config`) |
-| `k8s/` / `Kind:` YAML | Dry-run | `kubectl apply --dry-run=server -f .` |
-| `*.sh` | Lint | `shellcheck *.sh` |
-| Markdown / config only | Aucune commande requise | ✅ direct |
-
-**Étape 2 — Exécuter la vérification** : Lancer la commande correspondante via le terminal.
-
-**Étape 3 — Afficher la preuve** : Toujours inclure dans la réponse :
-```
-✅ CC PASS — [stack] — [date heure]
-> go build ./...  → OK (0 erreurs)
-> go test ./...   → OK (47 tests, 0 failed)
-> go vet ./...    → OK
-```
-ou en cas d'échec :
-```
-🔴 CC FAIL — [stack] — [date heure]
-> go test ./...   → FAIL
-  --- FAIL: TestXxx (0.12s)
-  [je corrige maintenant avant de rendre la main]
-```
-
-**Étape 4 — Si FAIL → CORRIGER AVANT DE RENDRE LA MAIN.**
-L'agent ne demande pas la permission de corriger. Il corrige, relance la vérification, et ne rend la main qu'une fois CC PASS.
-
-### Script de vérification disponible
-```bash
-# Détecte automatiquement le stack et lance les bonnes vérifications
-bash {project-root}/_bmad/_config/custom/cc-verify.sh
-```
+> Détails complets des commandes par stack : voir `framework/cc-reference.md` (charger à la demande).
 
 ---
 
@@ -167,46 +122,16 @@ Ne jamais sortir de [THINK] sans une décision claire et documentée.
 
 ### Mémoire & Observabilité
 
-#### 🧠 MEMORY PROTOCOL — Qdrant source de vérité (Phase 2 : dual-write)
+#### 🧠 MEMORY PROTOCOL — Qdrant source de vérité (dual-write)
 
-**Écrire une mémoire** → utiliser `remember` (collecté dans Qdrant, idempotent) :
-```bash
-# Learning après résolution de problème
-python {project-root}/_bmad/_memory/mem0-bridge.py remember \
-    --type agent-learnings --agent {AGENT_TAG} "<description>"
+**Écrire** : `python {project-root}/_bmad/_memory/mem0-bridge.py remember --type TYPE --agent {AGENT_TAG} "texte"`
+Types : `agent-learnings` | `decisions` | `shared-context` | `failures`
 
-# Décision architecturale / ADR
-python {project-root}/_bmad/_memory/mem0-bridge.py remember \
-    --type decisions --agent {AGENT_TAG} "<décision résumée>" --tags {DOMAIN_WORD}
+**Lire** : `python {project-root}/_bmad/_memory/mem0-bridge.py recall "question"` (options : `--type TYPE`, `--agent AGENT`)
 
-# Contexte projet (infra, service, config)
-python {project-root}/_bmad/_memory/mem0-bridge.py remember \
-    --type shared-context --agent {AGENT_TAG} "<fait clé>"
+**Exporter** : `mem0-bridge.py export-md --type agent-learnings --output {project-root}/_bmad/_memory/agent-learnings/{LEARNINGS_FILE}.md`
 
-# Erreur à ne pas reproduire
-python {project-root}/_bmad/_memory/mem0-bridge.py remember \
-    --type failures --agent {AGENT_TAG} "<description de l'erreur et comment l'éviter>"
-```
-
-**Lire / rechercher** → utiliser `recall` :
-```bash
-# Recherche cross-collection (toutes les collections)
-python {project-root}/_bmad/_memory/mem0-bridge.py recall "<question>"
-
-# Filtrer par type
-python {project-root}/_bmad/_memory/mem0-bridge.py recall "terraform state" --type decisions
-
-# Filtrer par agent
-python {project-root}/_bmad/_memory/mem0-bridge.py recall "backup" --agent phoenix
-```
-
-**Exporter en .md lisible** (pour partage ou revue) :
-```bash
-python {project-root}/_bmad/_memory/mem0-bridge.py export-md \
-    --type agent-learnings --output {project-root}/_bmad/_memory/agent-learnings/{LEARNINGS_FILE}.md
-```
-
-> ⚠️ **Dual-write (Phase actuelle)** : les fichiers `.md` sont aussi maintenus par compatibilité. Utiliser `remember` TOUJOURS comme source principale. Les `.md` sont des exports READ-ONLY générés à la demande.
+> Dual-write actif : Qdrant = source de vérité, fichiers `.md` = exports read-only. UUID5 = déduplication native.
 
 - 📦 LAZY-LOAD : Ne PAS charger au démarrage session-state.md, network-topology.md, dependency-graph.md, oss-references.md. Charger À LA DEMANDE : reprise session → session-state.md | réseau/IPs → network-topology.md | impact/dépendances → dependency-graph.md | choix OSS → oss-references.md
 - Mettre à jour `{project-root}/_bmad/_memory/decisions-log.md` ET exécuter `remember --type decisions` après chaque décision {DOMAIN_WORD}

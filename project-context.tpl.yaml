@@ -1,143 +1,54 @@
-# BMAD Custom Kit - Project Context Template
-# ═══════════════════════════════════════════════════════════════════════════════
-# Ce fichier est la SOURCE DE VÉRITÉ pour les informations projet.
-# Les agents et scripts le lisent automatiquement.
-# Remplissez les sections pertinentes et supprimez celles qui ne s'appliquent pas.
-# ═══════════════════════════════════════════════════════════════════════════════
+# BMAD Custom Kit — Project Context (source de vérité)
+# Guide complet des options : docs/getting-started.md
 
-# ─── Projet ───────────────────────────────────────────────────────────────────
 project:
-  name: "Mon Projet"                    # Nom du projet
-  description: "Description courte"     # Description en une ligne
+  name: "Mon Projet"
+  description: "Description courte"
   type: "infrastructure"                # infrastructure | webapp | data-pipeline | mobile | game
-  stack: []                             # Ex: ["terraform", "ansible", "docker", "k8s"]
-  repos:                                # Dépôts git du projet
+  stack: []                             # ["terraform", "ansible", "docker", "k8s"]
+  repos:
     - name: "main-repo"
       path: "."
       default_branch: "main"
 
-# ─── Utilisateur ──────────────────────────────────────────────────────────────
 user:
   name: "Votre Nom"
-  language: "Français"                  # Langue de communication des agents
-  document_language: "Français"         # Langue des documents générés
+  language: "Français"
+  document_language: "Français"
 
-# ─── Infrastructure (si applicable) ──────────────────────────────────────────
-# Décommentez et adaptez si votre projet a de l'infrastructure
-#
+# Décommentez les sections pertinentes — exemples complets dans docs/getting-started.md
+
 # infrastructure:
-#   hosts:
-#     - name: "server-01"
-#       role: "primary"
-#       ip: "192.168.1.10"
-#       type: "bare-metal"              # bare-metal | vm | container | cloud
-#       services:
-#         - { name: "nginx", port: 80 }
-#         - { name: "app", port: 8080 }
-#
-#   network:
-#     subnet: "192.168.1.0/24"
-#     dns: "192.168.1.1"
-#     domain: "example.local"
-#
-# ─── Kubernetes (si applicable) ──────────────────────────────────────────────
-#
+#   hosts: [{name: "server-01", role: "primary", ip: "192.168.1.10", type: "bare-metal"}]
+#   network: {subnet: "192.168.1.0/24", dns: "192.168.1.1", domain: "example.local"}
+
 # kubernetes:
-#   distribution: "k3s"                 # k3s | k8s | eks | gke | aks
-#   nodes:
-#     - { name: "node-1", role: "control-plane", ip: "192.168.1.20" }
-#     - { name: "node-2", role: "worker", ip: "192.168.1.21" }
-#   gitops: "fluxcd"                    # fluxcd | argocd | none
-#   storage: "longhorn"                 # longhorn | nfs | ceph | ebs
-#
-# ─── Monitoring (si applicable) ──────────────────────────────────────────────
-#
+#   distribution: "k3s"                # k3s | k8s | eks | gke | aks
+#   nodes: [{name: "node-1", role: "control-plane", ip: "192.168.1.20"}]
+#   gitops: "fluxcd"                   # fluxcd | argocd | none
+
 # monitoring:
-#   stack: "prometheus"                 # prometheus | datadog | cloudwatch
-#   grafana_url: "http://localhost:3000"
-#   alerting: "discord"                 # discord | slack | pagerduty | email
-#
-# ─── CI/CD ────────────────────────────────────────────────────────────────────
-#
+#   stack: "prometheus"                # prometheus | datadog | cloudwatch
+#   alerting: "discord"               # discord | slack | pagerduty | email
+
 # cicd:
-#   platform: "github-actions"          # github-actions | gitlab-ci | jenkins
-#   runner: "self-hosted"               # self-hosted | cloud
-#   deploy_method: "ansible"            # ansible | terraform | kubectl | docker-compose
-#
-# ─── Sécurité ────────────────────────────────────────────────────────────────
-#
+#   platform: "github-actions"         # github-actions | gitlab-ci | jenkins
+#   deploy_method: "ansible"           # ansible | terraform | kubectl | docker-compose
+
 # security:
-#   secrets_manager: "sops"             # sops | vault | aws-secrets | none
-#   encryption_key: "age"              # age | gpg | kms
+#   secrets_manager: "sops"            # sops | vault | aws-secrets | none
 #   tls: true
-#   firewall: "ufw"                    # ufw | iptables | nftables | cloud-sg
 
-# ─── Mémoire vectorielle ──────────────────────────────────────────────────
-# Configuré automatiquement par bmad-init.sh --memory <backend>
-# Priorité : ENV vars (BMAD_OLLAMA_URL / BMAD_QDRANT_URL) > ce fichier > auto-détection
-#
 memory:
-  # Backends disponibles : auto | local | qdrant-local | qdrant-server | ollama
-  # auto = détection automatique à l'exécution
-  backend: "auto"
+  backend: "auto"                      # auto | local | qdrant-local | qdrant-server | ollama
 
-  # Collection Qdrant — isolée par projet (convention: bmad_{project_name})
-  # collection_prefix: "bmad"
-
-  # Modèle d'embedding :
-  #   nomic-embed-text (768dim, via Ollama — recommandé si Ollama disponible)
-  #   all-MiniLM-L6-v2 (384dim, via sentence-transformers — léger, CPU)
-  # embedding_model: "nomic-embed-text"
-
-  # URLs — surchargées par les ENV vars BMAD_OLLAMA_URL / BMAD_QDRANT_URL
-  # ollama_url: "http://localhost:11434"
-  # qdrant_url: "http://localhost:6333"
-
-# ─── Agents custom (auto-rempli par bmad-init) ──────────────────────────────
 agents:
-  archetype: "minimal"                 # Archétype utilisé lors de l'init
-  custom_agents: []                    # Liste des agents ajoutés manuellement
+  archetype: "minimal"
+  custom_agents: []
 
-# ─── Archétypes installés ───────────────────────────────────────────────────────────────────
-installed_archetypes: []               # Rempli automatiquement par bmad-init.sh install
-# Exemple après install :
-# installed_archetypes:
-#   - id: infra-ops
-#     installed_at: "2026-02-27"
-#   - id: stack/go
-#     installed_at: "2026-02-27"
+installed_archetypes: []               # Rempli par bmad-init.sh install
 
-# ─── Session Branching (BM-16) ──────────────────────────────────────────────────────────────────
-# session_branch: "main"               # Branche de session active
-# runs_directory: "_bmad-output/.runs" # Répertoire des runs d'artefacts
-
-# ─── Team of Teams (BM-17) ──────────────────────────────────────────────────────────────────
-# teams:
-#   active: [team-vision, team-build]  # Teams activées dans ce projet
-#   delivery_contracts_dir: "_bmad-output/contracts"
-
-# ─── Repo Map (BM-05) ─────────────────────────────────────────────────────────────────────
-# repo_map:
-#   enabled: false
-#   strategy: "find"                   # find | ctags | tree-sitter
-#   max_symbols_per_file: 30
-#   languages: [go, typescript, python, terraform]
-#   exclude_dirs: [node_modules, .git, vendor, dist, _bmad-output]
-#   output: "_bmad-output/repo-map.md"
-#   stale_after_hours: 24
-
-# ─── Context Budget (BM-07 + BM-55) ────────────────────────────────────────────────────────────
-# Utilisé par context-guard.py (bash bmad-init.sh guard) pour calibrer les alertes.
-# Si omis, guard utilise les défauts : modèle=copilot/200K, seuil=40%.
-#
 # context_guard:
-#   model: "claude-opus-4"             # Modèle LLM cible (définit la fenêtre)
-#   # Modèles disponibles : claude-opus-4 (200K) | gpt-4o (128K) | gemini-1.5-pro (1M)
-#   #                       gpt-4o-mini (128K) | llama3-8b (8K) | mistral-7b (32K)
-#   warn_threshold_pct: 40             # Alerte jaune à 40% de la fenêtre
-#   critical_threshold_pct: 70         # Alerte rouge à 70% (bloquant en CI)
-#
-# context_budget:
-#   default_max_tokens: 80000          # Déprécié — utilisé context_guard.model à la place
-#   warning_threshold: 0.75            # Déprécié — utilisé context_guard.warn_threshold_pct
-#   overflow_strategy: "summarize"     # summarize | drop-oldest | ask-user
+#   model: "claude-opus-4"             # claude-opus-4 (200K) | gpt-4o (128K) | gemini-1.5-pro (1M)
+#   warn_threshold_pct: 40
+#   critical_threshold_pct: 70
