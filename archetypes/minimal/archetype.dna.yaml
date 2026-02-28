@@ -1,0 +1,84 @@
+$schema: "bmad-archetype-dna/v1"
+
+id: minimal
+name: "Minimal"
+version: "1.0.0"
+description: "Archétype de base universel — meta-agents (Atlas, Sentinel, Mnemo) + agent template vierge"
+icon: "🔬"
+author: "bmad-custom-kit"
+tags: [base, universal, starter, meta]
+
+inherits: null  # Archétype racine — tous les autres en héritent
+
+traits:
+  - name: plan-act
+    description: "Mode Plan/Act — switch comportemental [PLAN]/[ACT]"
+    rule: "Si l'utilisateur écrit [PLAN] → passer en mode planification (jamais écrire de code), afficher le plan structuré et attendre validation. Si [ACT] → exécuter directement."
+    agents_affected: "*"
+  - name: extended-thinking
+    description: "Délibération profonde [THINK] pour décisions architecturales"
+    rule: "Si l'utilisateur écrit [THINK] → activer la délibération 6 étapes : poser le problème, lister les contraintes, ≥3 options, simuler les échecs, décider, rédiger un ADR minimal."
+    agents_affected: "*"
+  - name: failure-museum
+    description: "Consulter le Failure Museum avant les décisions critiques"
+    rule: "LAZY-LOAD _bmad/_memory/failure-museum.md si le projet est actif depuis > 2 semaines avant toute décision majeure."
+    agents_affected: "*"
+  - name: cc-aware
+    description: "Conscience du Completion Contract"
+    rule: "Avant tout 'terminé', vérifier que cc-verify.sh est disponible. Si oui et stack applicable → l'exécuter. Jamais rendre la main sur CC FAIL."
+    agents_affected: "*"
+
+constraints:
+  - id: no-raw-secrets
+    description: "Ne jamais écrire de secrets en clair dans les fichiers"
+    enforcement: hard
+    checked_by: agent-optimizer
+  - id: memory-sync
+    description: "Agent-learnings mis à jour en fin de session"
+    enforcement: soft
+    checked_by: memory-keeper
+
+values:
+  - name: documentation-first
+    description: "La connaissance non documentée est perdue"
+    priority: 1
+  - name: incremental-improvement
+    description: "Chaque session laisse le projet dans un meilleur état"
+    priority: 1
+  - name: explicit-over-implicit
+    description: "Préférer l'explicite (chemins exacts, noms complets) à l'implicite"
+    priority: 2
+
+agents:
+  - path: "../../archetypes/meta/agents/project-navigator.md"
+    required: true
+    description: "Atlas — cartographe du projet, registre services"
+  - path: "../../archetypes/meta/agents/agent-optimizer.md"
+    required: true
+    description: "Sentinel — audit qualité agents, self-improvement loop"
+  - path: "../../archetypes/meta/agents/memory-keeper.md"
+    required: true
+    description: "Mnemo — gestion mémoire, contradictions, consolidation"
+  - path: "../../archetypes/minimal/agents/custom-agent.tpl.md"
+    required: false
+    description: "Template vierge pour créer un agent personnalisé"
+
+workflows: []
+shared_context_template: null
+prompts_directory: null
+
+compatible_with: [infra-ops, web-app, fix-loop, stack/go, stack/typescript, stack/python, stack/terraform, stack/k8s, features/vector-memory]
+incompatible_with: []
+requires: []
+
+auto_detect:
+  files: []
+  directories: []
+  confidence_boost: 100  # Toujours présent, c'est la base
+  exclusive: false
+
+changelog:
+  - version: "1.0.0"
+    date: "2026-02-27"
+    changes:
+      - "Création initiale — meta-agents + traits Plan/Act, Extended Thinking, Failure Museum"

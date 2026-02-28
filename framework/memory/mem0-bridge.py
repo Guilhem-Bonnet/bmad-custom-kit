@@ -233,6 +233,9 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 COLLECTION_NAME = "bmad_memories"
 QDRANT_PATH = str(MEMORY_DIR / "qdrant_data")
 
+# Types de mémoire structurée (BM-22 — Qdrant source de vérité)
+MEMORY_TYPES = ["shared-context", "decisions", "agent-learnings", "failures", "stories"]
+
 
 class SemanticMemory:
     """Mémoire sémantique locale via sentence-transformers + Qdrant. Zéro API key."""
@@ -317,6 +320,180 @@ class SemanticMemory:
 
     def count(self):
         return self.client.get_collection(COLLECTION_NAME).points_count
+
+
+# ─── Mémoire multi-collection structurée (BM-22) ─────────────────────────────
+
+class StructuredMemory:
+    """Mémoire multi-collection Qdrant — source de vérité pour tous les agents.
+
+    Collections :
+      {APP_ID}-shared-context   → contexte projet/infra
+      {APP_ID}-decisions        → ADRs et décisions
+      {APP_ID}-agent-learnings  → learnings par agent
+      {APP_ID}-failures         → failure museum entries
+      {APP_ID}-stories          → stories/tickets
+
+    Interface principale :
+      remember(type, agent, text, tags=[])   → upsert idempotent (UUID5)
+      recall(query, type=None, agent=None)   → search sémantique cross-collection
+      export_md(type)                        → export Markdown lisible
+      import_md(type, content, agent)        → import depuis .md
+    """
+
+    TYPES = MEMORY_TYPES
+
+    def __init__(self):
+        from sentence_transformers import SentenceTransformer
+        from qdrant_client import QdrantClient
+        from qdrant_client.models import Distance, VectorParams, PointStruct
+
+        self._PointStruct = PointStruct
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        old_stderr_fd = os.dup(2)
+        os.dup2(devnull_fd, 2)
+        try:
+            self.model = SentenceTransformer(EMBEDDING_MODEL)
+        finally:
+            os.dup2(old_stderr_fd, 2)
+            os.close(old_stderr_fd)
+            os.close(devnull_fd)
+        self.dim = self.model.get_sentence_embedding_dimension()
+        self.client = QdrantClient(path=QDRANT_PATH)
+        self._ensure_collections()
+
+    def _col(self, type_: str) -> str:
+        """Nom de collection normalisé : {APP_ID}-{type}."""
+        return f"{APP_ID}-{type_}"
+
+    def _ensure_collections(self):
+        from qdrant_client.models import Distance, VectorParams
+        existing = {c.name for c in self.client.get_collections().collections}
+        for t in self.TYPES:
+            col = self._col(t)
+            if col not in existing:
+                self.client.create_collection(
+                    collection_name=col,
+                    vectors_config=VectorParams(size=self.dim, distance=Distance.COSINE),
+                )
+
+    def _point_id(self, agent: str, text: str) -> str:
+        """UUID5 déterministe — upsert idempotent sur (APP_ID, agent, text[:150])."""
+        import uuid
+        return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{APP_ID}:{agent}:{text[:150]}"))
+
+    def remember(self, type_: str, agent: str, text: str, tags: list = None) -> dict:
+        """Upsert une mémoire dans sa collection de type."""
+        if type_ not in self.TYPES:
+            raise ValueError(f"Type invalide: {type_!r}. Valides: {self.TYPES}")
+        col = self._col(type_)
+        vector = self.model.encode(text).tolist()
+        point_id = self._point_id(agent, text)
+        payload = {
+            "text": text,
+            "agent": agent,
+            "type": type_,
+            "tags": tags or [],
+            "project": APP_ID,
+            "created_at": datetime.now().isoformat(),
+        }
+        self.client.upsert(
+            collection_name=col,
+            points=[self._PointStruct(id=point_id, vector=vector, payload=payload)],
+        )
+        return {"id": point_id, "type": type_, "agent": agent, "text": text}
+
+    def recall(self, query: str, type_: str = None, agent: str = None, limit: int = 5) -> list:
+        """Recherche sémantique — une ou toutes les collections."""
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        vector = self.model.encode(query).tolist()
+        collections = [self._col(type_)] if type_ else [self._col(t) for t in self.TYPES]
+        filt = None
+        if agent:
+            filt = Filter(must=[FieldCondition(key="agent", match=MatchValue(value=agent))])
+        results = []
+        for col in collections:
+            try:
+                hits = self.client.query_points(
+                    collection_name=col,
+                    query=vector,
+                    query_filter=filt,
+                    limit=limit,
+                ).points
+                col_type = col[len(APP_ID) + 1:] if col.startswith(APP_ID + "-") else col
+                for h in hits:
+                    results.append({
+                        "type": col_type,
+                        "agent": h.payload.get("agent", ""),
+                        "text": h.payload.get("text", ""),
+                        "tags": h.payload.get("tags", []),
+                        "score": round(h.score, 3),
+                        "date": h.payload.get("created_at", "")[:10],
+                        "id": h.id,
+                    })
+            except Exception:
+                pass  # Collection vide ou inexistante
+        results.sort(key=lambda x: -x["score"])
+        return results[:limit]
+
+    def export_md(self, type_: str) -> str:
+        """Exporte une collection en Markdown lisible (format agent-learnings)."""
+        col = self._col(type_)
+        try:
+            result = self.client.scroll(collection_name=col, limit=1000)
+            points = result[0]
+        except Exception:
+            return f"# {type_}\n\n_Collection vide ou inexistante._\n"
+        if not points:
+            return f"# {type_}\n\n_Aucune entrée._\n"
+        lines = [
+            f"# {type_} — {APP_ID}",
+            f"> Exporté : {datetime.now().isoformat()[:10]} | Entrées : {len(points)}",
+            "",
+        ]
+        by_agent: dict = {}
+        for p in points:
+            ag = p.payload.get("agent", "unknown")
+            by_agent.setdefault(ag, []).append(p)
+        for ag, pts in sorted(by_agent.items()):
+            lines.append(f"## {ag}")
+            for p in sorted(pts, key=lambda x: x.payload.get("created_at", "")):
+                date = p.payload.get("created_at", "")[:10]
+                text = p.payload.get("text", "")
+                tags = p.payload.get("tags", [])
+                tag_str = f" `{'` `'.join(tags)}`" if tags else ""
+                lines.append(f"- [{date}] {text}{tag_str}")
+            lines.append("")
+        return "\n".join(lines)
+
+    def import_md(self, type_: str, content: str, agent: str = "import") -> int:
+        """Importe un .md (lignes `- [YYYY-MM-DD] text` ou `## agent_name`) dans une collection."""
+        count = 0
+        current_agent = agent
+        for line in content.splitlines():
+            line = line.strip()
+            if line.startswith("## "):
+                current_agent = line[3:].strip()
+            elif line.startswith("- [") and "] " in line:
+                bracket_content = line[3:line.index("]")] if "]" in line else ""
+                # Valider format date YYYY-MM-DD
+                if len(bracket_content) == 10 and bracket_content[4] == "-" and bracket_content[7] == "-":
+                    text = line[line.index("] ") + 2:].strip()
+                    if text:
+                        self.remember(type_, current_agent, text)
+                        count += 1
+        return count
+
+    def count(self, type_: str) -> int:
+        try:
+            return self.client.get_collection(self._col(type_)).points_count
+        except Exception:
+            return 0
+
+    def init_collections(self) -> list:
+        """Crée toutes les collections si inexistantes (idempotent)."""
+        self._ensure_collections()
+        return self.TYPES
 
 
 def _load_memory_config() -> dict:
@@ -723,6 +900,112 @@ def cmd_dispatch(args):
         print(f"\n  → Recommandation : {AGENT_PROFILES[best[0]]['icon']} {best[0].upper()}")
 
 
+# ─── Commandes structurées (BM-22) ───────────────────────────────────────────
+
+def cmd_remember(args):
+    """Mémoriser dans une collection typée Qdrant (source de vérité)."""
+    type_ = args.type
+    agent = args.agent
+    text = args.memory_text
+    tags = [t.strip() for t in args.tags.split(",")] if args.tags else []
+    try:
+        sm = StructuredMemory()
+    except Exception as e:
+        warn_msg = f"⚠️  StructuredMemory indisponible ({e}), fallback add classique"
+        print(warn_msg)
+        client, _ = get_client()
+        client.add(text, metadata={"agent": agent, "type": type_, "tags": tags})
+        print(f"✅ Mémorisé (local) [{type_}] @{agent}: {text[:80]}")
+        return
+    result = sm.remember(type_, agent, text, tags)
+    display = text[:80] + ("..." if len(text) > 80 else "")
+    print(f"✅ Mémorisé [{type_}] @{agent}: {display}")
+    if tags:
+        print(f"   tags: {', '.join(tags)}")
+    log_activity("remember", agent=agent, query=text[:80], extra={"type": type_})
+
+
+def cmd_recall(args):
+    """Recherche sémantique dans les collections typées Qdrant."""
+    query = args.query
+    if not query.strip():
+        print("⚠️  Query vide — rien à rechercher")
+        return
+    type_ = getattr(args, "type", None)
+    agent = getattr(args, "agent", None)
+    limit = args.limit
+    try:
+        sm = StructuredMemory()
+    except Exception as e:
+        print(f"⚠️  StructuredMemory indisponible ({e}), fallback search classique")
+        client, _ = get_client()
+        results = client.search(query, limit=limit)
+        for i, r in enumerate(results, 1):
+            print(f"  {i}. [{r.get('score', 0):.3f}] {r.get('memory', '')[:100]}")
+        return
+    results = sm.recall(query, type_=type_, agent=agent, limit=limit)
+    if not results:
+        print(f"🔍 Recall — \"{query}\" → aucun résultat")
+        return
+    tl = f" [{type_}]" if type_ else ""
+    al = f" @{agent}" if agent else ""
+    print(f"🔍 Recall{tl}{al} — \"{query}\"")
+    print()
+    for i, r in enumerate(results, 1):
+        filled = int(r["score"] * 10)
+        bar = "█" * filled + "░" * (10 - filled)
+        print(f"  {i}. [{r['score']:.3f}] {bar}  [{r['type']}] @{r['agent']}")
+        print(f"     {r['text'][:120]}{'...' if len(r['text']) > 120 else ''}")
+        if r["tags"]:
+            print(f"     tags: {', '.join(r['tags'])}")
+    log_activity("recall", query=query, hits=len(results),
+                 top_score=results[0]["score"] if results else 0,
+                 extra={"type": type_, "agent": agent})
+
+
+def cmd_export_md(args):
+    """Exporter une collection Qdrant en Markdown lisible."""
+    type_ = args.type
+    output = getattr(args, "output", None)
+    try:
+        sm = StructuredMemory()
+    except Exception as e:
+        print(f"❌ StructuredMemory indisponible: {e}")
+        return
+    content = sm.export_md(type_)
+    if output:
+        from pathlib import Path as _Path
+        _Path(output).write_text(content, encoding="utf-8")
+        print(f"✅ Exporté → {output} ({sm.count(type_)} entrées)")
+    else:
+        print(content)
+
+
+def cmd_import_md(args):
+    """Importer un fichier Markdown dans une collection Qdrant."""
+    file_path = args.file
+    type_ = args.type
+    agent = getattr(args, "agent", "import")
+    try:
+        sm = StructuredMemory()
+    except Exception as e:
+        print(f"❌ StructuredMemory indisponible: {e}")
+        return
+    content = Path(file_path).read_text(encoding="utf-8")
+    count = sm.import_md(type_, content, agent=agent)
+    print(f"✅ Importé {count} entrées depuis {file_path} → [{type_}]")
+
+
+def cmd_init_collections(args):
+    """Initialise toutes les collections Qdrant (idempotent, appelé par bmad-init.sh)."""
+    try:
+        sm = StructuredMemory()
+        types = sm.init_collections()
+        print(f"✅ Collections Qdrant initialisées : {', '.join(types)}")
+    except Exception as e:
+        print(f"⚠️  Qdrant indisponible ({e}) — collections non créées (fallback local actif)")
+
+
 def main():
     parser = argparse.ArgumentParser(description="mem0 Bridge — Mémoire partagée BMAD")
     sub = parser.add_subparsers(dest="command")
@@ -762,6 +1045,37 @@ def main():
 
     p = sub.add_parser("migrate", help="Migrer mémoires JSON → Qdrant")
     p.set_defaults(func=cmd_migrate)
+
+    # ── Mémoire structurée multi-collection (BM-22) ──────────────────────────
+    _types = ["shared-context", "decisions", "agent-learnings", "failures", "stories"]
+
+    p = sub.add_parser("remember", help="Mémoriser dans une collection typée Qdrant")
+    p.add_argument("--type", required=True, choices=_types, help="Type de mémoire")
+    p.add_argument("--agent", required=True, help="Agent tag (ex: forge, atlas)")
+    p.add_argument("memory_text", help="Contenu à mémoriser")
+    p.add_argument("--tags", help="Tags séparés par virgules (ex: terraform,infra)")
+    p.set_defaults(func=cmd_remember)
+
+    p = sub.add_parser("recall", help="Recherche sémantique multi-collection Qdrant")
+    p.add_argument("query", help="Requête en langage naturel")
+    p.add_argument("--type", choices=_types, help="Filtrer par type de mémoire")
+    p.add_argument("--agent", help="Filtrer par agent")
+    p.add_argument("--limit", type=int, default=5)
+    p.set_defaults(func=cmd_recall)
+
+    p = sub.add_parser("export-md", help="Exporter une collection Qdrant en Markdown lisible")
+    p.add_argument("--type", required=True, choices=_types)
+    p.add_argument("--output", help="Fichier de sortie (sinon stdout)")
+    p.set_defaults(func=cmd_export_md)
+
+    p = sub.add_parser("import-md", help="Importer un .md dans une collection Qdrant")
+    p.add_argument("file", help="Fichier .md à importer")
+    p.add_argument("--type", required=True, choices=_types)
+    p.add_argument("--agent", default="import", help="Agent tag par défaut")
+    p.set_defaults(func=cmd_import_md)
+
+    p = sub.add_parser("init-collections", help="Initialiser toutes les collections Qdrant (idempotent)")
+    p.set_defaults(func=cmd_init_collections)
 
     args = parser.parse_args()
     if not args.command:

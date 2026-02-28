@@ -1,0 +1,159 @@
+team:
+  name: "team-build"
+  display_name: "Team Build — Engineering & Quality"
+  icon: "🔨"
+  version: "1.0.0"
+  description: "Transforme les specs validées de Team Vision en code fonctionnel, testé, et documenté. Propriétaire du COMMENT."
+
+  agents:
+    - name: "architect"
+      role: "Lead Phase 1 — architecture, ADRs, choix techniques"
+      required: true
+    - name: "sm"
+      role: "Lead Phase 2 — sprint planning, story creation, backlog"
+      required: true
+    - name: "dev"
+      role: "Lead Phase 3 — implémentation TDD, story execution"
+      required: true
+    - name: "qa"
+      role: "Lead Phase 4 — test automation, coverage analysis"
+      required: true
+    - name: "tech-writer"
+      role: "Support — documentation, diagrammes, standards"
+      required: false
+
+  specialty: "Architecture, Implémentation TDD, QA Automation, Documentation"
+  out_of_scope:
+    - "Product discovery et stratégie — délégué à Team Vision"
+    - "Déploiement production et monitoring — délégué à Team Ops"
+    - "Décisions business — Team Vision uniquement"
+
+  inputs:
+    required:
+      - name: "Delivery Contract depuis Team Vision"
+        description: "PRD validé + UX Specs + contrat signé"
+        path_pattern: "_bmad-output/contracts/vision-to-build-*.md"
+      - name: "PRD validé"
+        description: "Requirements complets avec ACs"
+        path_pattern: "_bmad-output/planning-artifacts/PRD-*.md"
+    optional:
+      - name: "UX Specs"
+        description: "User journeys et composants UI"
+        path_pattern: "_bmad-output/planning-artifacts/UX-specs-*.md"
+
+  outputs:
+    deliverables:
+      - name: "Architecture Decision Records"
+        format: "Markdown"
+        path_pattern: "_bmad-output/implementation-artifacts/architecture-*.md"
+        acceptance_criteria: "Tous les choix techniques justifiés, trade-offs documentés"
+      - name: "Sprint Plan"
+        format: "Markdown"
+        path_pattern: "_bmad-output/implementation-artifacts/sprint-plan-*.md"
+        acceptance_criteria: "Epics + Stories avec ACs, story points estimés, sprint 1 prêt"
+      - name: "Code implémenté"
+        format: "Code source"
+        path_pattern: "src/ ou répertoire projet"
+        acceptance_criteria: "Tous les tests passent (CC PASS), coverage ≥ 80% si applicable"
+      - name: "Rapport QA"
+        format: "Markdown"
+        path_pattern: "_bmad-output/implementation-artifacts/qa-report-*.md"
+        acceptance_criteria: "0 test failing, tous les ACs couverts par tests"
+      - name: "Delivery Contract vers Team Ops"
+        format: "Markdown"
+        path_pattern: "_bmad-output/contracts/build-to-ops-*.md"
+        acceptance_criteria: "Code review passée, CC PASS confirmé, doc à jour"
+    optional_deliverables:
+      - name: "Documentation technique"
+        condition: "Si API publique ou onboarding développeurs"
+      - name: "Performance benchmark"
+        condition: "Si SLA de performance défini dans le PRD"
+
+  sla:
+    estimated_steps: 12
+    estimated_tokens: "150K-300K tokens"
+    blocking_conditions:
+      - "Tous les tests passent (CC PASS obligatoire)"
+      - "Code review effectuée et observations adressées"
+      - "Tous les ACs du PRD couverts par des tests"
+      - "Documentation à jour"
+
+  delivery_workflow:
+    phases:
+      - phase: 1
+        name: "Architecture & Design"
+        agents_active: ["architect", "sm"]
+        steps:
+          - "Lire PRD + UX Specs + Delivery Contract"
+          - "Identifier les composants techniques et leurs interfaces"
+          - "Écrire les ADRs pour les choix clés (database, framework, patterns)"
+          - "Extended Thinking [THINK] sur les choix critiques"
+          - "Valider la faisabilité avec les ACs du PRD"
+        output: "architecture-{project}-v{n}.md"
+      - phase: 2
+        name: "Sprint Planning & Stories"
+        agents_active: ["sm", "architect"]
+        steps:
+          - "Décomposer en Epics (groupes de features)"
+          - "Créer les User Stories avec ACs mesurables"
+          - "Estimer story points"
+          - "Construire Sprint 1 (MVP ou slice vertical)"
+          - "Créer les fichiers story dans _bmad-output/implementation-artifacts/stories/"
+        output: "sprint-plan-{project}-sprint{n}.md"
+      - phase: 3
+        name: "Implementation TDD"
+        agents_active: ["dev"]
+        steps:
+          - "Lire story file AVANT toute implémentation"
+          - "Écrire tests d'abord (TDD red-green-refactor)"
+          - "Implémenter le code"
+          - "CC PASS obligatoire avant chaque story close"
+          - "Marquer [x] tasks uniquement quand tests ET code passent"
+        output: "Code source + tests dans le repo"
+      - phase: 4
+        name: "QA & Documentation"
+        agents_active: ["qa", "tech-writer"]
+        steps:
+          - "Test automation : E2E + API tests"
+          - "Coverage analysis et rapport"
+          - "Documentation des APIs et composants clés"
+          - "Rapport QA final"
+        output: "qa-report-{project}-v{n}.md"
+      - phase: 5
+        name: "Handoff vers Team Ops"
+        agents_active: ["sm", "dev"]
+        steps:
+          - "Code review finale"
+          - "Vérifier que tous les ACs PRD sont couverts"
+          - "Rédiger Delivery Contract build-to-ops"
+          - "Notifier Team Ops [*→ops] dans shared-context.md"
+        output: "contracts/build-to-ops-{date}.md"
+
+  team_context:
+    directory: "_bmad-output/team-build/"
+    files:
+      - name: "team-context.md"
+        description: "Résumé technique : ADRs, patterns choisis, dépendances clés"
+      - name: "stories/"
+        description: "Répertoire des story files"
+      - name: "test-reports/"
+        description: "Rapports CC PASS/FAIL par story"
+    shared_with: ["team-ops"]
+
+  allowed_tools:
+    - "read_file"
+    - "create_file"
+    - "replace_string_in_file"
+    - "multi_replace_string_in_file"
+    - "semantic_search"
+    - "grep_search"
+    - "list_dir"
+    - "run_in_terminal"
+    - "get_errors"
+
+  handoff:
+    to_team: "team-ops"
+    trigger: "CC PASS sur toutes les stories + QA report + Delivery Contract signé"
+    contract_template: "framework/delivery-contract.tpl.md"
+
+  prompts_directory: ".github/prompts/team-build/"

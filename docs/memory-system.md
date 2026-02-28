@@ -31,7 +31,7 @@ Le système de mémoire BMAD Custom Kit repose sur 3 couches complémentaires :
 **Commandes :**
 
 ```bash
-# Ajouter une mémoire
+# Ajouter une mémoire (ancien protocole — compatible)
 python mem0-bridge.py add forge "Le module X nécessite le provider Y"
 
 # Rechercher
@@ -46,6 +46,64 @@ python mem0-bridge.py status
 # Métriques cercle vertueux
 python mem0-bridge.py stats
 ```
+
+### Mémoire structurée multi-collection (BM-22) — Qdrant source de vérité
+
+Le new protocol `remember`/`recall` organise la mémoire en **5 collections typesées** dans Qdrant. C'est l'interface principale que tous les agents doivent utiliser.
+
+**Commandes :**
+
+```bash
+# Mémoriser dans une collection typée
+python mem0-bridge.py remember \
+    --type agent-learnings --agent forge \
+    "Le provider hashicorp/aws doit être en version >= 5.0 pour les tags automatiques"
+
+python mem0-bridge.py remember \
+    --type decisions --agent atlas \
+    "Choix Qdrant local (qdrant-client) plutôt que Pinecone — zéro API key" \
+    --tags qdrant,memory
+
+python mem0-bridge.py remember \
+    --type failures --agent phoenix \
+    "backup Longhorn échoué si le namespace n'a pas le label backup=true"
+
+# Recherche sémantique — cross-collection par défaut
+python mem0-bridge.py recall "configuration qdrant"
+
+# Filtrer par collection
+python mem0-bridge.py recall "backup" --type decisions
+
+# Filtrer par agent
+python mem0-bridge.py recall "terraform" --agent forge --limit 10
+
+# Exporter une collection en Markdown
+python mem0-bridge.py export-md --type agent-learnings \
+    --output _bmad/_memory/agent-learnings/forge.md
+
+# Importer un .md existant dans Qdrant
+python mem0-bridge.py import-md _bmad/_memory/decisions-log.md --type decisions
+
+# Initialiser toutes les collections (idémpotent, exécuté auto par bmad-init.sh)
+python mem0-bridge.py init-collections
+```
+
+**5 collections :**
+
+| Collection | Usage | Agent writes |
+|-----------|-------|-------------|
+| `{project}-shared-context` | Contexte infra/projet | atlas, tout agent |
+| `{project}-decisions` | ADRs et décisions architecturales | tout agent |
+| `{project}-agent-learnings` | Apprentissages par agent | agent spécifique |
+| `{project}-failures` | Erreurs passées et comment les éviter | tout agent |
+| `{project}-stories` | Stories / tickets | sm, dev |
+
+**Stratégie de migration :**
+- **Phase 1 (actuelle) — dual-write** : agents écrivent `remember` + `.md` en parallèle
+- **Phase 2 — read-from-Qdrant** : agents lisent via `recall`, les `.md` sont générés par `export-md`
+- **Phase 3 — source de vérité** : `.md` = exports READ-ONLY uniquement
+
+**Déduplication** : L'upsert Qdrant est idempotent via UUID5 sur `(project, agent, text[:150])` — même texte écrit deux fois = une seule entrée.
 
 **Detection de contradictions (Mnemo hook) :**
 

@@ -1,0 +1,95 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# BMAD Custom Kit — Team Manifest Schema
+# BM-15 : Standard de définition d'une team BMAD
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Usage : copier ce schema dans framework/teams/{team-name}.yaml
+#         et adapter les valeurs aux specs de votre team.
+#
+# Chaque team est une unité autonome de livraison avec :
+#   - une spécialité claire
+#   - des inputs/outputs contractuels
+#   - un workflow de livraison complet
+#   - un contexte isolé
+
+# ─── Identité de la team ─────────────────────────────────────────────────────
+team:
+  name: ""                        # ex: "team-vision", "team-build", "team-ops"
+  display_name: ""                # ex: "Team Vision — Product & Strategy"
+  icon: ""                        # emoji représentatif, ex: "🔭"
+  version: "1.0.0"
+  description: ""                 # 1 phrase, ce que fait la team
+
+  # ─── Membres de la team (agents BMAD) ──────────────────────────────────────
+  agents:
+    - name: ""                    # id agent BMAD (ex: "pm", "analyst")
+      role: ""                    # rôle dans la team (ex: "Lead", "Support")
+      required: true              # si false, agent optionnel selon contexte
+
+  # ─── Spécialité & périmètre ────────────────────────────────────────────────
+  specialty: ""                   # domaine core, ex: "Product Discovery & Strategy"
+  out_of_scope:                   # ce que la team NE fait PAS
+    - ""
+
+  # ─── Inputs acceptés ───────────────────────────────────────────────────────
+  inputs:
+    required:                     # artefacts requis AVANT que la team commence
+      - name: ""                  # ex: "project-context.yaml"
+        description: ""           # ce que contient cet input
+        path_pattern: ""          # ex: "_bmad-output/planning-artifacts/*.yaml"
+    optional:                     # artefacts enrichissants mais non bloquants
+      - name: ""
+        description: ""
+
+  # ─── Outputs garantis ──────────────────────────────────────────────────────
+  outputs:
+    deliverables:                 # artefacts que la team DOIT produire
+      - name: ""                  # ex: "PRD validé"
+        format: ""                # ex: "Markdown", "YAML", "JSON"
+        path_pattern: ""          # ex: "_bmad-output/planning-artifacts/PRD-*.md"
+        acceptance_criteria: ""   # condition pour que l'output soit accepté
+    optional_deliverables:        # artefacts supplémentaires si temps disponible
+      - name: ""
+        condition: ""             # quand le produire
+
+  # ─── SLA & Effort estimé ───────────────────────────────────────────────────
+  sla:
+    estimated_steps: 0            # nombre de steps workflow d'une run typique
+    estimated_tokens: ""          # ex: "50K-100K tokens"
+    blocking_conditions:          # conditions qui bloquent la livraison
+      - ""
+
+  # ─── Workflow de livraison ─────────────────────────────────────────────────
+  delivery_workflow:
+    phases:
+      - phase: 1
+        name: ""                  # ex: "Discovery"
+        agents_active: []         # agents qui participent à cette phase
+        steps: []                 # liste des étapes (libre)
+        output: ""                # artefact produit à la fin de la phase
+
+  # ─── Contexte isolé de la team ────────────────────────────────────────────
+  team_context:
+    directory: ""                 # ex: "_bmad-output/team-vision/"
+    files:
+      - name: ""                  # ex: "team-context.md"
+        description: ""           # contenu attendu
+    shared_with: []               # teams qui peuvent lire ce contexte
+
+  # ─── Outils autorisés ─────────────────────────────────────────────────────
+  allowed_tools:                  # liste fermée — tout ce qui n'est pas listé est interdit
+    - "read_file"
+    - "create_file"
+    - "replace_string_in_file"
+    - "run_in_terminal"           # supprimer si la team n'exécute pas de code
+    - "semantic_search"
+    - "grep_search"
+
+  # ─── Communication inter-teams ───────────────────────────────────────────
+  handoff:
+    to_team: ""                   # team suivante dans la chaîne de valeur
+    trigger: ""                   # condition de déclenchement du handoff
+    contract_template: "framework/delivery-contract.tpl.md"
+
+  # ─── Prompts skills de la team ────────────────────────────────────────────
+  prompts_directory: ".github/prompts/{team-name}/"

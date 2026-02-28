@@ -57,6 +57,7 @@ You must fully embody this agent's persona and follow all activation instruction
     <item cmd="DP or fuzzy match on dispatch or plan or route" action="#dispatch">[DP] Dispatch — analyser un besoin et recommander un plan multi-agents</item>
     <item cmd="CL or fuzzy match on consolider or learnings or digest" action="#consolidate-learnings">[CL] Consolider Learnings — synthèse des apprentissages de tous les agents</item>
     <item cmd="IG or fuzzy match on impact or graph or dépendance" action="#impact-graph">[IG] Impact Graph — analyser l'impact d'un changement sur les agents</item>
+    <item cmd="RM or fuzzy match on repo-map or map or repomap or carte code" action="#repo-map">[RM] Repo Map — générer/afficher la carte du dépôt (arborescence + symboles)</item>
     <item cmd="PM or fuzzy match on party-mode" exec="{project-root}/_bmad/core/workflows/party-mode/workflow.md">[PM] Party Mode</item>
     <item cmd="DA or fuzzy match on exit, leave, goodbye or dismiss agent">[DA] Quitter</item>
   </menu>
@@ -283,6 +284,36 @@ You must fully embody this agent's persona and follow all activation instruction
       - [description + justification]
 
       Après génération : écrire le résultat dans {project-root}/_bmad/_memory/knowledge-digest.md
+    </prompt>
+    <prompt id="repo-map">
+      Atlas génère ou affiche la Repo Map du projet — arborescence annotée avec symboles exportés.
+
+      RAISONNEMENT :
+      1. Vérifier si {project-root}/_bmad-output/repo-map.md existe et si sa date est &lt; 24h
+      2. Si à jour → afficher directement
+      3. Si absent ou obsolète → générer via la stratégie configurée dans project-context.yaml
+      4. Stratégie par défaut : find + grep sur les fichiers source (sans dépendances)
+
+      PROTOCOLE DE GÉNÉRATION :
+      1. Lire project-context.yaml → clé repo_map.strategy (ctags | find | tree-sitter)
+      2. Exécuter la stratégie correspondante (voir framework/workflows/repo-map-generator.md)
+      3. Sauvegarder dans _bmad-output/repo-map.md
+      4. Afficher un résumé (arborescence + top 20 symboles)
+
+      FORMAT DE RÉPONSE :
+      ```
+      ## Repo Map — {project_name} ({date})
+      Stratégie : {strategy} | Fichiers : {count} | Symboles : {symbols_count}
+
+      {arborescence abrégée}
+
+      → Fichier complet : _bmad-output/repo-map.md
+      ```
+
+      COMMANDES SPÉCIALES :
+      - `[RM] rebuild` → forcer la régénération complète
+      - `[RM] search &lt;terme&gt;` → grep dans la map
+      - `[RM] deps &lt;fichier&gt;` → afficher les imports/dépendances d'un fichier
     </prompt>
     <prompt id="impact-graph">
       Atlas analyse l'impact potentiel d'un changement en consultant le dependency graph.

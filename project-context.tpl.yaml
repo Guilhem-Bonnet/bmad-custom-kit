@@ -97,3 +97,37 @@ memory:
 agents:
   archetype: "minimal"                 # Archétype utilisé lors de l'init
   custom_agents: []                    # Liste des agents ajoutés manuellement
+
+# ─── Archétypes installés ───────────────────────────────────────────────────────────────────
+installed_archetypes: []               # Rempli automatiquement par bmad-init.sh install
+# Exemple après install :
+# installed_archetypes:
+#   - id: infra-ops
+#     installed_at: "2026-02-27"
+#   - id: stack/go
+#     installed_at: "2026-02-27"
+
+# ─── Session Branching (BM-16) ──────────────────────────────────────────────────────────────────
+# session_branch: "main"               # Branche de session active
+# runs_directory: "_bmad-output/.runs" # Répertoire des runs d'artefacts
+
+# ─── Team of Teams (BM-17) ──────────────────────────────────────────────────────────────────
+# teams:
+#   active: [team-vision, team-build]  # Teams activées dans ce projet
+#   delivery_contracts_dir: "_bmad-output/contracts"
+
+# ─── Repo Map (BM-05) ─────────────────────────────────────────────────────────────────────
+# repo_map:
+#   enabled: false
+#   strategy: "find"                   # find | ctags | tree-sitter
+#   max_symbols_per_file: 30
+#   languages: [go, typescript, python, terraform]
+#   exclude_dirs: [node_modules, .git, vendor, dist, _bmad-output]
+#   output: "_bmad-output/repo-map.md"
+#   stale_after_hours: 24
+
+# ─── Context Budget (BM-07) ─────────────────────────────────────────────────────────────────
+# context_budget:
+#   default_max_tokens: 80000          # Claude Sonnet : 200k, GPT-4o : 128k
+#   warning_threshold: 0.75            # Alerte à 75% utilisé
+#   overflow_strategy: "summarize"     # summarize | drop-oldest | ask-user

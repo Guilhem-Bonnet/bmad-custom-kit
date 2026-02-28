@@ -1,19 +1,29 @@
 # BMAD Custom Kit
 
-> Toolkit pour créer et gérer un écosystème d'agents IA spécialisés par projet — personas, mémoire sémantique, workflows et qualité automatisée.
+> Toolkit pour créer et gérer un écosystème d'agents IA spécialisés par projet — teams Enterprise, personas, mémoire sémantique, workflows et qualité automatisée.
 
 ## Qu'est-ce que c'est ?
 
-BMAD Custom Kit est un **starter kit** pour déployer une équipe d'agents IA spécialisés dans n'importe quel projet. Chaque agent a une persona, un domaine d'expertise, et accède à une mémoire partagée persistante.
+BMAD Custom Kit est un **starter kit** pour déployer une ou plusieurs équipes d'agents IA spécialisés dans n'importe quel projet.  
+Chaque agent a une persona forte, un domaine d'expertise précis, et s'inscrit dans une **team avec workflow de livraison complet** — comme dans une vraie entreprise.
 
 **Ce que vous obtenez :**
+- 🏢 **Team of Teams** — Team Vision, Team Build, Team Ops avec Delivery Contracts inter-teams
 - 🤖 **Agents spécialisés** — personas avec domaine, style de communication et principes
 - 🧠 **Mémoire persistante** — recherche sémantique (Qdrant) + fallback JSON, consolidation automatique
 - 📋 **Protocole d'activation** — chaque agent suit un workflow standardisé (health-check, inbox, consolidation)
-- � **Completion Contract (CC)** — `cc-verify.sh` détecte le stack et exécute les vérifications appropriées (build, tests, lint) avant tout "terminé"
-- 🔄 **Modal Team Engine** — `--auto` détecte le stack du projet et déploie automatiquement les agents spécialisés (Go, TypeScript, Python, Docker, Terraform, K8s, Ansible)
+- 🔒 **Completion Contract (CC)** — `cc-verify.sh` détecte le stack et vérifie (build, tests, lint) avant tout "terminé"
+- 🔀 **Plan/Act Mode** — switch explicite entre planification pure et exécution autonome
+- 🧠 **Extended Thinking** — délibération profonde [THINK] pour les décisions critiques
+- 🔄 **Modal Team Engine** — `--auto` détecte le stack et déploie les bons agents
+- 🌿 **Session Branching** — branches isolées pour explorer plusieurs approches en parallèle
+- 🪃 **Boomerang Orchestration** — orchestrateur (SM) qui délègue + récupère les résultats
+- 📜 **Delivery Contracts** — artefacts contractuels inter-teams (aucun handoff sans contrat signé)
+- 🏛️ **Failure Museum** — mémoire collective des erreurs pour ne pas les répéter
+- 🔌 **MCP Server** — expose BMAD comme server MCP local (cross-IDE : Cursor, Cline, Claude Desktop)
+- 🎯 **Prompt Skills Library** — prompts réutilisables par team dans `.github/prompts/{team}/`
 - ⚡ **Qualité automatisée** — détection contradictions, consolidation learnings, drift check
-- 🔁 **Self-Improvement Loop** — `sil-collect.sh` analyse les patterns d'échec et Sentinel propose des améliorations concrètes au framework
+- 🔁 **Self-Improvement Loop** — `sil-collect.sh` analyse les patterns d'échec et Sentinel améliore le framework
 
 ## Quick Start
 
@@ -39,49 +49,184 @@ bash /chemin/vers/bmad-custom-kit/bmad-init.sh \
 # 3. Vérifier votre code (Completion Contract)
 bash _bmad/_config/custom/cc-verify.sh
 
-# 4. Analyser les patterns d'échec après quelques semaines (optionnel)
+# 4. Créer une branche de session pour explorer une approche (optionnel)
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh session-branch --name "explore-graphql"
+
+# 5. Analyser les patterns d'échec après quelques semaines (optionnel)
 bash _bmad/_config/custom/sil-collect.sh
 # puis activer Sentinel → [FA] Self-Improvement Loop
 ```
+
+## 🏢 Modèle Team of Teams
+
+BMAD Custom Kit v3 introduit le modèle **Team of Teams** : chaque team est une unité de livraison autonome avec ses agents, son workflow, et son Delivery Contract.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔭 TEAM VISION              🔨 TEAM BUILD                  │
+│  PM · Analyst · UX    ──►   Dev · Arch · QA · SM           │
+│  Discovery → PRD → UX   PRD  Architecture → Stories → Code  │
+│                      Contract                               │
+└──────────────────────────────────────┬──────────────────────┘
+                                       │ Delivery Contract
+                                       ▼
+                            ┌─────────────────────┐
+                            │  ⚙️ TEAM OPS          │
+                            │  Infra · CI/CD · Sec  │
+                            │  IaC → Pipeline → Run │
+                            └─────────────────────┘
+```
+
+**Règle fondamentale** : Aucune team ne commence sans un **Delivery Contract** signé de la team précédente.  
+Template : `framework/delivery-contract.tpl.md`  
+Manifests : `framework/teams/team-vision.yaml`, `team-build.yaml`, `team-ops.yaml`  
+Schema : `framework/team-manifest.schema.yaml`
+
+## 🌿 Session Branching
+
+Explorez plusieurs approches en parallèle — comme des branches Git, mais pour vos sessions d'agents.
+
+```bash
+# Créer une branche pour explorer une option
+bash bmad-init.sh session-branch --name "explore-graphql"
+
+# Lister les branches actives
+bash bmad-init.sh session-branch --list
+
+# Comparer les artefacts produits dans deux branches
+bash bmad-init.sh session-branch --diff main explore-graphql
+
+# Merger une branche vers main
+bash bmad-init.sh session-branch --merge explore-graphql
+
+# Cherry-pick un artefact spécifique
+bash bmad-init.sh session-branch --cherry-pick explore-graphql \
+  "_bmad-output/.runs/explore-graphql/arch.md" \
+  "_bmad-output/planning-artifacts/architecture-final.md"
+```
+
+Structure : `_bmad-output/.runs/{branch-name}/{run-id}/`  
+Guide complet : `framework/sessions/README.md`
+
+## 🔀 Plan/Act Mode & Extended Thinking
+
+Chaque agent supporte deux modes et un mode de délibération :
+
+| Trigger | Mode | Comportement |
+|---------|------|-------------|
+| `[PLAN]` ou "planifie" | Planification | Structure + attend validation avant toute modification |
+| `[ACT]` ou rien | Exécution (défaut) | Exécute directement jusqu'à CC PASS sans interruption |
+| `[THINK]` ou "réfléchis profondément" | Délibération | ≥ 3 options, simulation des échecs, ADR obligatoire |
+
+## 🪃 Boomerang Orchestration
+
+Un agent orchestrateur (SM) décompose, délègue à des sous-agents en parallèle, et agrège les résultats.
+
+```yaml
+# Exemple dans un workflow YAML
+- step: "analyse-codebase"
+  type: orchestrate
+  spawn:
+    - agent: dev
+      task: "Analyse sécurité dans src/"
+      output_key: security_findings
+    - agent: qa
+      task: "Coverage analysis dans src/"
+      output_key: coverage_findings
+  merge:
+    strategy: summarize
+    save_to: "_bmad-output/team-build/analysis-report.md"
+```
+
+Documentation : `framework/workflows/boomerang-orchestration.md`  
+Protocol : `framework/workflows/subagent-orchestration.md`
+
+## 🎯 Prompt Skills Library
+
+Prompts réutilisables par team, invocables via slash commands dans Copilot Chat :
+
+```
+.github/prompts/
+├── team-vision/
+│   ├── competitive-intelligence.prompt.md   # Analyse concurrentielle sprint
+│   ├── user-interview.prompt.md             # Interview utilisateur structuré
+│   └── mvp-scoping.prompt.md               # Priorisation MoSCoW
+├── team-build/
+│   ├── tdd-cycle.prompt.md                  # Cycle TDD red-green-refactor
+│   ├── adversarial-code-review.prompt.md    # Revue de code adversariale
+│   └── architecture-decision-record.prompt.md  # ADR avec [THINK]
+└── team-ops/
+    ├── incident-runbook.prompt.md           # Runbook opérationnel step-by-step
+    └── security-audit.prompt.md            # Audit sécurité OWASP + infra
+```
+
+## 🔌 MCP Server BMAD
+
+BMAD expose un serveur MCP (Model Context Protocol) local — compatible avec tout IDE MCP.
+
+```bash
+# Configurer dans Claude Desktop / Cursor / Cline
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "node",
+      "args": ["/chemin/vers/bmad-custom-kit/framework/mcp/server.js"],
+      "env": { "BMAD_PROJECT_ROOT": "/votre-projet" }
+    }
+  }
+}
+```
+
+**Tools disponibles** : `get_project_context`, `get_agent_memory`, `run_completion_contract`,  
+`get_workflow_status`, `list_sessions`, `get_failure_museum`, `spawn_subagent_task`
+
+Spécification complète : `framework/mcp/bmad-mcp-server.md`
 
 ## Structure du Kit
 
 ```
 bmad-custom-kit/
-├── bmad-init.sh                    # Script d'initialisation (+ --auto)
+├── bmad-init.sh                    # Script d'init + session-branch subcommand
 ├── project-context.tpl.yaml        # Template contexte projet
 │
 ├── framework/                      # GENERIC — ne jamais modifier par projet
-│   ├── agent-base.md               # Protocole d'activation universcel (avec CC)
+│   ├── agent-base.md               # Protocole activation + CC + Plan/Act + [THINK]
 │   ├── cc-verify.sh                # Completion Contract verifier (multi-stack)
 │   ├── sil-collect.sh              # Self-Improvement Loop : collecteur de signaux
+│   ├── team-manifest.schema.yaml   # Schema standard de définition d'une team
+│   ├── delivery-contract.tpl.md    # Template contrat inter-teams
+│   ├── teams/                      # Teams prêtes à l'emploi
+│   │   ├── team-vision.yaml        # Team Vision — Product & Strategy
+│   │   ├── team-build.yaml         # Team Build — Engineering & Quality
+│   │   └── team-ops.yaml           # Team Ops — Infrastructure & Reliability
+│   ├── sessions/
+│   │   └── README.md               # Guide Session Branching
+│   ├── mcp/
+│   │   └── bmad-mcp-server.md      # Spec MCP Server BMAD local
 │   ├── memory/
 │   │   ├── maintenance.py
 │   │   ├── mem0-bridge.py
 │   │   ├── session-save.py
-│   │   ├── contradiction-log.tpl.md # Template log contradictions inter-agents
-│   │   └── requirements.txt
-│   ├── prompt-templates/
+│   │   ├── failure-museum.tpl.md   # Template Failure Museum
+│   │   └── contradiction-log.tpl.md
 │   └── workflows/
+│       ├── boomerang-orchestration.md   # Boomerang pattern SM→Dev→QA→SM
+│       ├── subagent-orchestration.md    # Protocol spawn sous-agents
+│       ├── state-checkpoint.md          # State persistence & resume
+│       ├── workflow-status.tpl.md       # Template status workflow
 │       └── incident-response.md
 │
 ├── archetypes/                     # Starter kits thématiques
-│   ├── meta/                       # Agents universels (toujours inclus)
-│   │   └── agents/                 # Atlas 🗺️, Sentinel 🔍, Mnemo 🧠
-│   ├── stack/                      # Modal Team Engine — agents par technologie
-│   │   └── agents/                 # Gopher🐹 Go, Pixel⚛️ TS, Serpent🐍 Py,
-│   │                               # Container🐋 Docker, Terra🌍 TF, Kube⎈ K8s,
-│   │                               # Playbook🎭 Ansible
-│   ├── infra-ops/                  # Infrastructure & DevOps complet
-│   │   ├── agents/                 # Forge, Vault, Flow, Hawk, Helm, Phoenix, Probe
-│   │   └── shared-context.tpl.md
-│   └── minimal/                    # Agent vierge + meta
-│       └── agents/
-│           └── custom-agent.tpl.md
+│   ├── meta/       # Atlas 🗺️, Sentinel 🔍, Mnemo 🧠
+│   ├── stack/      # Gopher🐹 Go, Pixel⚛️ TS, Serpent🐍 Py, Container🐋, Terra🌍, Kube⎈
+│   ├── infra-ops/  # Forge, Vault, Flow, Hawk, Helm, Phoenix, Probe
+│   └── minimal/    # Agent vierge + meta
 │
-├── docs/
-└── examples/
-    └── terraform-houseserver/
+└── .github/
+    └── prompts/
+        ├── team-vision/   # competitive-intelligence, user-interview, mvp-scoping
+        ├── team-build/    # tdd-cycle, adversarial-code-review, adr
+        └── team-ops/      # incident-runbook, security-audit
 ```
 
 ## Archétypes disponibles
@@ -91,49 +236,65 @@ bmad-custom-kit/
 | **minimal** | Atlas + Sentinel + Mnemo + 1 agent vierge | Tout projet — point de départ |
 | **infra-ops** | + Forge, Vault, Flow, Hawk, Helm, Phoenix, Probe | Projets infrastructure/DevOps |
 | **web-app** | Atlas + Sentinel + Mnemo (+ agents stack auto) | Applications web — SPA + API + DB |
-| **stack** (auto) | Gopher, Pixel, Serpent, Container, Terra, Kube, Playbook | Déployés selon le stack détecté par `--auto` |
-
-> Les agents `stack` sont sélectifs : seuls ceux correspondant au stack détecté sont déployés.
-> Exemple : projet Go + React + Docker → Gopher + Pixel + Container.
+| **stack** (auto) | Gopher, Pixel, Serpent, Container, Terra, Kube, Playbook | Déployés selon stack détecté |
 
 ## Créer un nouvel agent
 
 Voir [docs/creating-agents.md](docs/creating-agents.md) pour le guide complet.
 
-En résumé :
 1. Copier `archetypes/minimal/agents/custom-agent.tpl.md`
 2. Remplir la persona, les prompts, les règles
-3. Ajouter l'agent dans `agent-manifest.csv`
+3. Ajouter dans `agent-manifest.csv`
 4. Créer son fichier learnings dans `agent-learnings/`
+5. Si applicable, créer son dossier dans `.github/prompts/{team-name}/`
 
 ## Système de mémoire
 
-Le kit inclut un système de mémoire à 3 niveaux :
+Le kit inclut un système de mémoire à 4 niveaux :
 
-1. **Mémoire sémantique** (`mem0-bridge.py`) — recherche vectorielle via Qdrant local ou fallback JSON
+1. **Mémoire sémantique** (`mem0-bridge.py`) — recherche vectorielle via Qdrant ou fallback JSON
 2. **Learnings par agent** (`agent-learnings/`) — apprentissages structurés par domaine
-3. **Contexte partagé** (`shared-context.md`) — source de vérité chargée par tous les agents
+3. **Contexte partagé** (`shared-context.md`) — source de vérité cross-agents
+4. **Failure Museum** (`failure-museum.md`) — erreurs passées pour ne pas les répéter
 
 **Qualité automatisée :**
 - Détection de contradictions à chaque ajout mémoire → `contradiction-log.md`
 - Consolidation des learnings au démarrage de session
-- Vérification de cohérence (context drift) en pre-commit
+- State checkpoints à chaque step de workflow → resume automatique si interruption
 
 **Self-Improvement Loop :**
 ```bash
-# Collecter les signaux d'échec des 90 derniers jours
 bash _bmad/_config/custom/sil-collect.sh
 # → produit _bmad-output/sil-report-latest.md
-# → activer Sentinel [FA] pour analyser et proposer des améliorations
+# → activer Sentinel [FA] pour proposer des améliorations concrètes
 ```
+
+## Comparaison avec les alternatives
+
+| Feature | CrewAI | AutoGen | LangGraph | Aider | Cline | **BMAD v3** |
+|---------|--------|---------|-----------|-------|-------|-------------|
+| Local/IDE-native | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Team of Teams | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Completion Contract | ❌ | ❌ | ❌ | ~ | ~ | ✅ |
+| Delivery Contracts | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Session Branching | ❌ | ❌ | ~ | ❌ | ❌ | ✅ |
+| State Checkpoint/Resume | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Subagent Orchestration | ~ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| MCP Server | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Self-improvement | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Plan/Act Mode | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Extended Thinking [THINK] | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Failure Museum | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ## Prérequis
 
 - Python 3.10+
 - Git
 - [BMAD Framework](https://github.com/bmadcode/BMAD-METHOD) v6.0+ installé
+- (Optionnel) Node.js 18+ pour le MCP Server
 - (Optionnel) Qdrant pour la recherche sémantique avancée
 
 ## Licence
 
 MIT — utilisez, forkez, adaptez librement.
+

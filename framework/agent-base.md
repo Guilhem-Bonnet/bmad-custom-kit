@@ -65,6 +65,60 @@ bash {project-root}/_bmad/_config/custom/cc-verify.sh
 
 ---
 
+## 🔀 Plan/Act Mode — Switch de Comportement
+
+L'agent supporte deux modes d'exécution explicites.  
+Le mode actif est indiqué en début de session ou changé à tout moment par l'utilisateur.
+
+### `[PLAN]` — Mode Planification
+```
+Trigger : l'utilisateur tape [PLAN] ou "mode plan" ou "planifie"
+```
+- **Structurer** la solution complète avant toute implémentation
+- **Lister** les fichiers touchés, les étapes, les risques
+- **Attendre** validation explicite de l'utilisateur avant toute modification
+- **Jamais** écrire dans un fichier en mode PLAN
+- Terminer par : `✋ PLAN validé ? [oui/non/modif]` et attendre
+
+### `[ACT]` — Mode Exécution Autonome (défaut)
+```
+Trigger : l'utilisateur tape [ACT] ou "mode act" ou "exécute" ou ne précise rien
+```
+- **Exécuter** directement sans demander confirmation pour chaque étape
+- **Appliquer** les modifications, lancer les vérifications CC, rendre la main
+- Ne JAMAIS s'arrêter pour demander "tu veux que je continue ?" — continuer jusqu'à CC PASS
+- Rendre la main UNIQUEMENT quand toutes les tâches sont terminées ET CC PASS
+
+### Switching
+```
+[PLAN] → [ACT] : l'utilisateur tape "ok go" / "valide" / [ACT]
+[ACT]  → [PLAN] : l'utilisateur tape "attends" / "planifie d'abord" / [PLAN]
+Mode par défaut si non précisé : [ACT]
+```
+
+---
+
+## 🧠 Extended Thinking — Délibération Profonde
+
+Pour les décisions critiques (choix d'architecture, launch/no-launch, choix de stack, revue de sécurité), utiliser le mode de délibération étendue :
+
+```
+Trigger : l'utilisateur tape [THINK] ou "réfléchis profondément" ou "extended thinking"
+         OU un step workflow contient : type: think
+```
+
+**Protocole [THINK] :**
+1. **Poser le problème** : reformuler en une question précise
+2. **Lister les contraintes** : non-négociables vs préférences
+3. **Explorer N ≥ 3 options** avec avantages, inconvénients, risques
+4. **Simuler les échecs** : "si on choisit X et que Y arrive, on fait quoi ?"
+5. **Décider** : option retenue + justification en 2 lignes
+6. **Documenter** : écrire un ADR dans `{project-root}/_bmad/_memory/decisions-log.md`
+
+Ne jamais sortir de [THINK] sans une décision claire et documentée.
+
+---
+
 ## Activation Steps (appliqués dans l'ordre)
 
 1. Load persona from the current agent file (already in context)
@@ -112,16 +166,57 @@ bash {project-root}/_bmad/_config/custom/cc-verify.sh
 - Exception : modifications de documentation pure (Markdown, commentaires) → aucune vérification requise
 
 ### Mémoire & Observabilité
+
+#### 🧠 MEMORY PROTOCOL — Qdrant source de vérité (Phase 2 : dual-write)
+
+**Écrire une mémoire** → utiliser `remember` (collecté dans Qdrant, idempotent) :
+```bash
+# Learning après résolution de problème
+python {project-root}/_bmad/_memory/mem0-bridge.py remember \
+    --type agent-learnings --agent {AGENT_TAG} "<description>"
+
+# Décision architecturale / ADR
+python {project-root}/_bmad/_memory/mem0-bridge.py remember \
+    --type decisions --agent {AGENT_TAG} "<décision résumée>" --tags {DOMAIN_WORD}
+
+# Contexte projet (infra, service, config)
+python {project-root}/_bmad/_memory/mem0-bridge.py remember \
+    --type shared-context --agent {AGENT_TAG} "<fait clé>"
+
+# Erreur à ne pas reproduire
+python {project-root}/_bmad/_memory/mem0-bridge.py remember \
+    --type failures --agent {AGENT_TAG} "<description de l'erreur et comment l'éviter>"
+```
+
+**Lire / rechercher** → utiliser `recall` :
+```bash
+# Recherche cross-collection (toutes les collections)
+python {project-root}/_bmad/_memory/mem0-bridge.py recall "<question>"
+
+# Filtrer par type
+python {project-root}/_bmad/_memory/mem0-bridge.py recall "terraform state" --type decisions
+
+# Filtrer par agent
+python {project-root}/_bmad/_memory/mem0-bridge.py recall "backup" --agent phoenix
+```
+
+**Exporter en .md lisible** (pour partage ou revue) :
+```bash
+python {project-root}/_bmad/_memory/mem0-bridge.py export-md \
+    --type agent-learnings --output {project-root}/_bmad/_memory/agent-learnings/{LEARNINGS_FILE}.md
+```
+
+> ⚠️ **Dual-write (Phase actuelle)** : les fichiers `.md` sont aussi maintenus par compatibilité. Utiliser `remember` TOUJOURS comme source principale. Les `.md` sont des exports READ-ONLY générés à la demande.
+
 - 📦 LAZY-LOAD : Ne PAS charger au démarrage session-state.md, network-topology.md, dependency-graph.md, oss-references.md. Charger À LA DEMANDE : reprise session → session-state.md | réseau/IPs → network-topology.md | impact/dépendances → dependency-graph.md | choix OSS → oss-references.md
-- Mettre à jour `{project-root}/_bmad/_memory/decisions-log.md` après chaque décision {DOMAIN_WORD}
-- Après résolution d'un problème non-trivial : ajouter dans `{project-root}/_bmad/_memory/agent-learnings/{LEARNINGS_FILE}.md` au format `- [YYYY-MM-DD] description`
-- Après résolution d'un problème non-trivial : exécuter `python {project-root}/_bmad/_memory/mem0-bridge.py add {AGENT_TAG} "description"` pour enrichir la mémoire sémantique
-- 🧠 AUTO-MNEMO (post-add) : Chaque `mem0-bridge.py add` déclenche automatiquement une détection de contradictions (via hook intégré dans le script). Si une mémoire existante du même domaine contredit la nouvelle, l'ancienne est archivée et une entrée est ajoutée dans `{project-root}/_bmad/_memory/contradiction-log.md`. Aucune action manuelle requise.
-- ⚡ CONTRADICTION-LOG : Si tu détectes une information qui contredit une décision passée ou un learning existant, ajouter une ligne dans `{project-root}/_bmad/_memory/contradiction-log.md` avant d'appliquer.
+- Mettre à jour `{project-root}/_bmad/_memory/decisions-log.md` ET exécuter `remember --type decisions` après chaque décision {DOMAIN_WORD}
+- Après résolution d'un problème non-trivial : exécuter `remember --type agent-learnings` ET ajouter dans `{project-root}/_bmad/_memory/agent-learnings/{LEARNINGS_FILE}.md` au format `- [YYYY-MM-DD] description`
+- 🧠 AUTO-MNEMO (post-remember) : L'upsert Qdrant est idempotent via UUID5 — même texte écrit deux fois = une seule entrée. La déduplication est native. Pour la détection de contradictions sémantiques, utiliser `mem0-bridge.py search` avant d'écrire une mémoire qui annule une précédente.
+- ⚡ CONTRADICTION-LOG : Si tu détectes une information qui contredit une décision passée, ajouter une ligne dans `{project-root}/_bmad/_memory/contradiction-log.md` ET utiliser `remember --type failures` pour capturer la contradiction.
 
 ### Handoff Inter-Agents
 - 🤝 TRANSFERT : Quand tu recommandes un transfert vers un autre agent, TOUJOURS ajouter une ligne dans `{project-root}/_bmad/_memory/handoff-log.md` au format `| YYYY-MM-DD HH:MM | {AGENT_TAG} → cible | requête résumée | ⏳ |`. L'agent cible mettra le statut à ✅ une fois le travail terminé.
 
 ### Session
-- 🔄 FIN DE SESSION : Avant de traiter [DA] Quitter, TOUJOURS : 1) Mettre à jour `{project-root}/_bmad/_memory/session-state.md` (agent, date, fichiers modifiés, état du travail, prochaine étape) 2) Exécuter `mem0-bridge.py add {AGENT_TAG} "résumé session"` 3) Si un fichier agent ou agent-base.md a été modifié, ajouter une entrée dans `{project-root}/_bmad/_memory/agent-changelog.md` 4) Ne PAS attendre que l'utilisateur dise au revoir — si la conversation s'arrête, considérer la session terminée
+- 🔄 FIN DE SESSION : Avant de traiter [DA] Quitter, TOUJOURS : 1) Mettre à jour `{project-root}/_bmad/_memory/session-state.md` 2) Exécuter `mem0-bridge.py remember --type agent-learnings --agent {AGENT_TAG} "résumé session"` 3) Si un fichier agent a été modifié, ajouter une entrée dans `{project-root}/_bmad/_memory/agent-changelog.md` 4) Ne PAS attendre que l'utilisateur dise au revoir — si la conversation s'arrête, considérer la session terminée
 - 🧠 NOTE: La consolidation des learnings (Mnemo) est désormais exécutée automatiquement au DÉBUT du cycle suivant (activation step 2), pas en fin de session. Cela élimine le risque de perte si la session se termine sans [DA] Quitter.

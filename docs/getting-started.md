@@ -68,7 +68,7 @@ mon-projet/
 
 ### 1. Éditer `project-context.yaml`
 
-Ce fichier centralise toute la configuration de votre projet. Les scripts Python le lisent pour s'adapter automatiquement :
+Ce fichier centralise toute la configuration de votre projet :
 
 ```yaml
 project:
@@ -81,25 +81,71 @@ user:
   language: "Français"
 ```
 
-### 2. Personnaliser les agents
+### 2. Installer un archétype supplémentaire (optionnel)
 
-Chaque agent dans `_bmad/_config/custom/agents/` contient des `{{placeholders}}` à remplacer par vos valeurs réelles. Les sections à adapter :
+```bash
+# Lister tous les archétypes disponibles
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh install --list
+
+# Installer un agent de stack spécifique dans un projet existant
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh install --archetype stack/go
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh install --archetype stack/typescript
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh install --archetype fix-loop
+
+# Inspecter avant d'installer
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh install --inspect infra-ops
+```
+
+### 3. Session Branching — travailler sur une exploration séparée
+
+```bash
+# Créer une branche de session pour une exploration risquée
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh session-branch --name explore-graphql
+
+# Lister les branches actives
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh session-branch --list
+
+# Différences entre branches
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh session-branch --diff main explore-graphql
+
+# Merger vers main quand valide
+bash /chemin/vers/bmad-custom-kit/bmad-init.sh session-branch --merge explore-graphql
+```
+
+### 4. Mémoire structurée — protocol remember/recall
+
+```bash
+# Mémoriser une décision
+python _bmad/_memory/mem0-bridge.py remember \
+    --type decisions --agent atlas \
+    "On utilise Terraform 1.7 pour tout le provisioning"
+
+# Rechercher sémantiquement
+python _bmad/_memory/mem0-bridge.py recall "base de données choix"
+
+# Exporter la mémoire d'un agent en Markdown
+python _bmad/_memory/mem0-bridge.py export-md --type agent-learnings \
+    --output _bmad/_memory/agent-learnings/atlas.md
+```
+
+### 5. Plan/Act Mode et Extended Thinking
+
+Dans Copilot Chat, avec un agent actif :
+
+```
+[PLAN]   → l'agent planifie sans modifier de fichier, attend votre validation
+ok go    → bascule en mode ACT, l'agent exécute jusqu'à CC PASS
+[THINK]  → délibération profonde : ≥3 options, simulation d'échecs, ADR
+```
+
+### 6. Personnaliser les agents
+
+Chaque agent dans `_bmad/_config/custom/agents/` contient des `{{placeholders}}` à remplacer. Les sections clés :
 
 - **`<identity>`** — Décrivez votre infrastructure/projet spécifique
 - **`<example>`** — Remplacez par des exemples concrets de votre environnement
 
-### 3. Activer la mémoire sémantique (optionnel)
-
-```bash
-# Mode minimal (JSON, zéro dépendance)
-# → Fonctionne out of the box
-
-# Mode sémantique (recommandé)
-pip install -r _bmad/_memory/requirements.txt
-python _bmad/_memory/mem0-bridge.py status
-```
-
-### 4. Vérifier l'installation
+### 7. Vérifier l'installation
 
 ```bash
 python _bmad/_memory/maintenance.py health-check --force

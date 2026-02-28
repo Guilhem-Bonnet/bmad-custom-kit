@@ -1,0 +1,82 @@
+$schema: "bmad-archetype-dna/v1"
+
+id: web-app
+name: "Web App"
+version: "1.0.0"
+description: "Applications web full-stack — Frontend, API, base de données, CI/CD"
+icon: "🌐"
+author: "bmad-custom-kit"
+tags: [web, frontend, backend, api, fullstack, react, nextjs, typescript, python, go]
+
+inherits: minimal
+
+traits:
+  - name: tdd-mandatory
+    description: "Test-Driven Development obligatoire"
+    rule: "Tests AVANT le code. Pour toute feature : 1) écrire le test qui échoue, 2) écrire le code minimal pour le faire passer, 3) refactorer. CC PASS = build + tests OK."
+    agents_affected: [frontend-specialist, fullstack-dev, pixel, gopher, serpent]
+  - name: type-safety
+    description: "Typage strict partout"
+    rule: "TypeScript strict: true. Python avec type hints obligatoires + mypy. Go avec interfaces explicites. Zéro any/interface{} sans explication."
+    agents_affected: [pixel, gopher, serpent, frontend-specialist, fullstack-dev]
+  - name: api-contract-first
+    description: "Contrat API défini avant implémentation"
+    rule: "Toute nouvelle API route → définir l'interface/type/schema OpenAPI en premier. Frontend et backend s'accordent sur le contrat avant d'implémenter."
+    agents_affected: "*"
+  - name: accessibility-aware
+    description: "Accessibilité WCAG 2.1 AA minimum"
+    rule: "Zéro composant UI sans aria-labels. Contraste ≥ 4.5:1. Navigation clavier fonctionnelle."
+    agents_affected: [frontend-specialist, pixel]
+
+constraints:
+  - id: no-console-log-in-prod
+    description: "Zéro console.log/print en production"
+    enforcement: soft
+    checked_by: agent-optimizer
+  - id: cc-web-pass
+    description: "cc-verify.sh --stack web obligatoire avant livraison"
+    enforcement: hard
+    checked_by: agent-optimizer
+  - id: no-inline-styles
+    description: "Pas de styles inline si un design system est présent"
+    enforcement: soft
+    checked_by: frontend-specialist
+
+values:
+  - name: user-experience-first
+    description: "L'UX prime sur l'élégance technique"
+    priority: 1
+  - name: performance-budget
+    description: "Core Web Vitals : LCP < 2.5s, CLS < 0.1, FID < 100ms"
+    priority: 2
+  - name: progressive-enhancement
+    description: "L'app fonctionne sans JS, enrichie avec JS"
+    priority: 3
+
+agents:
+  - path: "../../archetypes/web-app/agents/frontend-specialist.md"
+    required: true
+    description: "Frontend Specialist — React, Vue, Next.js, UX"
+  - path: "../../archetypes/web-app/agents/fullstack-dev.md"
+    required: true
+    description: "Fullstack Dev — API, base de données, auth"
+
+workflows: []
+shared_context_template: "../../archetypes/web-app/shared-context.tpl.md"
+prompts_directory: "../../.github/prompts/team-build"
+
+compatible_with: [minimal, fix-loop, features/vector-memory, stack/typescript, stack/python, stack/go, stack/docker]
+incompatible_with: [infra-ops]
+requires: []
+
+auto_detect:
+  files: ["package.json", "next.config.*", "vite.config.*", "nuxt.config.*"]
+  directories: ["src/", "pages/", "app/", "components/"]
+  confidence_boost: 80
+  exclusive: true
+
+changelog:
+  - version: "1.0.0"
+    date: "2026-02-27"
+    changes:
+      - "DNA initiale — traits TDD, type-safety, API-contract-first, accessibility"

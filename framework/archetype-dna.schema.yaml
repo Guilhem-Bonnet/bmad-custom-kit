@@ -1,0 +1,77 @@
+# Schéma — Archetype DNA (BM-08)
+# Chaque archétype déclare sa "DNA" dans un fichier archetype.dna.yaml
+# Ce schéma définit la structure attendue.
+# Héritage : tous les archétypes héritent implicitement de "minimal"
+
+$schema: "bmad-archetype-dna/v1"
+
+# ── Identité ──────────────────────────────────────────────────────────────────
+id: string                          # Identifiant unique : "infra-ops", "web-app", "fix-loop"
+name: string                        # Nom lisible
+version: string                     # SemVer : "1.0.0"
+description: string                 # Description courte (< 120 chars)
+icon: string                        # Emoji représentatif
+author: string                      # Créateur (ex: "bmad-custom-kit")
+tags: [string]                      # Mots-clés pour la recherche du registry
+
+# ── Héritage ──────────────────────────────────────────────────────────────────
+inherits: string | null             # Archétype parent (ex: "minimal") — null = racine
+# Quand un archétype hérite d'un autre :
+# → Ses traits s'ajoutent à ceux du parent
+# → Ses agents s'ajoutent à ceux du parent
+# → Ses contraintes fusionnent (union)
+# → Ses valeurs peuvent surcharger celles du parent
+
+# ── Traits (comportements hérités par les agents) ────────────────────────────
+# Les traits sont injectés dans agent-base.md via une section dédiée
+traits:
+  - name: string                    # Ex: "tdd", "cc-mandatory", "plan-act"
+    description: string             # Explication du trait
+    rule: string                    # Règle concrète à ajouter dans <rules> des agents
+    agents_affected: [string] | "*" # Agents concernés ou "*" pour tous
+
+# ── Contraintes (règles strictes, bloquantes) ────────────────────────────────
+constraints:
+  - id: string                      # Ex: "no-prod-without-validation"
+    description: string
+    enforcement: "hard" | "soft"    # hard = bloque l'action, soft = warning
+    checked_by: string              # Agent ou script qui vérifie
+
+# ── Valeurs (principes culturels de l'archétype) ─────────────────────────────
+values:
+  - name: string                    # Ex: "infrastructure-as-code"
+    description: string
+    priority: 1 | 2 | 3            # 1 = fondamental, 3 = souhaitable
+
+# ── Contenu à installer ───────────────────────────────────────────────────────
+agents:
+  - path: string                    # Chemin relatif depuis archetypes/{id}/
+    required: boolean
+    description: string
+
+workflows:
+  - path: string
+    required: boolean
+    description: string
+
+shared_context_template: string | null  # Fichier shared-context.tpl.md à fusionner
+
+prompts_directory: string | null    # Répertoire de prompts à copier
+
+# ── Compatibilité ─────────────────────────────────────────────────────────────
+compatible_with: [string]           # Autres archétypes compatibles pour co-installation
+incompatible_with: [string]         # Archétypes mutuellement exclusifs
+requires: [string]                  # Archétypes prérequis
+
+# ── Auto-détection (pour --auto dans bmad-init.sh) ───────────────────────────
+auto_detect:
+  files: [string]                   # Patterns de fichiers qui déclenchent la sélection
+  directories: [string]             # Patterns de répertoires
+  confidence_boost: number          # 0-100 : boost de score si détecté
+  exclusive: boolean                # Si true, ce seul archétype est choisi
+
+# ── Méta ──────────────────────────────────────────────────────────────────────
+changelog:
+  - version: string
+    date: string                    # ISO 8601
+    changes: [string]

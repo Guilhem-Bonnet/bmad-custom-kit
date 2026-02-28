@@ -44,8 +44,10 @@ ${CYAN}BMAD Custom Kit — Initialisation${NC}
 
 Usage:
   $(basename "$0") --name "Nom du Projet" --user "Votre Nom" [options]
+  $(basename "$0") session-branch --name "branch-name" [--list|--diff|--merge|--archive|--cherry-pick]
+  $(basename "$0") install --archetype TYPE [--force] [--list] [--inspect TYPE]
 
-Options:
+Options init:
   --name NAME         Nom du projet (requis)
   --user USER         Votre nom (requis)
   --lang LANGUAGE     Langue de communication (défaut: Français)
@@ -57,6 +59,20 @@ Options:
   --force             Écraser une installation existante sans demander confirmation
   --help              Afficher cette aide
 
+Options session-branch:
+  session-branch --name NAME    Créer une nouvelle branche de session
+  session-branch --list         Lister toutes les branches actives
+  session-branch --diff B1 B2   Comparer les artefacts de deux branches
+  session-branch --merge NAME   Merger une branche vers main
+  session-branch --archive NAME Archiver une branche terminée
+  session-branch --cherry-pick BRANCH SRC DST  Copier un artefact spécifique vers main
+
+Options install:
+  install --archetype TYPE  Installer un archétype dans un projet BMAD existant
+  install --list            Lister tous les archétypes disponibles avec leur DNA
+  install --inspect TYPE    Inspecter un archétype (agents, traits, contraintes) sans installer
+  install --force           Forcer la réinstallation (overwrite fichiers existants)
+
 Archétypes:
   minimal     Meta-agents (Atlas, Sentinel, Mnemo) + 1 agent vierge
   infra-ops   Agents Infrastructure & DevOps complets (10 agents)
@@ -67,9 +83,346 @@ Exemples:
   $(basename "$0") --name "Mon API" --user "Alice" --archetype minimal
   $(basename "$0") --name "Infra Prod" --user "Bob" --archetype infra-ops --lang "English"
   $(basename "$0") --name "Mon App" --user "Guilhem" --auto --memory ollama
+  $(basename "$0") session-branch --name "explore-graphql"
+  $(basename "$0") session-branch --list
+  $(basename "$0") session-branch --diff main explore-graphql
+  $(basename "$0") install --list
+  $(basename "$0") install --archetype infra-ops
+  $(basename "$0") install --archetype stack/go --force
+  $(basename "$0") install --inspect fix-loop
 EOF
     exit 0
 }
+
+# ─── Session Branching (BM-16) ───────────────────────────────────────────────
+# Gestion des branches de session BMAD
+# Usage: bmad-init.sh session-branch [--name|--list|--diff|--merge|--archive|--cherry-pick]
+cmd_session_branch() {
+    local RUNS_DIR="${TARGET_DIR}/_bmad-output/.runs"
+    local action=""
+    local branch_name=""
+    local branch_b=""
+    local src_file=""
+    local dst_file=""
+    local NOW
+    NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    local DATE_SHORT
+    DATE_SHORT="$(date +%Y-%m-%d)"
+
+    # Parser les sous-arguments
+    shift  # retirer "session-branch"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --name)       action="create"; branch_name="$2"; shift 2 ;;
+            --list)       action="list"; shift ;;
+            --diff)       action="diff"; branch_name="$2"; branch_b="${3:-main}"; shift 3 ;;
+            --merge)      action="merge"; branch_name="$2"; shift 2 ;;
+            --archive)    action="archive"; branch_name="$2"; shift 2 ;;
+            --cherry-pick) action="cherry-pick"; branch_name="$2"; src_file="$3"; dst_file="$4"; shift 4 ;;
+            *) error "Option inconnue pour session-branch: $1. Utilisez --help." ;;
+        esac
+    done
+
+    case "$action" in
+        create)
+            [[ -z "$branch_name" ]] && error "Nom de branche requis : --name nom-branche"
+            local branch_dir="${RUNS_DIR}/${branch_name}"
+            if [[ -d "$branch_dir" ]] && ! $FORCE; then
+                error "La branche '${branch_name}' existe déjà. Utilisez --force pour écraser."
+            fi
+            mkdir -p "$branch_dir"
+            cat > "${branch_dir}/branch.json" << EOF
+{
+  "branch": "${branch_name}",
+  "created_at": "${NOW}",
+  "created_by": "bmad-init",
+  "purpose": "Session branch created by bmad-init.sh",
+  "parent_branch": "main",
+  "status": "active"
+}
+EOF
+            ok "Branche de session créée : ${branch_name}"
+            info "Outputs isolés dans : ${branch_dir}/"
+            info "Référencer dans project-context.yaml : session_branch: ${branch_name}"
+            ;;
+
+        list)
+            if [[ ! -d "$RUNS_DIR" ]]; then
+                info "Aucun run trouvé dans ${RUNS_DIR}/ — pas encore de sessions"
+                exit 0
+            fi
+            echo -e "${CYAN}Branches de session BMAD :${NC}"
+            echo ""
+            local found=false
+            for dir in "${RUNS_DIR}"/*/; do
+                [[ -d "$dir" ]] || continue
+                local bname
+                bname="$(basename "$dir")"
+                [[ "$bname" == "archive" ]] && continue
+                local bstatus="active"
+                local bdate="—"
+                if [[ -f "${dir}/branch.json" ]]; then
+                    bstatus="$(grep '"status"' "${dir}/branch.json" | sed 's/.*: *"\(.*\)".*/\1/')"
+                    bdate="$(grep '"created_at"' "${dir}/branch.json" | sed 's/.*: *"\(.*\)".*/\1/' | cut -c1-10)"
+                fi
+                local run_count
+                run_count="$(find "$dir" -maxdepth 1 -name "state.json" | wc -l | tr -d ' ')"
+                echo -e "  ${GREEN}●${NC} ${CYAN}${bname}${NC} — statut: ${bstatus} | créée: ${bdate} | runs: ${run_count}"
+                found=true
+            done
+            $found || info "Aucune branche trouvée"
+            ;;
+
+        diff)
+            [[ -z "$branch_name" ]] && error "Deux branches requises : --diff branch1 branch2"
+            local dir_a="${RUNS_DIR}/${branch_name}"
+            local dir_b="${RUNS_DIR}/${branch_b}"
+            [[ ! -d "$dir_a" ]] && error "Branche '$branch_name' non trouvée"
+            [[ ! -d "$dir_b" ]] && error "Branche '$branch_b' non trouvée"
+            echo -e "${CYAN}Diff : ${branch_name} vs ${branch_b}${NC}"
+            echo ""
+            echo "=== Artefacts dans ${branch_name} (pas dans ${branch_b}) ==="
+            comm -23 <(find "$dir_a" -type f | sed "s|${dir_a}/||" | sort) \
+                     <(find "$dir_b" -type f | sed "s|${dir_b}/||" | sort) || true
+            echo ""
+            echo "=== Artefacts dans ${branch_b} (pas dans ${branch_name}) ==="
+            comm -13 <(find "$dir_a" -type f | sed "s|${dir_a}/||" | sort) \
+                     <(find "$dir_b" -type f | sed "s|${dir_b}/||" | sort) || true
+            ;;
+
+        merge)
+            [[ -z "$branch_name" ]] && error "Nom de branche requis pour le merge"
+            local src_dir="${RUNS_DIR}/${branch_name}"
+            local dst_dir="${RUNS_DIR}/main"
+            [[ ! -d "$src_dir" ]] && error "Branche '$branch_name' non trouvée"
+            mkdir -p "$dst_dir"
+            info "Merge de '${branch_name}' → main..."
+            cp -r "${src_dir}/." "${dst_dir}/"
+            # Mettre à jour le statut
+            [[ -f "${src_dir}/branch.json" ]] && \
+                sed -i 's/"status": "active"/"status": "merged"/' "${src_dir}/branch.json"
+            ok "Branche '${branch_name}' mergée dans main"
+            warn "Vérifiez les conflits manuellement dans ${dst_dir}/"
+            ;;
+
+        archive)
+            [[ -z "$branch_name" ]] && error "Nom de branche requis pour l'archivage"
+            local arch_src="${RUNS_DIR}/${branch_name}"
+            local arch_dst="${RUNS_DIR}/archive/${branch_name}-$(date +%Y%m%d)"
+            [[ ! -d "$arch_src" ]] && error "Branche '$branch_name' non trouvée"
+            mkdir -p "${RUNS_DIR}/archive"
+            mv "$arch_src" "$arch_dst"
+            ok "Branche '${branch_name}' archivée dans archive/$(basename "$arch_dst")"
+            ;;
+
+        cherry-pick)
+            [[ -z "$branch_name" || -z "$src_file" || -z "$dst_file" ]] && \
+                error "Usage: session-branch --cherry-pick branch source-file destination-file"
+            [[ ! -f "$src_file" ]] && error "Fichier source non trouvé: $src_file"
+            mkdir -p "$(dirname "$dst_file")"
+            cp "$src_file" "$dst_file"
+            ok "Cherry-pick : $src_file → $dst_file"
+            ;;
+
+        "")
+            error "Action requise. Exemples: --name, --list, --diff, --merge, --archive"
+            ;;
+    esac
+    exit 0
+}
+
+# ─── Archetype Registry Install (BM-21) ──────────────────────────────────────────────────
+# Usage: bmad-init.sh install [--archetype|--list|--inspect]
+cmd_install() {
+    shift  # retirer "install"
+    local action="install"
+    local archetype_id=""
+    local target_bmad=""
+    local INSTALL_FORCE=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --archetype)  action="install"; archetype_id="$2"; shift 2 ;;
+            --list)       action="list"; shift ;;
+            --inspect)    action="inspect"; archetype_id="$2"; shift 2 ;;
+            --force)      INSTALL_FORCE=true; shift ;;
+            *) error "Option inconnue pour install: $1. Utilisez --help." ;;
+        esac
+    done
+
+    # Localiser le projet BMAD le plus proche
+    target_bmad="$(pwd)/_bmad"
+    if [[ ! -d "$target_bmad/_config/custom" ]]; then
+        error "Aucun projet BMAD trouvé dans $(pwd). Lancez d'abord bmad-init.sh --name ... --user ..."
+    fi
+
+    case "$action" in
+        list)
+            echo -e "${CYAN}Archétypes BMAD disponibles :${NC}"
+            echo ""
+            # Parcourir les répertoires d'archétypes
+            local arch_base="$SCRIPT_DIR/archetypes"
+            for dir in "$arch_base"/*/; do
+                [[ -d "$dir" ]] || continue
+                local aid
+                aid="$(basename "$dir")"
+                local dna="${dir}archetype.dna.yaml"
+                if [[ -f "$dna" ]]; then
+                    local aname
+                    aname="$(grep '^name:' "$dna" | head -1 | sed 's/name: *//;s/"//g')"
+                    local adesc
+                    adesc="$(grep '^description:' "$dna" | head -1 | sed 's/description: *//;s/"//g' | cut -c1-80)"
+                    echo -e "  ${GREEN}●${NC} ${CYAN}${aid}${NC} — ${aname}"
+                    echo -e "      ${adesc}"
+                else
+                    echo -e "  ${YELLOW}◦${NC} ${aid} (pas de DNA déclarée)"
+                fi
+                # Stack sub-archetypes
+                if [[ -d "${dir}agents/" ]]; then
+                    for subdir in "${dir}agents/"*.md; do
+                        [[ -f "$subdir" ]] || continue
+                        local sname
+                        sname="$(basename "$subdir" .md | sed 's/-expert$//')"
+                        echo -e "    ${BLUE}└ stack/${sname}${NC}"
+                    done
+                fi
+            done
+            echo ""
+            info "Pour installer : $(basename "$0") install --archetype <id>"
+            ;;
+
+        inspect)
+            [[ -z "$archetype_id" ]] && error "ID d'archétype requis : --inspect <id>"
+            # Gestion stack/{lang}
+            if [[ "$archetype_id" == stack/* ]]; then
+                local lang="${archetype_id#stack/}"
+                local sa="$SCRIPT_DIR/archetypes/stack/agents/${lang}-expert.md"
+                [[ ! -f "$sa" ]] && error "Agent stack '$lang' non trouvé. Valides : $(ls "$SCRIPT_DIR/archetypes/stack/agents/" | sed 's/-expert\.md//' | tr '\n' ' ')"
+                echo -e "${CYAN}Agent stack : ${archetype_id}${NC}"
+                cat "$sa"
+                exit 0
+            fi
+            local arch_dir="$SCRIPT_DIR/archetypes/${archetype_id}"
+            [[ ! -d "$arch_dir" ]] && error "Archétype '$archetype_id' non trouvé dans archetypes/"
+            local dna="${arch_dir}/archetype.dna.yaml"
+            echo -e "${CYAN}Inspection de l'archétype : ${archetype_id}${NC}"
+            echo ""
+            if [[ -f "$dna" ]]; then
+                cat "$dna"
+            else
+                warn "Pas de fichier archetype.dna.yaml pour $archetype_id"
+                echo "Agents disponibles :"
+                ls "${arch_dir}/agents/" 2>/dev/null | sed 's/^/  • /'
+            fi
+            ;;
+
+        install)
+            [[ -z "$archetype_id" ]] && error "ID d'archétype requis : --archetype <id>"
+
+            # ── Gestion sous-archétypes stack : stack/go → archetypes/stack/agents/go-expert.md ──
+            if [[ "$archetype_id" == stack/* ]]; then
+                local lang="${archetype_id#stack/}"
+                local sa="$SCRIPT_DIR/archetypes/stack/agents/${lang}-expert.md"
+                # Fallback : chercher par glob si le nom exact n'existe pas
+                if [[ ! -f "$sa" ]]; then
+                    local candidate
+                    candidate="$(find "$SCRIPT_DIR/archetypes/stack/agents/" -name "${lang}*.md" | head -1)"
+                    [[ -n "$candidate" ]] && sa="$candidate"
+                fi
+                [[ ! -f "$sa" ]] && error "Agent stack '$lang' non trouvé. Valides : $(ls "$SCRIPT_DIR/archetypes/stack/agents/" | sed 's/-expert\.md//' | tr '\n' ' ')"
+                local fname
+                fname="$(basename "$sa")"
+                local agents_dst="$target_bmad/_config/custom/agents"
+                if [[ -f "${agents_dst}/${fname}" ]] && ! $INSTALL_FORCE; then
+                    warn "${fname} existe déjà (utilisez --force pour écraser)"
+                else
+                    cp "$sa" "${agents_dst}/"
+                    ok "Agent stack installé : ${fname}"
+                fi
+                local installed_log="$target_bmad/_config/installed-archetypes.yaml"
+                [[ ! -f "$installed_log" ]] && { echo "# Auto-généré par bmad-init.sh" > "$installed_log"; echo "installed:" >> "$installed_log"; }
+                cat >> "$installed_log" << STACKEOF
+  - id: ${archetype_id}
+    installed_at: "$(date +%Y-%m-%d)"
+    force: ${INSTALL_FORCE}
+STACKEOF
+                ok "Stack '${archetype_id}' installé avec succès"
+                info "Activer l'agent dans Copilot : ouvrir ${agents_dst}/${fname}"
+                exit 0
+            fi
+
+            local arch_dir="$SCRIPT_DIR/archetypes/${archetype_id}"
+            [[ ! -d "$arch_dir" ]] && error "Archétype '$archetype_id' non trouvé dans archetypes/"
+
+            local agents_dst="$target_bmad/_config/custom/agents"
+            local workflows_dst="$target_bmad/_config/custom/workflows"
+
+            info "Installation de l'archétype '${archetype_id}'..."
+
+            # Copier les agents
+            if [[ -d "${arch_dir}/agents/" ]]; then
+                local count=0
+                for agent_file in "${arch_dir}/agents/"*.md; do
+                    [[ -f "$agent_file" ]] || continue
+                    local fname
+                    fname="$(basename "$agent_file")"
+                    if [[ -f "${agents_dst}/${fname}" ]] && ! $INSTALL_FORCE; then
+                        warn "  ${fname} existe déjà (utilisez --force pour écraser)"
+                    else
+                        cp "$agent_file" "${agents_dst}/"
+                        ok "  Agent installé : ${fname}"
+                        (( count++ )) || true
+                    fi
+                done
+                [[ $count -eq 0 ]] || ok "${count} agent(s) installé(s)"
+            fi
+
+            # Copier les workflows
+            if [[ -d "${arch_dir}/workflows/" ]]; then
+                mkdir -p "$workflows_dst"
+                cp -r "${arch_dir}/workflows/"* "${workflows_dst}/" 2>/dev/null || true
+                ok "  Workflows installés"
+            fi
+
+            # Fusionner le shared-context si existant
+            if [[ -f "${arch_dir}/shared-context.tpl.md" ]]; then
+                local sc_dst="$target_bmad/_memory/shared-context.md"
+                if [[ ! -f "$sc_dst" ]]; then
+                    cp "${arch_dir}/shared-context.tpl.md" "$sc_dst"
+                    ok "  shared-context.md créé"
+                else
+                    echo "" >> "$sc_dst"
+                    echo "<!-- Ajout archétype ${archetype_id} : $(date +%Y-%m-%d) -->" >> "$sc_dst"
+                    cat "${arch_dir}/shared-context.tpl.md" >> "$sc_dst"
+                    ok "  shared-context.md enrichi avec le contexte ${archetype_id}"
+                fi
+            fi
+
+            # Enregistrer dans installed-archetypes.yaml
+            local installed_log="$target_bmad/_config/installed-archetypes.yaml"
+            if [[ ! -f "$installed_log" ]]; then
+                echo "# Auto-généré par bmad-init.sh" > "$installed_log"
+                echo "installed:" >> "$installed_log"
+            fi
+            cat >> "$installed_log" << YAMLEOF
+  - id: ${archetype_id}
+    installed_at: "$(date +%Y-%m-%d)"
+    force: ${INSTALL_FORCE}
+YAMLEOF
+            ok "Archétype '${archetype_id}' installé avec succès"
+            info "Agents disponibles dans : ${agents_dst}/"
+            ;;
+    esac
+    exit 0
+}
+
+# ─── Dispatch des sous-commandes ──────────────────────────────────────────────────
+if [[ "${1:-}" == "session-branch" ]]; then
+    cmd_session_branch "$@"
+fi
+if [[ "${1:-}" == "install" ]]; then
+    cmd_install "$@"
+fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -400,6 +753,37 @@ sed "s/{{project_name}}/$PROJECT_NAME/g" \
     "$SCRIPT_DIR/framework/memory/contradiction-log.tpl.md" \
     > "$BMAD_DIR/_memory/contradiction-log.md"
 
+# ─── Failure Museum (BM-03) ─────────────────────────────────────────────────
+if [[ ! -f "$BMAD_DIR/_memory/failure-museum.md" ]]; then
+    sed -e "s/{{project_name}}/$PROJECT_NAME/g" \
+        -e "s/{{init_date}}/$(date +%Y-%m-%d)/g" \
+        "$SCRIPT_DIR/framework/memory/failure-museum.tpl.md" \
+        > "$BMAD_DIR/_memory/failure-museum.md"
+fi
+
+# ─── Session Branching — structure .runs/ (BM-16) ──────────────────────────
+info "Initialisation de la structure de sessions..."
+RUNS_DIR="$TARGET_DIR/_bmad-output/.runs"
+mkdir -p "$RUNS_DIR/main"
+cat > "$RUNS_DIR/main/branch.json" << JSONEOF
+{
+  "branch": "main",
+  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "created_by": "bmad-init",
+  "purpose": "Branche de session principale",
+  "parent_branch": null,
+  "status": "active"
+}
+JSONEOF
+
+# ─── Team Context Directories (BM-17) ───────────────────────────────────────
+mkdir -p "$TARGET_DIR/_bmad-output/team-vision"
+mkdir -p "$TARGET_DIR/_bmad-output/team-build/stories"
+mkdir -p "$TARGET_DIR/_bmad-output/team-build/test-reports"
+mkdir -p "$TARGET_DIR/_bmad-output/team-ops"
+mkdir -p "$TARGET_DIR/_bmad-output/contracts"
+ok "Structure de sessions et teams créée"
+
 # Session state
 cat > "$BMAD_DIR/_memory/session-state.md" <<MD
 # État de la dernière session
@@ -485,7 +869,13 @@ else
     warn "pip3 non trouvé — installez les dépendances manuellement : pip install -r _bmad/_memory/requirements.txt"
 fi
 
-# ─── 10. Résumé ──────────────────────────────────────────────────────────────
+# ─── 11. Initialiser les collections Qdrant structurées (BM-22) ─────────────
+if command -v python3 &>/dev/null && [[ -f "$BMAD_DIR/_memory/mem0-bridge.py" ]]; then
+    info "Initialisation des collections Qdrant structurées..."
+    python3 "$BMAD_DIR/_memory/mem0-bridge.py" init-collections 2>/dev/null && true
+fi
+
+# ─── 12. Résumé ──────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}🎉 BMAD Custom Kit installé avec succès !${NC}"

@@ -1,0 +1,112 @@
+$schema: "bmad-archetype-dna/v1"
+
+id: infra-ops
+name: "Infra Ops"
+version: "1.0.0"
+description: "Infrastructure & DevOps complète — 10 agents spécialisés pour Terraform, K8s, Ansible, monitoring, sécurité, backup"
+icon: "⚙️"
+author: "bmad-custom-kit"
+tags: [infrastructure, devops, k8s, terraform, ansible, monitoring, security, backup, ops]
+
+inherits: minimal
+
+traits:
+  - name: infrastructure-as-code
+    description: "Toute modification infra passe par du code versionné"
+    rule: "JAMAIS modifier l'infrastructure manuellement. Toujours via Terraform/Ansible/K8s manifests. Si une modification manuelle est inévitable → créer un ticket de remédiation immédiatement."
+    agents_affected: [forge, helm, playbook, terra]
+  - name: plan-before-apply
+    description: "Plan obligatoire avant apply Terraform"
+    rule: "Pour toute action Terraform : terraform plan obligatoire, afficher le résumé (+ add, ~ change, - destroy), demander confirmation si destroy > 0."
+    agents_affected: [terra, forge]
+  - name: security-first
+    description: "La sécurité est non-négociable"
+    rule: "Zéro port 22 exposé publiquement. Zéro secret en clair. TLS partout. Validation SOPS/age avant commit."
+    agents_affected: [vault, forge, helm]
+  - name: backup-before-change
+    description: "Snapshot avant toute migration ou changement destructif"
+    rule: "Avant DELETE, DROP, migration de données ou upgrade majeur → demander confirmation + suggérer snapshot Longhorn/backup."
+    agents_affected: [phoenix, helm, forge]
+  - name: observability-mandatory
+    description: "Tout service deployé doit être observable"
+    rule: "Chaque nouveau service → probe Blackbox ou métriques Prometheus + alerte minimum sur availability. Refuser 'done' sans alerte configurée."
+    agents_affected: [hawk, helm, forge]
+
+constraints:
+  - id: no-manual-infra-change
+    description: "Interdiction de modifier l'infra hors code versionné"
+    enforcement: hard
+    checked_by: forge
+  - id: backup-before-destructive
+    description: "Snapshot obligatoire avant opération destructive"
+    enforcement: hard
+    checked_by: phoenix
+  - id: tls-everywhere
+    description: "TLS obligatoire sur tous les services exposés"
+    enforcement: hard
+    checked_by: vault
+  - id: cc-infra-pass
+    description: "cc-verify.sh --stack infra obligatoire avant livraison"
+    enforcement: hard
+    checked_by: agent-optimizer
+
+values:
+  - name: immutable-infrastructure
+    description: "Privilégier le remplacement au patching"
+    priority: 1
+  - name: least-privilege
+    description: "Chaque service avec les permissions minimales nécessaires"
+    priority: 1
+  - name: gitops-first
+    description: "Git comme source de vérité pour l'état de l'infrastructure"
+    priority: 1
+  - name: chaos-readiness
+    description: "L'infra doit survivre à la perte de n'importe quel nœud"
+    priority: 2
+
+agents:
+  - path: "../../archetypes/infra-ops/agents/ops-engineer.md"
+    required: true
+    description: "Forge — Terraform, Ansible, Docker Compose, LXC"
+  - path: "../../archetypes/infra-ops/agents/security-hardener.md"
+    required: true
+    description: "Vault — Sécurité, SOPS/age, TLS, fail2ban, hardening"
+  - path: "../../archetypes/infra-ops/agents/pipeline-architect.md"
+    required: true
+    description: "Flow — GitHub Actions, Taskfile, CI/CD"
+  - path: "../../archetypes/infra-ops/agents/monitoring-specialist.md"
+    required: true
+    description: "Hawk — Prometheus, Grafana, Loki, alertes"
+  - path: "../../archetypes/infra-ops/agents/k8s-navigator.md"
+    required: false
+    description: "Helm — K3s, FluxCD, Longhorn (si K8s présent)"
+  - path: "../../archetypes/infra-ops/agents/backup-dr-specialist.md"
+    required: true
+    description: "Phoenix — Backup, DR, snapshots, restauration"
+  - path: "../../archetypes/infra-ops/agents/systems-debugger.md"
+    required: true
+    description: "Debugger systèmes — logs, profiling, incidents"
+
+workflows:
+  - path: "../../archetypes/fix-loop/workflows/workflow-closed-loop-fix.tpl.md"
+    required: false
+    description: "Boucle de fix certifiée (recommandé pour infra-ops)"
+
+shared_context_template: "../../archetypes/infra-ops/shared-context.tpl.md"
+prompts_directory: "../../.github/prompts/team-ops"
+
+compatible_with: [minimal, fix-loop, features/vector-memory, stack/terraform, stack/k8s, stack/ansible, stack/docker]
+incompatible_with: [web-app]
+requires: []
+
+auto_detect:
+  files: ["*.tf", "*.tfvars", "ansible.cfg", "playbook*.yml", "k8s/**/*.yaml"]
+  directories: ["terraform/", "ansible/", "k8s/", "infra/"]
+  confidence_boost: 90
+  exclusive: true  # Si détecté, choose infra-ops automatiquement
+
+changelog:
+  - version: "1.0.0"
+    date: "2026-02-27"
+    changes:
+      - "DNA initiale — traits IaC, plan-before-apply, security-first, backup-before-change, observability-mandatory"
