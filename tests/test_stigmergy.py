@@ -42,7 +42,7 @@ def _make_root(tmpdir: Path) -> Path:
     return tmpdir
 
 
-def _make_board(st, pheromones=None, **kw) -> "PheromoneBoard":
+def _make_board(st, pheromones=None, **kw):
     b = st.PheromoneBoard(**kw)
     if pheromones:
         b.pheromones = pheromones
@@ -54,7 +54,7 @@ def _make_pheromone(st, ptype="NEED", location="src/auth",
                     timestamp=None, intensity=0.7,
                     tags=None, reinforcements=0,
                     reinforced_by=None, resolved=False,
-                    resolved_by="", resolved_at="") -> "Pheromone":
+                    resolved_by="", resolved_at=""):
     if timestamp is None:
         timestamp = datetime.now(tz=timezone.utc).isoformat()
     return st.Pheromone(

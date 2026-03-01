@@ -12,6 +12,11 @@
   },
   "editor.defaultFormatter": null,
 
+  // ── Diff ────────────────────────────────────────────────────────────
+  // Éviter "L'algorithme diff a été arrêté tôt" sur les gros fichiers
+  "diffEditor.maxComputationTime": 0,
+  "diffEditor.maxFileSize": 0,
+
   // ── Fichiers exclus de l'explorateur ────────────────────────────────
   "files.exclude": {
     "**/.git": true,
@@ -22,10 +27,14 @@
   },
 
   // ── Exclusions de la recherche (grep/ripgrep) ────────────────────────
+  // Réduire le volume indexé pour éviter les timeouts réseau Copilot
   "search.exclude": {
     "_bmad-output/BMAD_TRACE.md": true,
-    "_bmad/_memory/": true,
     "_bmad-output/.runs/": true,
+    "_bmad-output/pheromone-board.json": true,
+    "_bmad/_memory/": true,
+    "_bmad/tea/testarch/knowledge/": true,
+    "_bmad/tea/workflows/": true,
     "**/node_modules": true,
     "**/.terraform": true,
     "**/.venv": true
@@ -80,12 +89,7 @@
   "git.branchPrefix": "bmad/",
 
   // ── Copilot ──────────────────────────────────────────────────────────
-  // Optimisations pour réduire la consommation de tokens (rate limit)
-  "github.copilot.chat.codeGeneration.instructions": [
-    {
-      "file": ".github/copilot-instructions.md"
-    }
-  ],
+  // Instructions via fichier .github/copilot-instructions.md (chargé automatiquement)
   "github.copilot.chat.reviewSelection.instructions": [
     {
       "text": "Reviewer : Amelia (dev agent BMAD). Vérifier que le code respecte le DNA de l'archétype actif (acceptance_criteria + tools_required). Langue : Français."
