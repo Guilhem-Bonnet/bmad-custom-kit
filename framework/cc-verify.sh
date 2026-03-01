@@ -275,7 +275,7 @@ verify_docker() {
 
   if [[ -f "docker-compose.yml" ]] || [[ -f "docker-compose.yaml" ]]; then
     info "docker compose config"
-    if docker compose config 2>&1 >/dev/null; then
+    if docker compose config >/dev/null 2>&1; then
       echo -e "  ${GREEN}→ compose config OK${NC}"
     else
       echo -e "  ${RED}→ compose config FAILED${NC}"; ok=false

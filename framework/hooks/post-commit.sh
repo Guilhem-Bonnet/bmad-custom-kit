@@ -32,8 +32,7 @@ STATE_FILE="$BMAD_DIR/_memory/state.json"
 COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 COMMIT_MSG="$(git log -1 --pretty=%s 2>/dev/null || echo "")"
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || echo "detached")"
-TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-DATE="$(date -u +"%Y-%m-%d")"
+# TIMESTAMP et DATE disponibles via $(date) inline dans TRACE_ENTRY
 
 # Fichiers modifiés dans le commit
 CHANGED_FILES="$(git diff-tree --no-commit-id -r --name-only HEAD 2>/dev/null | head -20 | tr '\n' ', ' | sed 's/,$//')"

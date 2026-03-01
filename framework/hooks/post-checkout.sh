@@ -17,8 +17,7 @@
 
 set -uo pipefail  # pas -e : hook post-checkout ne doit jamais bloquer
 
-PREV_HEAD="$1"
-NEW_HEAD="$2"
+# Git hook params: $1=prev_head $2=new_head $3=branch_checkout
 BRANCH_CHECKOUT="$3"  # 1 = changement de branche, 0 = checkout fichier
 
 # Ne s'active que pour les changements de branche

@@ -15,7 +15,6 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(pwd)"
 SINCE_DAYS=90
 OUTPUT_DIR="$PROJECT_ROOT/_bmad-output"
@@ -65,7 +64,7 @@ count_pattern() {
 
 # Extrait les lignes contenant un pattern, avec contexte
 extract_signals() {
-    local file="$1" pattern="$2" label="$3"
+    local file="$1" pattern="$2"
     if [[ ! -f "$file" ]] || [[ ! -s "$file" ]]; then
         echo "_Fichier absent ou vide_"
         return
