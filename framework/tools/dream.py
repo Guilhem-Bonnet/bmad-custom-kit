@@ -22,6 +22,7 @@ Stdlib only — aucune dépendance externe.
 
 import argparse
 import json
+import math
 import re
 import sys
 from dataclasses import dataclass, field
@@ -38,6 +39,7 @@ QUICK_MAX_INSIGHTS = 5     # Plafond en mode quick (O(n) seulement)
 PERSISTENCE_BOOST = 0.15   # Bonus confiance pour insight persistant
 DECAY_HALFLIFE_DAYS = 14   # Demi-vie pour la pondération temporelle
 DREAM_MEMORY_FILE = "dream-memory.json"  # Historique structuré des insights
+MAX_OPPORTUNITIES_PER_SOURCE = 3  # Cap par source pour éviter la saturation
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
@@ -312,6 +314,39 @@ def _extract_keywords(text: str) -> set[str]:
     return result
 
 
+# Agents connus pour l'attribution automatique
+_KNOWN_AGENTS = frozenset({
+    "dev", "architect", "pm", "qa", "sm", "analyst",
+    "tech-writer", "ux-designer", "bmad-master",
+})
+
+_AGENT_PATTERN = re.compile(r'\[([a-z][a-z0-9_-]*)\]', re.IGNORECASE)
+
+
+def _extract_agents(text: str) -> list[str]:
+    """Extrait les noms d'agents mentionnés dans un texte.
+
+    Cherche des patterns [agent-name] et les valide contre la liste connue.
+    Aussi détecte les noms d'agents dans les noms de fichiers (learnings/dev.md).
+    """
+    agents: set[str] = set()
+
+    # Pattern [agent] dans le texte (traces, pheromones)
+    for m in _AGENT_PATTERN.finditer(text):
+        candidate = m.group(1).lower()
+        if candidate in _KNOWN_AGENTS:
+            agents.add(candidate)
+
+    # Nom de fichier agent (learnings/dev.md → dev)
+    file_pattern = re.search(r'learnings/([a-z_-]+)\.md', text.lower())
+    if file_pattern:
+        candidate = file_pattern.group(1)
+        if candidate in _KNOWN_AGENTS:
+            agents.add(candidate)
+
+    return sorted(agents)
+
+
 def _similarity(text_a: str, text_b: str) -> float:
     """Similarité cosine simplifiée par overlap de keywords."""
     ka = _extract_keywords(text_a)
@@ -337,6 +372,12 @@ def find_cross_connections(sources: list[DreamSource]) -> list[DreamInsight]:
                     sim = _similarity(entry_a, entry_b)
                     if sim >= SIMILARITY_THRESHOLD:
                         # Connexion détectée !
+                        agents = sorted(set(
+                            _extract_agents(entry_a) +
+                            _extract_agents(entry_b) +
+                            _extract_agents(src_a.name) +
+                            _extract_agents(src_b.name)
+                        ))
                         insights.append(DreamInsight(
                             title=f"Connexion {src_a.kind} ↔ {src_b.kind}",
                             description=(
@@ -347,6 +388,7 @@ def find_cross_connections(sources: list[DreamSource]) -> list[DreamInsight]:
                             sources=[src_a.name, src_b.name],
                             category="connection",
                             confidence=round(sim, 2),
+                            agents_relevant=agents,
                         ))
 
     return insights
@@ -372,16 +414,25 @@ def find_recurring_patterns(sources: list[DreamSource]) -> list[DreamInsight]:
         unique_sources = list(set(src_names))
         if len(unique_sources) >= MIN_SOURCES and len(src_names) >= 3:
             sample_entries = keyword_entries[kw][:3]
+            # Bigrams (contiennent '_') sont plus significatifs → bonus confiance
+            is_bigram = "_" in kw
+            base_conf = 0.4 if is_bigram else 0.3
+            label = kw.replace("_", " ") if is_bigram else kw
+            # Agents mentionnés dans les entrées échantillons
+            agents = sorted(set(
+                a for e in sample_entries for a in _extract_agents(e)
+            ))
             insights.append(DreamInsight(
-                title=f"Pattern récurrent : '{kw}'",
+                title=f"Pattern récurrent : '{label}'",
                 description=(
-                    f"Le terme '{kw}' apparaît dans {len(unique_sources)} sources "
+                    f"Le terme '{label}' apparaît dans {len(unique_sources)} sources "
                     f"({len(src_names)} occurrences) :\n" +
                     "\n".join(f"  • {e[:100]}..." for e in sample_entries)
                 ),
                 sources=unique_sources,
                 category="pattern",
-                confidence=min(0.9, 0.3 + 0.1 * len(unique_sources)),
+                confidence=min(0.9, base_conf + 0.1 * len(unique_sources)),
+                agents_relevant=agents,
             ))
 
     return insights
@@ -392,10 +443,12 @@ def find_tensions(sources: list[DreamSource]) -> list[DreamInsight]:
     insights: list[DreamInsight] = []
 
     # Mots indicateurs de tension
+    # Note: "never"/"jamais" = assertions fortes (positive) uniquement.
+    # Les garder dans negative aussi créerait des tensions auto-référentielles.
     tension_markers = {
         "positive": ["toujours", "always", "must", "doit", "jamais", "never",
                       "obligatoire", "required", "important", "critical"],
-        "negative": ["éviter", "avoid", "ne pas", "never", "jamais", "danger",
+        "negative": ["éviter", "avoid", "ne pas", "danger",
                       "risque", "problème", "échec", "fail", "broken", "cassé"],
     }
 
@@ -417,6 +470,10 @@ def find_tensions(sources: list[DreamSource]) -> list[DreamInsight]:
                 continue
             sim = _similarity(pos_entry, neg_entry)
             if sim >= 0.3:  # Seuil plus bas pour les tensions
+                agents = sorted(set(
+                    _extract_agents(pos_entry) +
+                    _extract_agents(neg_entry)
+                ))
                 insights.append(DreamInsight(
                     title=f"Tension détectée entre {pos_src} et {neg_src}",
                     description=(
@@ -427,6 +484,7 @@ def find_tensions(sources: list[DreamSource]) -> list[DreamInsight]:
                     sources=[pos_src, neg_src],
                     category="tension",
                     confidence=round(sim + 0.1, 2),
+                    agents_relevant=agents,
                 ))
 
     return insights
@@ -443,11 +501,16 @@ def find_opportunities(sources: list[DreamSource]) -> list[DreamInsight]:
         "pas encore", "not yet", "futur", "future", "éventuellement",
     ]
 
+    source_counts: dict[str, int] = {}
+
     for src in sources:
         for entry in src.entries:
+            if source_counts.get(src.name, 0) >= MAX_OPPORTUNITIES_PER_SOURCE:
+                break
             entry_lower = entry.lower()
             for marker in opportunity_markers:
                 if marker in entry_lower:
+                    agents = _extract_agents(entry) + _extract_agents(src.name)
                     insights.append(DreamInsight(
                         title=f"Opportunité dans {src.name}",
                         description=f"Signal d'amélioration : {entry[:150]}",
@@ -455,7 +518,9 @@ def find_opportunities(sources: list[DreamSource]) -> list[DreamInsight]:
                         category="opportunity",
                         confidence=0.5,
                         actionable=True,
+                        agents_relevant=sorted(set(agents)),
                     ))
+                    source_counts[src.name] = source_counts.get(src.name, 0) + 1
                     break  # Un seul marker suffit par entry
 
     return insights
@@ -692,7 +757,6 @@ def _temporal_weight(date_str: str, now: datetime | None = None) -> float:
     if age_days == 0:
         return 1.0
     # Décroissance exponentielle : weight = 2^(-age/halflife)
-    import math
     weight = math.pow(2.0, -age_days / DECAY_HALFLIFE_DAYS)
     return max(0.3, round(weight, 3))
 
@@ -883,6 +947,8 @@ def render_journal(insights: list[DreamInsight], sources: list[DreamSource],
         lines.append("")
         lines.append(f"**Confiance** : `{conf_bar}` {ins.confidence:.0%}")
         lines.append(f"**Sources** : {', '.join(ins.sources)}")
+        if ins.agents_relevant:
+            lines.append(f"**Agents** : {', '.join(ins.agents_relevant)}")
         if ins.actionable:
             lines.append("**🎯 Actionable**")
         lines.append("")
@@ -998,19 +1064,28 @@ def main():
             print(f"🐜 {count} insight(s) émis comme phéromones stigmergy")
             print()
 
-    # Sortie JSON
+    # Sortie JSON (enrichie avec dream diff et agents)
     if args.json:
-        data = [
-            {
-                "title": i.title,
-                "description": i.description,
-                "sources": i.sources,
-                "category": i.category,
-                "confidence": i.confidence,
-                "actionable": i.actionable,
+        data = {
+            "insights": [
+                {
+                    "title": i.title,
+                    "description": i.description,
+                    "sources": i.sources,
+                    "category": i.category,
+                    "confidence": i.confidence,
+                    "actionable": i.actionable,
+                    "agents_relevant": i.agents_relevant,
+                }
+                for i in insights
+            ],
+        }
+        if dream_diff:
+            data["dream_diff"] = {
+                "new": [i.title for i in dream_diff.get("new", [])],
+                "persistent": [i.title for i in dream_diff.get("persistent", [])],
+                "resolved": dream_diff.get("resolved", []),
             }
-            for i in insights
-        ]
         print(json.dumps(data, indent=2, ensure_ascii=False))
         sys.exit(0)
 

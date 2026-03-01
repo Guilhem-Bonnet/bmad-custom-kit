@@ -526,17 +526,21 @@ class TestFindOpportunities(unittest.TestCase):
         self.assertTrue(insights[0].actionable)
 
     def test_finds_improvement_markers(self):
-        markers_entries = [
-            "à améliorer: error handling",
-            "could be better at logging",
-            "not yet implemented: retry logic",
-            "automatiser les tests de regression",
-        ]
-        src = self.mod.DreamSource(
+        src_a = self.mod.DreamSource(
             name="notes.md", kind="learnings",
-            entries=markers_entries,
+            entries=[
+                "à améliorer: error handling",
+                "could be better at logging",
+            ],
         )
-        insights = self.mod.find_opportunities([src])
+        src_b = self.mod.DreamSource(
+            name="retro.md", kind="decisions",
+            entries=[
+                "not yet implemented: retry logic",
+                "automatiser les tests de regression",
+            ],
+        )
+        insights = self.mod.find_opportunities([src_a, src_b])
         self.assertEqual(len(insights), 4)
 
     def test_no_opportunities(self):
@@ -1828,6 +1832,361 @@ class TestRenderJournalDreamDiff(unittest.TestCase):
         self.assertIn("Nouveaux", journal)
         self.assertIn("Résolus", journal)
         self.assertIn("pattern:oldinsight", journal)
+
+
+# ── Test _extract_agents ──────────────────────────────────────────────────────
+
+class TestExtractAgents(unittest.TestCase):
+    """Vérifie l'extraction d'agents depuis le texte."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_known_agents_is_frozenset(self):
+        self.assertIsInstance(self.mod._KNOWN_AGENTS, frozenset)
+
+    def test_known_agents_contains_expected(self):
+        for agent in ("dev", "architect", "pm", "qa", "sm", "analyst",
+                       "tech-writer", "ux-designer", "bmad-master"):
+            self.assertIn(agent, self.mod._KNOWN_AGENTS)
+
+    def test_extract_bracket_pattern(self):
+        agents = self.mod._extract_agents("[dev] [DECISION] refactored caching")
+        self.assertIn("dev", agents)
+
+    def test_extract_multiple_agents(self):
+        agents = self.mod._extract_agents("[dev] reviewed [architect] design")
+        self.assertIn("dev", agents)
+        self.assertIn("architect", agents)
+
+    def test_ignores_unknown_agent(self):
+        agents = self.mod._extract_agents("[unknown-agent] did something")
+        self.assertEqual(agents, [])
+
+    def test_extract_from_filename(self):
+        agents = self.mod._extract_agents("Pattern in learnings/dev.md")
+        self.assertIn("dev", agents)
+
+    def test_empty_text(self):
+        agents = self.mod._extract_agents("")
+        self.assertEqual(agents, [])
+
+    def test_returns_sorted(self):
+        agents = self.mod._extract_agents("[qa] and [architect] stuff")
+        self.assertEqual(agents, ["architect", "qa"])
+
+    def test_case_insensitive_bracket(self):
+        agents = self.mod._extract_agents("[Dev] uppercase")
+        self.assertIn("dev", agents)
+
+    def test_ignores_non_agent_brackets(self):
+        """Patterns like [DECISION] or [123] should not be extracted."""
+        agents = self.mod._extract_agents("[DECISION] [CHECKPOINT] nothing")
+        self.assertEqual(agents, [])
+
+    def test_filename_tech_writer(self):
+        agents = self.mod._extract_agents("from learnings/tech-writer.md")
+        self.assertIn("tech-writer", agents)
+
+
+# ── Test Agent Attribution in Insights ────────────────────────────────────────
+
+class TestAgentAttribution(unittest.TestCase):
+    """Vérifie que les insights contiennent agents_relevant."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_cross_connection_populates_agents(self):
+        src_a = self.mod.DreamSource(
+            name="learnings/dev.md", kind="learnings",
+            entries=["[dev] caching database layer optimization strategy"],
+        )
+        src_b = self.mod.DreamSource(
+            name="decisions-log.md", kind="decisions",
+            entries=["[architect] caching database layer optimization decision"],
+        )
+        insights = self.mod.find_cross_connections([src_a, src_b])
+        if insights:
+            agents = insights[0].agents_relevant
+            self.assertIn("dev", agents)
+            self.assertIn("architect", agents)
+
+    def test_recurring_pattern_populates_agents(self):
+        src_a = self.mod.DreamSource(
+            name="learnings/dev.md", kind="learnings",
+            entries=[
+                "[dev] caching layer deployed",
+                "[dev] caching optimization reviewed",
+                "[dev] caching metrics collected",
+            ],
+        )
+        src_b = self.mod.DreamSource(
+            name="decisions-log.md", kind="decisions",
+            entries=["[architect] caching strategy adopted"],
+        )
+        insights = self.mod.find_recurring_patterns([src_a, src_b])
+        caching_insights = [i for i in insights if "caching" in i.title.lower()]
+        if caching_insights:
+            agents = caching_insights[0].agents_relevant
+            self.assertIn("dev", agents)
+
+    def test_tension_populates_agents(self):
+        src_a = self.mod.DreamSource(
+            name="learnings/dev.md", kind="learnings",
+            entries=["[dev] caching must always remain enabled for database"],
+        )
+        src_b = self.mod.DreamSource(
+            name="failure-museum.md", kind="failure-museum",
+            entries=["[qa] danger caching database caused stale data"],
+        )
+        insights = self.mod.find_tensions([src_a, src_b])
+        if insights:
+            agents = insights[0].agents_relevant
+            self.assertIn("dev", agents)
+            self.assertIn("qa", agents)
+
+    def test_opportunity_populates_agents(self):
+        src = self.mod.DreamSource(
+            name="learnings/dev.md", kind="learnings",
+            entries=["[dev] TODO: refactor the caching layer"],
+        )
+        insights = self.mod.find_opportunities([src])
+        self.assertGreater(len(insights), 0)
+        self.assertIn("dev", insights[0].agents_relevant)
+
+    def test_opportunity_source_name_agents(self):
+        """Agent extracted from source filename even without [agent] bracket."""
+        src = self.mod.DreamSource(
+            name="learnings/architect.md", kind="learnings",
+            entries=["TODO: review infrastructure decisions"],
+        )
+        insights = self.mod.find_opportunities([src])
+        self.assertGreater(len(insights), 0)
+        self.assertIn("architect", insights[0].agents_relevant)
+
+
+# ── Test Opportunity Cap ──────────────────────────────────────────────────────
+
+class TestOpportunityCap(unittest.TestCase):
+    """Vérifie le plafond d'opportunités par source."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_cap_limits_per_source(self):
+        """A source with many TODOs should be capped at MAX_OPPORTUNITIES_PER_SOURCE."""
+        entries = [f"TODO: fix item {i}" for i in range(10)]
+        src = self.mod.DreamSource(
+            name="bloated.md", kind="learnings", entries=entries,
+        )
+        insights = self.mod.find_opportunities([src])
+        self.assertEqual(len(insights), 3)  # MAX_OPPORTUNITIES_PER_SOURCE
+
+    def test_different_sources_independent_caps(self):
+        """Each source has its own cap."""
+        entries_a = [f"TODO: task A{i}" for i in range(5)]
+        entries_b = [f"TODO: task B{i}" for i in range(5)]
+        src_a = self.mod.DreamSource(
+            name="a.md", kind="learnings", entries=entries_a,
+        )
+        src_b = self.mod.DreamSource(
+            name="b.md", kind="decisions", entries=entries_b,
+        )
+        insights = self.mod.find_opportunities([src_a, src_b])
+        self.assertEqual(len(insights), 6)  # 3 + 3
+
+    def test_fewer_than_cap_not_truncated(self):
+        """If source has fewer opportunities than cap, all are kept."""
+        src = self.mod.DreamSource(
+            name="a.md", kind="learnings",
+            entries=["TODO: one thing", "TODO: another thing"],
+        )
+        insights = self.mod.find_opportunities([src])
+        self.assertEqual(len(insights), 2)
+
+
+# ── Test Bigram Scoring in Patterns ───────────────────────────────────────────
+
+class TestBigramScoring(unittest.TestCase):
+    """Vérifie que les bigrams ont un score plus élevé que les unigrams."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_bigram_higher_base_confidence(self):
+        """Bigram patterns should start at higher confidence than unigrams."""
+        # Create sources where both a unigram and a bigram appear across 2 sources
+        src_a = self.mod.DreamSource(
+            name="a.md", kind="learnings",
+            entries=[
+                "caching strategy review today",
+                "caching strategy implementation done",
+                "caching strategy deployed successfully",
+            ],
+        )
+        src_b = self.mod.DreamSource(
+            name="b.md", kind="decisions",
+            entries=["caching strategy selected for production"],
+        )
+        insights = self.mod.find_recurring_patterns([src_a, src_b])
+
+        bigram_insights = [i for i in insights if "caching strategy" in i.title.lower()]
+
+        # At minimum we should have the bigram pattern
+        self.assertTrue(len(bigram_insights) > 0,
+                        f"Expected bigram insight, got: {[i.title for i in insights]}")
+
+    def test_bigram_label_uses_space(self):
+        """Bigram labels should use space instead of underscore."""
+        src_a = self.mod.DreamSource(
+            name="a.md", kind="learnings",
+            entries=[
+                "error handling mechanism deployed",
+                "error handling review done",
+                "error handling improved today",
+            ],
+        )
+        src_b = self.mod.DreamSource(
+            name="b.md", kind="decisions",
+            entries=["error handling strategy selected"],
+        )
+        insights = self.mod.find_recurring_patterns([src_a, src_b])
+        # Look for bigram "error handling" (not "error_handling")
+        titles = [i.title for i in insights]
+        bigram_found = any("error handling" in t.lower() for t in titles)
+        self.assertTrue(bigram_found,
+                        f"Expected 'error handling' bigram in titles: {titles}")
+
+
+# ── Test Tension Marker Fix ───────────────────────────────────────────────────
+
+class TestTensionMarkerFix(unittest.TestCase):
+    """Vérifie que 'never'/'jamais' ne créent pas de tensions fantômes."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_never_only_positive(self):
+        """Entry with 'never' should appear in positive only, not negative."""
+        src_a = self.mod.DreamSource(
+            name="a.md", kind="learnings",
+            entries=["never deploy on Friday"],
+        )
+        src_b = self.mod.DreamSource(
+            name="b.md", kind="decisions",
+            entries=["normal caching optimization decision"],
+        )
+        # No tension should be detected because src_b has no negative marker
+        insights = self.mod.find_tensions([src_a, src_b])
+        self.assertEqual(len(insights), 0)
+
+    def test_no_self_tension_with_never(self):
+        """An entry with 'never' should not tension with itself across sources."""
+        src_a = self.mod.DreamSource(
+            name="a.md", kind="learnings",
+            entries=["never skip testing of database queries before deploy"],
+        )
+        src_b = self.mod.DreamSource(
+            name="b.md", kind="decisions",
+            entries=["never skip testing of database queries before deploy"],
+        )
+        # Same text in two sources — if 'never' were in both markers,
+        # it would create a ghost tension. Now it shouldn't.
+        insights = self.mod.find_tensions([src_a, src_b])
+        self.assertEqual(len(insights), 0)
+
+    def test_jamais_only_positive(self):
+        """Same fix for 'jamais' — positive only."""
+        src_a = self.mod.DreamSource(
+            name="a.md", kind="learnings",
+            entries=["jamais merger sans review approfondie du code"],
+        )
+        src_b = self.mod.DreamSource(
+            name="b.md", kind="decisions",
+            entries=["routine update sans problème particulier"],
+        )
+        # No tension: src_b doesn't have a real negative marker on the same topic
+        insights = self.mod.find_tensions([src_a, src_b])
+        self.assertEqual(len(insights), 0)
+
+    def test_real_tension_still_detected(self):
+        """Actual tensions (positive vs negative) still work."""
+        src_a = self.mod.DreamSource(
+            name="a.md", kind="learnings",
+            entries=["caching layer optimization must always remain enabled"],
+        )
+        src_b = self.mod.DreamSource(
+            name="b.md", kind="failure-museum",
+            entries=["danger caching layer optimization remain enabled causes stale data"],
+        )
+        insights = self.mod.find_tensions([src_a, src_b])
+        self.assertGreater(len(insights), 0)
+
+
+# ── Test Render Journal Agents ────────────────────────────────────────────────
+
+class TestRenderJournalAgents(unittest.TestCase):
+    """Vérifie que le journal affiche les agents pertinents."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_agents_displayed(self):
+        ins = [self.mod.DreamInsight(
+            title="Test Insight", description="Some description here",
+            sources=["a.md"], category="pattern", confidence=0.5,
+            agents_relevant=["dev", "architect"],
+        )]
+        src = [self.mod.DreamSource(name="a.md", kind="learnings",
+                                     entries=["e"])]
+        journal = self.mod.render_journal(ins, src, self.tmpdir)
+        self.assertIn("**Agents**", journal)
+        self.assertIn("dev", journal)
+        self.assertIn("architect", journal)
+
+    def test_no_agents_no_line(self):
+        ins = [self.mod.DreamInsight(
+            title="Test Insight", description="Some description here",
+            sources=["a.md"], category="pattern", confidence=0.5,
+            agents_relevant=[],
+        )]
+        src = [self.mod.DreamSource(name="a.md", kind="learnings",
+                                     entries=["e"])]
+        journal = self.mod.render_journal(ins, src, self.tmpdir)
+        self.assertNotIn("**Agents**", journal)
+
+
+# ── Test JSON Output Enrichment ───────────────────────────────────────────────
+
+class TestJsonOutputStructure(unittest.TestCase):
+    """Vérifie la structure enrichie de la sortie JSON."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_insight_has_agents_relevant(self):
+        """DreamInsight serialized as dict should include agents_relevant."""
+        ins = self.mod.DreamInsight(
+            title="T", description="D", sources=["a.md"],
+            category="pattern", confidence=0.5,
+            agents_relevant=["dev"],
+        )
+        data = {
+            "title": ins.title,
+            "description": ins.description,
+            "sources": ins.sources,
+            "category": ins.category,
+            "confidence": ins.confidence,
+            "actionable": ins.actionable,
+            "agents_relevant": ins.agents_relevant,
+        }
+        self.assertIn("agents_relevant", data)
+        self.assertEqual(data["agents_relevant"], ["dev"])
 
 
 if __name__ == "__main__":

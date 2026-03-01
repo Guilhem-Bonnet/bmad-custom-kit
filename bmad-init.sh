@@ -1133,11 +1133,24 @@ cmd_status() {
             sg_json=$(python3 "$tools_dir/stigmergy.py" --project-root "$project_root" sense --json 2>/dev/null || echo '{"pheromones":[]}')
         fi
 
-        # Dream
-        local dream_sessions=0
-        local dream_journal="$project_root/_bmad-output/dream-journal.md"
-        if [[ -f "$dream_journal" ]]; then
-            dream_sessions=$(grep -c "^# 🌙 BMAD Dream Journal" "$dream_journal" 2>/dev/null || echo "0")
+        # Dream — use dream-memory.json for accurate stats
+        local dream_json="{}"
+        local dream_memory="$project_root/_bmad-output/dream-memory.json"
+        if [[ -f "$dream_memory" ]]; then
+            dream_json=$(python3 -c "
+import json, sys
+try:
+    m = json.load(open(sys.argv[1]))
+    insights = m.get('insights', {})
+    print(json.dumps({
+        'total_dreams': m.get('total_dreams', 0),
+        'active_insights': sum(1 for v in insights.values() if not v.get('stale')),
+        'persistent_insights': sum(1 for v in insights.values() if v.get('seen_count', 0) >= 2 and not v.get('stale')),
+        'last_dream': m.get('last_dream', ''),
+    }))
+except Exception:
+    print('{}')
+" "$dream_memory" 2>/dev/null || echo '{}')
         fi
         local trigger_count=0
         local counter_file="$project_root/_bmad/_memory/dream-trigger-count"
@@ -1159,14 +1172,17 @@ cmd_status() {
 
         python3 -c "
 import json, sys
+dream = json.loads(sys.argv[2])
+dream['auto_trigger_count'] = int(sys.argv[3])
+dream['auto_trigger_interval'] = int(sys.argv[4])
 result = {
     'stigmergy': json.loads(sys.argv[1]),
-    'dream': {'sessions': int(sys.argv[2]), 'auto_trigger_count': int(sys.argv[3]), 'auto_trigger_interval': int(sys.argv[4])},
+    'dream': dream,
     'antifragile': json.loads(sys.argv[5]),
     'darwinism': json.loads(sys.argv[6])
 }
 print(json.dumps(result, indent=2))
-" "$sg_json" "$dream_sessions" "$trigger_count" "${BMAD_DREAM_INTERVAL:-10}" "$af_json" "$dw_json"
+" "$sg_json" "$dream_json" "$trigger_count" "${BMAD_DREAM_INTERVAL:-10}" "$af_json" "$dw_json"
         exit $?
     fi
 
@@ -1189,13 +1205,25 @@ print(json.dumps(result, indent=2))
 
     # ─── Dream ───
     echo "┌─── 🌙 Dream Mode ────────────────────────────────────────────┐"
+    local dream_memory="$project_root/_bmad-output/dream-memory.json"
     local dream_journal="$project_root/_bmad-output/dream-journal.md"
-    if [[ -f "$dream_journal" ]]; then
-        local sessions
-        sessions=$(grep -c "^# 🌙 BMAD Dream Journal" "$dream_journal" 2>/dev/null || echo "0")
+    if [[ -f "$dream_memory" ]]; then
+        python3 -c "
+import json, sys
+try:
+    m = json.load(open(sys.argv[1]))
+    total = m.get('total_dreams', 0)
+    insights = m.get('insights', {})
+    active = sum(1 for v in insights.values() if not v.get('stale'))
+    persistent = sum(1 for v in insights.values() if v.get('seen_count', 0) >= 2 and not v.get('stale'))
+    print(f'  Sessions: {total} | Insights actifs: {active} | Persistants: {persistent}')
+except Exception:
+    print('  (erreur lecture dream-memory.json)')
+" "$dream_memory"
+    elif [[ -f "$dream_journal" ]]; then
         local insights
         insights=$(grep -c "^### " "$dream_journal" 2>/dev/null || echo "0")
-        echo "  Sessions: $sessions | Insights total: $insights"
+        echo "  Sessions: ? | Insights journal: $insights"
     else
         echo "  (aucun journal — lancez: bmad-init.sh dream)"
     fi
