@@ -432,19 +432,29 @@ def deduplicate_insights(insights: list[DreamInsight]) -> list[DreamInsight]:
 
 def dream(project_root: Path, since: str | None = None,
           agent_filter: str | None = None,
-          do_validate: bool = True) -> list[DreamInsight]:
-    """Exécute un cycle de dream complet."""
+          do_validate: bool = True,
+          quick: bool = False,
+          _sources: list[DreamSource] | None = None) -> list[DreamInsight]:
+    """Exécute un cycle de dream.
 
-    # 1. Collecte
-    sources = collect_sources(project_root, since, agent_filter)
+    Args:
+        quick: si True, mode rapide O(n) — patterns + opportunités seulement.
+        _sources: sources pré-collectées (évite double parsing en mode CLI).
+    """
+
+    # 1. Collecte (réutiliser _sources si fourni)
+    sources = _sources if _sources is not None else collect_sources(
+        project_root, since, agent_filter)
     if not sources:
         return []
 
-    # 2. Analyse multi-dimensionnelle
+    # 2. Analyse
     all_insights: list[DreamInsight] = []
-    all_insights.extend(find_cross_connections(sources))
+    if not quick:
+        all_insights.extend(find_cross_connections(sources))
     all_insights.extend(find_recurring_patterns(sources))
-    all_insights.extend(find_tensions(sources))
+    if not quick:
+        all_insights.extend(find_tensions(sources))
     all_insights.extend(find_opportunities(sources))
 
     # 3. Validation
@@ -458,28 +468,21 @@ def dream(project_root: Path, since: str | None = None,
     all_insights.sort(key=lambda i: i.confidence, reverse=True)
 
     # 6. Plafonnement
-    return all_insights[:MAX_INSIGHTS]
+    cap = QUICK_MAX_INSIGHTS if quick else MAX_INSIGHTS
+    return all_insights[:cap]
 
 
 def dream_quick(project_root: Path, since: str | None = None,
-                agent_filter: str | None = None) -> list[DreamInsight]:
+                agent_filter: str | None = None,
+                _sources: list[DreamSource] | None = None) -> list[DreamInsight]:
     """Mode rapide O(n) — patterns récurrents + opportunités seulement.
 
     Utilisé par le post-commit auto-trigger pour ne pas ralentir le workflow.
     Skip les cross-connections O(n²) et les tensions O(n²).
+    Délègue à dream(quick=True) pour ne pas dupliquer la logique.
     """
-    sources = collect_sources(project_root, since, agent_filter)
-    if not sources:
-        return []
-
-    all_insights: list[DreamInsight] = []
-    all_insights.extend(find_recurring_patterns(sources))
-    all_insights.extend(find_opportunities(sources))
-
-    all_insights = [i for i in all_insights if validate_insight(i, sources)]
-    all_insights = deduplicate_insights(all_insights)
-    all_insights.sort(key=lambda i: i.confidence, reverse=True)
-    return all_insights[:QUICK_MAX_INSIGHTS]
+    return dream(project_root, since, agent_filter,
+                 do_validate=True, quick=True, _sources=_sources)
 
 
 # ── Dream → Stigmergy Bridge ─────────────────────────────────────────────────
@@ -502,10 +505,11 @@ def emit_to_stigmergy(insights: list[DreamInsight],
     # Import dynamique pour éviter les dépendances circulaires
     try:
         import importlib.util
-        sg_path = project_root.parent / "framework" / "tools" / "stigmergy.py"
+        # Chemin co-localisé d'abord (dream.py et stigmergy.py dans le même dossier)
+        sg_path = Path(__file__).parent / "stigmergy.py"
         if not sg_path.exists():
-            # Essayer chemin relatif depuis le même dossier
-            sg_path = Path(__file__).parent / "stigmergy.py"
+            # Fallback : chemin relatif au project_root (projet installé)
+            sg_path = project_root / "framework" / "tools" / "stigmergy.py"
         if not sg_path.exists():
             return 0
 
@@ -520,20 +524,29 @@ def emit_to_stigmergy(insights: list[DreamInsight],
     board = sg.load_board(project_root)
     emitted = 0
 
+    # Index des textes existants pour déduplication cross-session
+    existing_texts = {p.text for p in board.pheromones if not p.resolved}
+
     for ins in insights:
         ptype = _INSIGHT_TO_PHEROMONE.get(ins.category, "NEED")
         # Location = première source ou "system"
         location = ins.sources[0] if ins.sources else "system/dream"
+        text = f"[dream] {ins.title}: {ins.description[:200]}"
+
+        # Skip si une phéromone identique est déjà active sur le board
+        if text in existing_texts:
+            continue
 
         sg.emit_pheromone(
             board,
             ptype=ptype,
             location=location,
-            text=f"[dream] {ins.title}: {ins.description[:200]}",
+            text=text,
             emitter="dream-mode",
             tags=["auto-dream", ins.category],
             intensity=min(ins.confidence, 0.9),
         )
+        existing_texts.add(text)
         emitted += 1
 
     if emitted > 0:
@@ -650,7 +663,7 @@ def main():
     args = parser.parse_args()
     project_root = Path(args.project_root).resolve()
 
-    # Collecte
+    # Collecte unique (partagée entre affichage et dream)
     sources = collect_sources(project_root, args.since, args.agent)
     if not sources:
         print("💤 Aucune source de mémoire trouvée — rien à rêver.")
@@ -661,11 +674,13 @@ def main():
     print(f"🌙 {mode_label} Mode — {len(sources)} sources, {total_entries} entrées")
     print()
 
-    # Dream (quick ou full)
+    # Dream (quick ou full) — réutiliser les sources pré-collectées
     if args.quick:
-        insights = dream_quick(project_root, args.since, args.agent)
+        insights = dream_quick(project_root, args.since, args.agent,
+                               _sources=sources)
     else:
-        insights = dream(project_root, args.since, args.agent, args.validate)
+        insights = dream(project_root, args.since, args.agent, args.validate,
+                         _sources=sources)
 
     if not insights:
         print("😴 Aucun insight émergent détecté. Le système est cohérent.")

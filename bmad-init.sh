@@ -1136,7 +1136,7 @@ cmd_status() {
         local dream_sessions=0
         local dream_journal="$project_root/_bmad-output/dream-journal.md"
         if [[ -f "$dream_journal" ]]; then
-            dream_sessions=$(grep -c "^## Dream Session" "$dream_journal" 2>/dev/null || echo "0")
+            dream_sessions=$(grep -c "^# 🌙 BMAD Dream Journal" "$dream_journal" 2>/dev/null || echo "0")
         fi
         local trigger_count=0
         local counter_file="$project_root/_bmad/_memory/dream-trigger-count"
@@ -1191,9 +1191,9 @@ print(json.dumps(result, indent=2))
     local dream_journal="$project_root/_bmad-output/dream-journal.md"
     if [[ -f "$dream_journal" ]]; then
         local sessions
-        sessions=$(grep -c "^## Dream Session" "$dream_journal" 2>/dev/null || echo "0")
+        sessions=$(grep -c "^# 🌙 BMAD Dream Journal" "$dream_journal" 2>/dev/null || echo "0")
         local insights
-        insights=$(grep -c "^- \\*\\*" "$dream_journal" 2>/dev/null || echo "0")
+        insights=$(grep -c "^### " "$dream_journal" 2>/dev/null || echo "0")
         echo "  Sessions: $sessions | Insights total: $insights"
     else
         echo "  (aucun journal — lancez: bmad-init.sh dream)"

@@ -914,6 +914,83 @@ class TestDreamQuick(unittest.TestCase):
         insights = self.mod.dream_quick(self.tmpdir, agent_filter="dev")
         self.assertIsInstance(insights, list)
 
+    def test_pre_collected_sources(self):
+        """dream_quick doit accepter _sources pré-collectées."""
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={
+                "dev.md": (
+                    "- [2025-06-01] TODO: refactor caching layer\n"
+                    "- [2025-06-02] caching improved performance database\n"
+                ),
+            },
+        )
+        sources = self.mod.collect_sources(self.tmpdir)
+        insights = self.mod.dream_quick(self.tmpdir, _sources=sources)
+        self.assertIsInstance(insights, list)
+
+
+# ── Test dream(quick=True) parameter ─────────────────────────────────────────
+
+class TestDreamQuickParam(unittest.TestCase):
+    """Tests que dream() avec quick=True produit le même résultat que dream_quick."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_quick_param_no_crash(self):
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={
+                "dev.md": (
+                    "- [2025-06-01] caching layer database slow\n"
+                    "- [2025-06-02] caching performance database improved\n"
+                ),
+            },
+        )
+        insights = self.mod.dream(self.tmpdir, quick=True)
+        self.assertIsInstance(insights, list)
+        self.assertLessEqual(len(insights), self.mod.QUICK_MAX_INSIGHTS)
+
+    def test_quick_equals_dream_quick(self):
+        """dream(quick=True) doit donner le même résultat que dream_quick()."""
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={
+                "dev.md": (
+                    "- [2025-06-01] TODO: refactor caching layer\n"
+                    "- [2025-06-02] caching improved performance database\n"
+                    "- [2025-06-03] caching invalidation still problematic\n"
+                ),
+            },
+            decisions=(
+                "- [2025-06-01] Implemented caching strategy database layer\n"
+            ),
+        )
+        via_param = self.mod.dream(self.tmpdir, quick=True)
+        via_func = self.mod.dream_quick(self.tmpdir)
+        # Same titles (order may differ if same confidence)
+        self.assertEqual(
+            sorted(i.title for i in via_param),
+            sorted(i.title for i in via_func),
+        )
+
+    def test_pre_collected_sources(self):
+        """dream() doit accepter _sources pré-collectées."""
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={
+                "dev.md": "- [2025-06-01] TODO: caching database layer\n",
+            },
+        )
+        sources = self.mod.collect_sources(self.tmpdir)
+        insights = self.mod.dream(self.tmpdir, _sources=sources)
+        self.assertIsInstance(insights, list)
+
 
 # ── Test _INSIGHT_TO_PHEROMONE mapping ────────────────────────────────────────
 
@@ -1086,6 +1163,47 @@ class TestEmitToStigmergy(unittest.TestCase):
         sg = importlib.import_module("stigmergy")
         board = sg.load_board(self.tmpdir)
         self.assertEqual(board.pheromones[-1].pheromone_type, "NEED")
+
+    def test_dedup_cross_session(self):
+        """Émettre 2x le même insight ne doit pas créer de doublon."""
+        insights = [
+            self.mod.DreamInsight(
+                title="Dedup Test",
+                description="Same insight emitted twice",
+                sources=["dev.md"],
+                category="pattern",
+                confidence=0.6,
+            ),
+        ]
+        count1 = self.mod.emit_to_stigmergy(insights, self.tmpdir)
+        count2 = self.mod.emit_to_stigmergy(insights, self.tmpdir)
+        self.assertEqual(count1, 1)
+        self.assertEqual(count2, 0, "Second emit should be deduplicated")
+
+        sg = importlib.import_module("stigmergy")
+        board = sg.load_board(self.tmpdir)
+        dream_pheromones = [p for p in board.pheromones
+                            if p.text.startswith("[dream]")]
+        self.assertEqual(len(dream_pheromones), 1)
+
+    def test_dedup_allows_different_insights(self):
+        """Deux insights différents doivent chacun être émis."""
+        insight_a = self.mod.DreamInsight(
+            title="Insight A", description="First unique insight",
+            sources=["dev.md"], category="pattern", confidence=0.6,
+        )
+        insight_b = self.mod.DreamInsight(
+            title="Insight B", description="Second unique insight",
+            sources=["qa.md"], category="opportunity", confidence=0.7,
+        )
+        count1 = self.mod.emit_to_stigmergy([insight_a], self.tmpdir)
+        count2 = self.mod.emit_to_stigmergy([insight_b], self.tmpdir)
+        self.assertEqual(count1, 1)
+        self.assertEqual(count2, 1)
+
+        sg = importlib.import_module("stigmergy")
+        board = sg.load_board(self.tmpdir)
+        self.assertEqual(len(board.pheromones), 2)
 
 
 # ── Test QUICK_MAX_INSIGHTS constant ─────────────────────────────────────────
