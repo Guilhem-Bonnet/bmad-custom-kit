@@ -808,6 +808,186 @@ class TestWriteJournal(unittest.TestCase):
         self.assertFalse(path.exists())
 
 
+# ── Test _parse_pheromone_board (feedback loop) ──────────────────────────────
+
+class TestParsePheromoneBoard(unittest.TestCase):
+    """Tests pour _parse_pheromone_board — dream lit les phéromones."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.tmpdir = Path(tempfile.mkdtemp())
+        self.board_dir = self.tmpdir / "_bmad-output"
+        self.board_dir.mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _write_board(self, pheromones):
+        import json
+        data = {"version": "1.0.0", "half_life_hours": 168.0,
+                "pheromones": pheromones, "total_emitted": len(pheromones)}
+        (self.board_dir / "pheromone-board.json").write_text(
+            json.dumps(data), encoding="utf-8")
+
+    def test_no_board_file(self):
+        entries = self.mod._parse_pheromone_board(self.tmpdir)
+        self.assertEqual(entries, [])
+
+    def test_empty_board(self):
+        self._write_board([])
+        entries = self.mod._parse_pheromone_board(self.tmpdir)
+        self.assertEqual(entries, [])
+
+    def test_parses_active_pheromones(self):
+        self._write_board([{
+            "pheromone_id": "PH-abc",
+            "pheromone_type": "ALERT",
+            "location": "src/auth",
+            "text": "Security review needed",
+            "emitter": "qa-agent",
+            "timestamp": "2025-06-15T10:00:00+00:00",
+            "intensity": 0.8,
+            "tags": ["security"],
+            "reinforcements": 0,
+            "resolved": False,
+        }])
+        entries = self.mod._parse_pheromone_board(self.tmpdir)
+        self.assertEqual(len(entries), 1)
+        self.assertIn("ALERT", entries[0][1])
+        self.assertIn("Security review needed", entries[0][1])
+
+    def test_skips_resolved(self):
+        self._write_board([{
+            "pheromone_id": "PH-resolved",
+            "pheromone_type": "NEED",
+            "location": "src/core",
+            "text": "Done",
+            "emitter": "dev",
+            "timestamp": "2025-06-15T10:00:00+00:00",
+            "resolved": True,
+        }])
+        entries = self.mod._parse_pheromone_board(self.tmpdir)
+        self.assertEqual(entries, [])
+
+    def test_skips_own_non_reinforced_pheromones(self):
+        """Dream's own pheromones are skipped unless reinforced (feedback)."""
+        self._write_board([{
+            "pheromone_id": "PH-dream1",
+            "pheromone_type": "NEED",
+            "location": "system/dream",
+            "text": "[dream] Some insight",
+            "emitter": "dream-mode",
+            "timestamp": "2025-06-15T10:00:00+00:00",
+            "reinforcements": 0,
+            "resolved": False,
+        }])
+        entries = self.mod._parse_pheromone_board(self.tmpdir)
+        self.assertEqual(entries, [])
+
+    def test_includes_own_reinforced_pheromones(self):
+        """Dream's pheromones that got reinforced = feedback signal."""
+        self._write_board([{
+            "pheromone_id": "PH-dream2",
+            "pheromone_type": "OPPORTUNITY",
+            "location": "src/api",
+            "text": "[dream] Optimization opportunity",
+            "emitter": "dream-mode",
+            "timestamp": "2025-06-15T10:00:00+00:00",
+            "reinforcements": 2,
+            "resolved": False,
+        }])
+        entries = self.mod._parse_pheromone_board(self.tmpdir)
+        self.assertEqual(len(entries), 1)
+        self.assertIn("+2 reinforcements", entries[0][1])
+
+    def test_since_filter(self):
+        self._write_board([
+            {
+                "pheromone_id": "PH-old",
+                "pheromone_type": "NEED",
+                "location": "src",
+                "text": "Old signal",
+                "emitter": "dev",
+                "timestamp": "2025-01-01T10:00:00+00:00",
+                "resolved": False,
+            },
+            {
+                "pheromone_id": "PH-new",
+                "pheromone_type": "ALERT",
+                "location": "src",
+                "text": "New signal",
+                "emitter": "dev",
+                "timestamp": "2025-07-01T10:00:00+00:00",
+                "resolved": False,
+            },
+        ])
+        entries = self.mod._parse_pheromone_board(self.tmpdir, since="2025-06-01")
+        self.assertEqual(len(entries), 1)
+        self.assertIn("New signal", entries[0][1])
+
+    def test_collect_sources_includes_stigmergy(self):
+        """collect_sources doit inclure le pheromone board comme source."""
+        _create_memory_tree(self.tmpdir, learnings={
+            "dev.md": "- [2025-06-01] caching issue\n",
+        })
+        self._write_board([{
+            "pheromone_id": "PH-test",
+            "pheromone_type": "ALERT",
+            "location": "src/db",
+            "text": "Database bottleneck detected",
+            "emitter": "ops",
+            "timestamp": "2025-06-15T10:00:00+00:00",
+            "resolved": False,
+        }])
+        sources = self.mod.collect_sources(self.tmpdir)
+        kinds = [s.kind for s in sources]
+        self.assertIn("stigmergy", kinds)
+
+    def test_invalid_json_returns_empty(self):
+        (self.board_dir / "pheromone-board.json").write_text(
+            "not json{", encoding="utf-8")
+        entries = self.mod._parse_pheromone_board(self.tmpdir)
+        self.assertEqual(entries, [])
+
+
+# ── Test timestamp incrémental ────────────────────────────────────────────────
+
+class TestDreamTimestamp(unittest.TestCase):
+    """Tests pour save/read_last_dream_timestamp — mode incrémental."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_no_previous_timestamp(self):
+        result = self.mod.read_last_dream_timestamp(self.tmpdir)
+        self.assertIsNone(result)
+
+    def test_save_and_read(self):
+        self.mod.save_last_dream_timestamp(self.tmpdir)
+        result = self.mod.read_last_dream_timestamp(self.tmpdir)
+        self.assertIsNotNone(result)
+        # Should be today's date in YYYY-MM-DD format
+        self.assertEqual(len(result), 10)
+        self.assertEqual(result[4], "-")
+        self.assertEqual(result[7], "-")
+
+    def test_creates_directory(self):
+        deep = self.tmpdir / "sub" / "project"
+        self.mod.save_last_dream_timestamp(deep)
+        self.assertTrue((deep / "_bmad" / "_memory" / "dream-last-run").exists())
+
+    def test_corrupted_file_returns_none(self):
+        mem = self.tmpdir / "_bmad" / "_memory"
+        mem.mkdir(parents=True)
+        (mem / "dream-last-run").write_text("corrupted", encoding="utf-8")
+        result = self.mod.read_last_dream_timestamp(self.tmpdir)
+        self.assertIsNone(result)
+
+
 # ── Test dream_quick ──────────────────────────────────────────────────────────
 
 class TestDreamQuick(unittest.TestCase):

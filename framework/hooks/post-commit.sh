@@ -77,35 +77,41 @@ fi
 echo "$TRACE_ENTRY" >> "$TRACE_FILE"
 
 # ── Dream auto-trigger ───────────────────────────────────────────────────────
-# Lancer un dream --quick --emit tous les DREAM_INTERVAL commits
-# Le compteur est stocké dans _bmad/_memory/dream-trigger-count
+# Lancer un dream --quick --emit --since auto quand des fichiers mémoire changent.
+# Le compteur ne s'incrémente que si le commit touche _bmad/_memory/ ou _bmad-output/
+# → pas de dream inutile sur un commit qui ne change que du code source.
 DREAM_INTERVAL="${BMAD_DREAM_INTERVAL:-10}"
 DREAM_COUNTER_FILE="$BMAD_DIR/_memory/dream-trigger-count"
 DREAM_SCRIPT="$GIT_ROOT/framework/tools/dream.py"
 
 if [[ -f "$DREAM_SCRIPT" ]] && command -v python3 &>/dev/null; then
-    # Lire ou initialiser le compteur
-    DREAM_COUNT=0
-    if [[ -f "$DREAM_COUNTER_FILE" ]]; then
-        DREAM_COUNT=$(cat "$DREAM_COUNTER_FILE" 2>/dev/null || echo "0")
-        # Sanitize
-        DREAM_COUNT=$(( DREAM_COUNT + 0 )) 2>/dev/null || DREAM_COUNT=0
-    fi
+    # Smart trigger : ne compter que les commits qui touchent la mémoire
+    MEMORY_CHANGED=$(git diff-tree --no-commit-id -r --name-only HEAD 2>/dev/null \
+        | grep -cE '^_bmad/(_memory|_config)|^_bmad-output/' || true)
 
-    DREAM_COUNT=$((DREAM_COUNT + 1))
+    if [[ "$MEMORY_CHANGED" -gt 0 ]]; then
+        # Lire ou initialiser le compteur
+        DREAM_COUNT=0
+        if [[ -f "$DREAM_COUNTER_FILE" ]]; then
+            DREAM_COUNT=$(cat "$DREAM_COUNTER_FILE" 2>/dev/null || echo "0")
+            DREAM_COUNT=$(( DREAM_COUNT + 0 )) 2>/dev/null || DREAM_COUNT=0
+        fi
 
-    if [[ "$DREAM_COUNT" -ge "$DREAM_INTERVAL" ]]; then
-        # Reset le compteur
-        echo "0" > "$DREAM_COUNTER_FILE"
-        # Lancer le dream en background (ne bloque pas le commit)
-        (
-            python3 "$DREAM_SCRIPT" \
-                --project-root "$GIT_ROOT" \
-                --quick --emit 2>/dev/null
-        ) &
-        echo "   🌙 Dream auto-trigger (${DREAM_INTERVAL} commits)"
-    else
-        echo "$DREAM_COUNT" > "$DREAM_COUNTER_FILE"
+        DREAM_COUNT=$((DREAM_COUNT + 1))
+
+        if [[ "$DREAM_COUNT" -ge "$DREAM_INTERVAL" ]]; then
+            # Reset le compteur
+            echo "0" > "$DREAM_COUNTER_FILE"
+            # Lancer le dream incrémental en background (ne bloque pas le commit)
+            (
+                python3 "$DREAM_SCRIPT" \
+                    --project-root "$GIT_ROOT" \
+                    --quick --emit --since auto 2>/dev/null
+            ) &
+            echo "   🌙 Dream auto-trigger (${DREAM_COUNT} memory commits)"
+        else
+            echo "$DREAM_COUNT" > "$DREAM_COUNTER_FILE"
+        fi
     fi
 fi
 

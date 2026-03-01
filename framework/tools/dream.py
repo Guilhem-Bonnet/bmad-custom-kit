@@ -143,6 +143,16 @@ def collect_sources(project_root: Path, since: str | None = None,
                 dates=[e[0] for e in entries],
             ))
 
+    # 7. Pheromone board (feedback loop — dream lit les signaux stigmergy)
+    pheromone_entries = _parse_pheromone_board(project_root, since)
+    if pheromone_entries:
+        sources.append(DreamSource(
+            name="pheromone-board.json",
+            kind="stigmergy",
+            entries=[e[1] for e in pheromone_entries],
+            dates=[e[0] for e in pheromone_entries],
+        ))
+
     return sources
 
 
@@ -214,6 +224,52 @@ def _parse_shared_context_sections(content: str) -> list[str]:
     if current.strip():
         sections.append(current.strip())
     return sections
+
+
+def _parse_pheromone_board(project_root: Path,
+                          since: str | None = None) -> list[tuple[str, str]]:
+    """Parse le pheromone-board.json comme source pour le dream.
+
+    Retourne [(date, text), ...] pour chaque phéromone active non-résolue.
+    Filtre les phéromones émises par dream-mode pour éviter l'auto-référence,
+    sauf celles qui ont été amplifiées (= feedback humain/agent).
+    """
+    board_path = project_root / "_bmad-output" / "pheromone-board.json"
+    if not board_path.exists():
+        return []
+    try:
+        data = json.loads(board_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+    entries: list[tuple[str, str]] = []
+    for p in data.get("pheromones", []):
+        if p.get("resolved", False):
+            continue
+
+        # Skip dream's own pheromones UNLESS they got reinforced (= feedback signal)
+        if p.get("emitter") == "dream-mode" and p.get("reinforcements", 0) == 0:
+            continue
+
+        # Date filter
+        ts = p.get("timestamp", "")
+        entry_date = ts[:10] if len(ts) >= 10 else ""
+        if since and entry_date and entry_date < since:
+            continue
+
+        ptype = p.get("pheromone_type", "NEED")
+        location = p.get("location", "?")
+        text = p.get("text", "")
+        emitter = p.get("emitter", "?")
+        reinforced = p.get("reinforcements", 0)
+
+        label = f"[{ptype}] @{location} by {emitter}"
+        if reinforced > 0:
+            label += f" (+{reinforced} reinforcements)"
+        entry_text = f"{label}: {text}"
+        entries.append((entry_date, entry_text))
+
+    return entries
 
 
 # ── Analyse et génération d'insights ──────────────────────────────────────────
@@ -564,6 +620,33 @@ CATEGORY_ICONS = {
     "opportunity": "💡",
 }
 
+# ── Timestamp incrémental ─────────────────────────────────────────────────────
+
+DREAM_TIMESTAMP_FILE = "dream-last-run"
+
+
+def save_last_dream_timestamp(project_root: Path) -> None:
+    """Sauvegarde le timestamp du dernier dream pour le mode incrémental."""
+    ts_dir = project_root / "_bmad" / "_memory"
+    ts_dir.mkdir(parents=True, exist_ok=True)
+    ts_file = ts_dir / DREAM_TIMESTAMP_FILE
+    ts_file.write_text(datetime.now().strftime("%Y-%m-%d"), encoding="utf-8")
+
+
+def read_last_dream_timestamp(project_root: Path) -> str | None:
+    """Lit le timestamp du dernier dream. Retourne None si aucun."""
+    ts_file = project_root / "_bmad" / "_memory" / DREAM_TIMESTAMP_FILE
+    if not ts_file.exists():
+        return None
+    try:
+        ts = ts_file.read_text(encoding="utf-8").strip()
+        # Valider le format YYYY-MM-DD
+        if len(ts) == 10 and ts[4] == "-" and ts[7] == "-":
+            return ts
+    except OSError:
+        pass
+    return None
+
 
 def render_journal(insights: list[DreamInsight], sources: list[DreamSource],
                    project_root: Path, since: str | None = None) -> str:
@@ -650,7 +733,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--project-root", default=".", help="Racine du projet BMAD")
-    parser.add_argument("--since", default=None, help="Date début (YYYY-MM-DD)")
+    parser.add_argument("--since", default=None,
+                        help="Date début (YYYY-MM-DD) ou 'auto' pour depuis le dernier dream")
     parser.add_argument("--agent", default=None, help="Filtrer par agent")
     parser.add_argument("--validate", action="store_true", help="Valider les insights")
     parser.add_argument("--dry-run", action="store_true", help="Afficher sans écrire")
@@ -663,8 +747,13 @@ def main():
     args = parser.parse_args()
     project_root = Path(args.project_root).resolve()
 
+    # Résoudre --since auto
+    since = args.since
+    if since == "auto":
+        since = read_last_dream_timestamp(project_root)
+
     # Collecte unique (partagée entre affichage et dream)
-    sources = collect_sources(project_root, args.since, args.agent)
+    sources = collect_sources(project_root, since, args.agent)
     if not sources:
         print("💤 Aucune source de mémoire trouvée — rien à rêver.")
         sys.exit(0)
@@ -672,14 +761,16 @@ def main():
     total_entries = sum(len(s.entries) for s in sources)
     mode_label = "Quick" if args.quick else "Dream"
     print(f"🌙 {mode_label} Mode — {len(sources)} sources, {total_entries} entrées")
+    if since:
+        print(f"   Depuis : {since}")
     print()
 
     # Dream (quick ou full) — réutiliser les sources pré-collectées
     if args.quick:
-        insights = dream_quick(project_root, args.since, args.agent,
+        insights = dream_quick(project_root, since, args.agent,
                                _sources=sources)
     else:
-        insights = dream(project_root, args.since, args.agent, args.validate,
+        insights = dream(project_root, since, args.agent, args.validate,
                          _sources=sources)
 
     if not insights:
@@ -710,11 +801,13 @@ def main():
         sys.exit(0)
 
     # Rendu Markdown
-    journal = render_journal(insights, sources, project_root, args.since)
+    journal = render_journal(insights, sources, project_root, since)
     output_path = write_journal(journal, project_root, args.dry_run)
 
     if not args.dry_run:
         print(f"✅ {len(insights)} insights écrits dans {output_path}")
+        # Sauver le timestamp pour le mode incrémental
+        save_last_dream_timestamp(project_root)
         print()
         # Preview compact
         for idx, ins in enumerate(insights[:5], 1):

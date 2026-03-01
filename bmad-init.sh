@@ -198,6 +198,7 @@ Options forge:
 Options dream:
   dream                    Exécuter un cycle de Dream Mode (consolidation hors-session)
   dream --since YYYY-MM-DD Analyser depuis une date
+  dream --since auto       Incrémental — depuis le dernier dream
   dream --agent AGENT_ID   Filtrer les sources par agent
   dream --validate         Activer la validation stricte des insights
   dream --quick            Mode rapide O(n) — patterns + opportunités uniquement
