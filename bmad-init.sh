@@ -945,6 +945,48 @@ cmd_evolve() {
     exit $?
 }
 
+# ─── Memory Lint ─────────────────────────────────────────────────────────────
+# Linter de cohérence mémoire — cross-validation des fichiers mémoire
+# Usage: bmad-init.sh memory-lint [--json] [--fix] [--emit]
+cmd_memorylint() {
+    shift  # retirer "memory-lint"
+
+    local ml_script
+    ml_script="$(dirname "$(realpath "$0")")/framework/tools/memory-lint.py"
+
+    if [[ ! -f "$ml_script" ]]; then
+        error "framework/tools/memory-lint.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour memory-lint"
+    fi
+
+    echo ""
+    python3 "$ml_script" --project-root "$(pwd)" "$@"
+    exit $?
+}
+
+# ─── NSO — Nervous System Orchestrator ───────────────────────────────────────
+# Orchestrateur du système nerveux : exécute dream → stigmergy → antifragile → darwinism → memory-lint
+# Usage: bmad-init.sh nso run [--since DATE] [--quick] [--json] [--emit]
+cmd_nso() {
+    shift  # retirer "nso"
+
+    local nso_script
+    nso_script="$(dirname "$(realpath "$0")")/framework/tools/nso.py"
+
+    if [[ ! -f "$nso_script" ]]; then
+        error "framework/tools/nso.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour nso"
+    fi
+
+    echo ""
+    python3 "$nso_script" --project-root "$(pwd)" "$@"
+    exit $?
+}
+
 # ─── Dream Mode ──────────────────────────────────────────────────────────────
 # Consolidation hors-session : insights émergents depuis la mémoire
 # Usage: bmad-init.sh dream [--since DATE] [--agent ID] [--validate] [--dry-run]
@@ -2023,6 +2065,12 @@ if [[ "${1:-}" == "stigmergy" ]]; then
 fi
 if [[ "${1:-}" == "status" ]]; then
     cmd_status "$@"
+fi
+if [[ "${1:-}" == "memory-lint" ]]; then
+    cmd_memorylint "$@"
+fi
+if [[ "${1:-}" == "nso" ]]; then
+    cmd_nso "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────
