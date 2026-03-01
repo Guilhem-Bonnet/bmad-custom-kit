@@ -808,5 +808,298 @@ class TestWriteJournal(unittest.TestCase):
         self.assertFalse(path.exists())
 
 
+# ── Test dream_quick ──────────────────────────────────────────────────────────
+
+class TestDreamQuick(unittest.TestCase):
+    """Tests pour dream_quick() — mode rapide O(n)."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_returns_empty_no_sources(self):
+        result = self.mod.dream_quick(self.tmpdir)
+        self.assertEqual(result, [])
+
+    def test_returns_insights_from_data(self):
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={
+                "dev.md": (
+                    "- [2025-06-01] TODO: refactor caching layer\n"
+                    "- [2025-06-02] caching improved performance database\n"
+                    "- [2025-06-03] caching invalidation still problematic\n"
+                ),
+            },
+            decisions=(
+                "- [2025-06-01] Implemented caching strategy database layer\n"
+            ),
+        )
+        insights = self.mod.dream_quick(self.tmpdir)
+        # May return 0 if data not rich enough, but function must not crash
+        self.assertIsInstance(insights, list)
+
+    def test_respects_quick_max(self):
+        entries = "\n".join(
+            f"- [2025-06-{i:02d}] TODO: refactor item {i} needs improvement"
+            for i in range(1, 25)
+        )
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={"dev.md": entries},
+            decisions=entries.replace("TODO:", "Decided:"),
+        )
+        insights = self.mod.dream_quick(self.tmpdir)
+        self.assertLessEqual(len(insights), self.mod.QUICK_MAX_INSIGHTS)
+
+    def test_only_patterns_and_opportunities(self):
+        """dream_quick ne doit retourner que des patterns et opportunities."""
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={
+                "dev.md": (
+                    "- [2025-06-01] caching layer needs refactor database\n"
+                    "- [2025-06-02] caching performance database slow\n"
+                    "- [2025-06-03] caching invalidation database problem\n"
+                ),
+            },
+            decisions=(
+                "- [2025-06-01] caching database strategy implemented\n"
+            ),
+        )
+        insights = self.mod.dream_quick(self.tmpdir)
+        for ins in insights:
+            self.assertIn(ins.category, ("pattern", "opportunity"))
+
+    def test_sorted_by_confidence_desc(self):
+        entries = "\n".join(
+            f"- [2025-06-{i:02d}] TODO: refactor item {i} caching performance"
+            for i in range(1, 15)
+        )
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={"dev.md": entries},
+            decisions=entries.replace("TODO:", "Decided:"),
+        )
+        insights = self.mod.dream_quick(self.tmpdir)
+        for i in range(len(insights) - 1):
+            self.assertGreaterEqual(insights[i].confidence,
+                                    insights[i + 1].confidence)
+
+    def test_since_filter(self):
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={
+                "dev.md": (
+                    "- [2025-01-01] Old caching database layer performance\n"
+                    "- [2025-07-01] New caching database layer optimization\n"
+                ),
+            },
+        )
+        all_ins = self.mod.dream_quick(self.tmpdir, since=None)
+        recent = self.mod.dream_quick(self.tmpdir, since="2025-06-01")
+        self.assertLessEqual(len(recent), len(all_ins))
+
+    def test_agent_filter(self):
+        _create_memory_tree(
+            self.tmpdir,
+            learnings={
+                "dev.md": "- [2025-06-01] dev caching database\n",
+                "qa.md": "- [2025-06-01] qa testing coverage\n",
+            },
+        )
+        insights = self.mod.dream_quick(self.tmpdir, agent_filter="dev")
+        self.assertIsInstance(insights, list)
+
+
+# ── Test _INSIGHT_TO_PHEROMONE mapping ────────────────────────────────────────
+
+class TestInsightToPheromone(unittest.TestCase):
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_mapping_keys(self):
+        mapping = self.mod._INSIGHT_TO_PHEROMONE
+        self.assertIn("tension", mapping)
+        self.assertIn("opportunity", mapping)
+        self.assertIn("connection", mapping)
+        self.assertIn("pattern", mapping)
+
+    def test_mapping_values_are_valid_pheromone_types(self):
+        valid_types = {"NEED", "ALERT", "OPPORTUNITY", "PROGRESS", "COMPLETE", "BLOCK"}
+        mapping = self.mod._INSIGHT_TO_PHEROMONE
+        for value in mapping.values():
+            self.assertIn(value, valid_types)
+
+
+# ── Test emit_to_stigmergy ───────────────────────────────────────────────────
+
+class TestEmitToStigmergy(unittest.TestCase):
+    """Tests pour emit_to_stigmergy() — bridge dream → stigmergy."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.tmpdir = Path(tempfile.mkdtemp())
+        # Créer le dossier _bmad-output pour le board stigmergy
+        (self.tmpdir / "_bmad-output").mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_returns_zero_empty_list(self):
+        count = self.mod.emit_to_stigmergy([], self.tmpdir)
+        self.assertEqual(count, 0)
+
+    def test_emits_pheromones_for_insights(self):
+        insights = [
+            self.mod.DreamInsight(
+                title="Test Pattern",
+                description="Recurring caching issue",
+                sources=["dev.md"],
+                category="pattern",
+                confidence=0.7,
+            ),
+            self.mod.DreamInsight(
+                title="Test Opportunity",
+                description="Optimization opportunity",
+                sources=["qa.md"],
+                category="opportunity",
+                confidence=0.8,
+            ),
+        ]
+        count = self.mod.emit_to_stigmergy(insights, self.tmpdir)
+        self.assertEqual(count, 2)
+
+    def test_pheromone_board_saved(self):
+        insights = [
+            self.mod.DreamInsight(
+                title="Saved Test",
+                description="Should persist on board",
+                sources=["dev.md"],
+                category="tension",
+                confidence=0.6,
+            ),
+        ]
+        self.mod.emit_to_stigmergy(insights, self.tmpdir)
+        # Verify board file was created
+        board_file = self.tmpdir / "_bmad-output" / "pheromone-board.json"
+        self.assertTrue(board_file.exists())
+
+    def test_pheromone_has_dream_prefix(self):
+        insights = [
+            self.mod.DreamInsight(
+                title="Prefix Test",
+                description="Should have [dream] prefix",
+                sources=["dev.md"],
+                category="connection",
+                confidence=0.5,
+            ),
+        ]
+        self.mod.emit_to_stigmergy(insights, self.tmpdir)
+
+        # Load board and check text prefix
+        sg = importlib.import_module("stigmergy")
+        board = sg.load_board(self.tmpdir)
+        self.assertTrue(len(board.pheromones) > 0)
+        for p in board.pheromones:
+            self.assertTrue(p.text.startswith("[dream]"))
+
+    def test_pheromone_has_auto_dream_tag(self):
+        insights = [
+            self.mod.DreamInsight(
+                title="Tag Test",
+                description="Should have auto-dream tag",
+                sources=["system"],
+                category="pattern",
+                confidence=0.5,
+            ),
+        ]
+        self.mod.emit_to_stigmergy(insights, self.tmpdir)
+
+        sg = importlib.import_module("stigmergy")
+        board = sg.load_board(self.tmpdir)
+        for p in board.pheromones:
+            self.assertIn("auto-dream", p.tags)
+
+    def test_intensity_capped(self):
+        insights = [
+            self.mod.DreamInsight(
+                title="Cap Test",
+                description="Confidence 0.95 should be capped at 0.9",
+                sources=["dev.md"],
+                category="opportunity",
+                confidence=0.95,
+            ),
+        ]
+        self.mod.emit_to_stigmergy(insights, self.tmpdir)
+
+        sg = importlib.import_module("stigmergy")
+        board = sg.load_board(self.tmpdir)
+        for p in board.pheromones:
+            self.assertLessEqual(p.intensity, 0.9)
+
+    def test_category_to_pheromone_type(self):
+        """Chaque catégorie d'insight doit mapper vers le bon type phéromone."""
+        sg = importlib.import_module("stigmergy")
+        for category, expected_type in self.mod._INSIGHT_TO_PHEROMONE.items():
+            # Fresh tmpdir per iteration to avoid accumulated state
+            cat_dir = Path(tempfile.mkdtemp())
+            (cat_dir / "_bmad-output").mkdir(parents=True, exist_ok=True)
+            try:
+                insights = [
+                    self.mod.DreamInsight(
+                        title=f"Test {category}",
+                        description=f"Testing {category} mapping",
+                        sources=["dev.md"],
+                        category=category,
+                        confidence=0.6,
+                    ),
+                ]
+                count = self.mod.emit_to_stigmergy(insights, cat_dir)
+                self.assertGreater(count, 0,
+                                   f"emit should succeed for {category}")
+
+                board = sg.load_board(cat_dir)
+                self.assertTrue(len(board.pheromones) > 0,
+                                f"board should have pheromones for {category}")
+                last = board.pheromones[-1]
+                self.assertEqual(last.pheromone_type, expected_type,
+                                 f"{category} should map to {expected_type}")
+            finally:
+                shutil.rmtree(cat_dir, ignore_errors=True)
+
+    def test_unknown_category_defaults_to_need(self):
+        insights = [
+            self.mod.DreamInsight(
+                title="Unknown",
+                description="Category not in mapping",
+                sources=["dev.md"],
+                category="unknown_cat",
+                confidence=0.5,
+            ),
+        ]
+        self.mod.emit_to_stigmergy(insights, self.tmpdir)
+
+        sg = importlib.import_module("stigmergy")
+        board = sg.load_board(self.tmpdir)
+        self.assertEqual(board.pheromones[-1].pheromone_type, "NEED")
+
+
+# ── Test QUICK_MAX_INSIGHTS constant ─────────────────────────────────────────
+
+class TestQuickMaxInsights(unittest.TestCase):
+    def test_constant_is_positive_int(self):
+        mod = _import_dream()
+        self.assertIsInstance(mod.QUICK_MAX_INSIGHTS, int)
+        self.assertGreater(mod.QUICK_MAX_INSIGHTS, 0)
+
+    def test_quick_max_less_than_max(self):
+        mod = _import_dream()
+        self.assertLess(mod.QUICK_MAX_INSIGHTS, mod.MAX_INSIGHTS)
+
+
 if __name__ == "__main__":
     unittest.main()

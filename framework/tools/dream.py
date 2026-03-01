@@ -34,6 +34,7 @@ MAX_INSIGHTS = 12          # Plafond d'insights par dream
 MIN_SOURCES = 2            # Un insight doit croiser ≥ 2 sources
 SIMILARITY_THRESHOLD = 0.6 # Seuil de détection doublon
 STALENESS_DAYS = 7         # Insight plus ancien = moindre poids
+QUICK_MAX_INSIGHTS = 5     # Plafond en mode quick (O(n) seulement)
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
@@ -460,6 +461,87 @@ def dream(project_root: Path, since: str | None = None,
     return all_insights[:MAX_INSIGHTS]
 
 
+def dream_quick(project_root: Path, since: str | None = None,
+                agent_filter: str | None = None) -> list[DreamInsight]:
+    """Mode rapide O(n) — patterns récurrents + opportunités seulement.
+
+    Utilisé par le post-commit auto-trigger pour ne pas ralentir le workflow.
+    Skip les cross-connections O(n²) et les tensions O(n²).
+    """
+    sources = collect_sources(project_root, since, agent_filter)
+    if not sources:
+        return []
+
+    all_insights: list[DreamInsight] = []
+    all_insights.extend(find_recurring_patterns(sources))
+    all_insights.extend(find_opportunities(sources))
+
+    all_insights = [i for i in all_insights if validate_insight(i, sources)]
+    all_insights = deduplicate_insights(all_insights)
+    all_insights.sort(key=lambda i: i.confidence, reverse=True)
+    return all_insights[:QUICK_MAX_INSIGHTS]
+
+
+# ── Dream → Stigmergy Bridge ─────────────────────────────────────────────────
+
+# Mapping insight category → pheromone type
+_INSIGHT_TO_PHEROMONE = {
+    "tension":     "ALERT",
+    "opportunity": "OPPORTUNITY",
+    "connection":  "PROGRESS",
+    "pattern":     "NEED",
+}
+
+
+def emit_to_stigmergy(insights: list[DreamInsight],
+                       project_root: Path) -> int:
+    """Convertit les insights dream en phéromones stigmergy.
+
+    Returns le nombre de phéromones émises.
+    """
+    # Import dynamique pour éviter les dépendances circulaires
+    try:
+        import importlib.util
+        sg_path = project_root.parent / "framework" / "tools" / "stigmergy.py"
+        if not sg_path.exists():
+            # Essayer chemin relatif depuis le même dossier
+            sg_path = Path(__file__).parent / "stigmergy.py"
+        if not sg_path.exists():
+            return 0
+
+        spec = importlib.util.spec_from_file_location("stigmergy", sg_path)
+        if spec is None or spec.loader is None:
+            return 0
+        sg = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sg)
+    except Exception:
+        return 0
+
+    board = sg.load_board(project_root)
+    emitted = 0
+
+    for ins in insights:
+        ptype = _INSIGHT_TO_PHEROMONE.get(ins.category, "NEED")
+        # Location = première source ou "system"
+        location = ins.sources[0] if ins.sources else "system/dream"
+
+        sg.emit_pheromone(
+            board,
+            ptype=ptype,
+            location=location,
+            text=f"[dream] {ins.title}: {ins.description[:200]}",
+            emitter="dream-mode",
+            tags=["auto-dream", ins.category],
+            intensity=min(ins.confidence, 0.9),
+        )
+        emitted += 1
+
+    if emitted > 0:
+        sg.save_board(project_root, board)
+
+    return emitted
+
+
 # ── Rendu ─────────────────────────────────────────────────────────────────────
 
 CATEGORY_ICONS = {
@@ -560,6 +642,10 @@ def main():
     parser.add_argument("--validate", action="store_true", help="Valider les insights")
     parser.add_argument("--dry-run", action="store_true", help="Afficher sans écrire")
     parser.add_argument("--json", action="store_true", help="Sortie JSON")
+    parser.add_argument("--quick", action="store_true",
+                        help="Mode rapide O(n) — patterns + opportunités seulement")
+    parser.add_argument("--emit", action="store_true",
+                        help="Émettre les insights comme phéromones stigmergy")
 
     args = parser.parse_args()
     project_root = Path(args.project_root).resolve()
@@ -571,15 +657,26 @@ def main():
         sys.exit(0)
 
     total_entries = sum(len(s.entries) for s in sources)
-    print(f"🌙 Dream Mode — {len(sources)} sources, {total_entries} entrées")
+    mode_label = "Quick" if args.quick else "Dream"
+    print(f"🌙 {mode_label} Mode — {len(sources)} sources, {total_entries} entrées")
     print()
 
-    # Dream
-    insights = dream(project_root, args.since, args.agent, args.validate)
+    # Dream (quick ou full)
+    if args.quick:
+        insights = dream_quick(project_root, args.since, args.agent)
+    else:
+        insights = dream(project_root, args.since, args.agent, args.validate)
 
     if not insights:
         print("😴 Aucun insight émergent détecté. Le système est cohérent.")
         sys.exit(0)
+
+    # Emit → stigmergy
+    if args.emit:
+        count = emit_to_stigmergy(insights, project_root)
+        if count > 0:
+            print(f"🐜 {count} insight(s) émis comme phéromones stigmergy")
+            print()
 
     # Sortie JSON
     if args.json:

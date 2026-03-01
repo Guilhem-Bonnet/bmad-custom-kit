@@ -132,6 +132,7 @@ Exemples:
   $(basename "$0") dream                        # Dream Mode — insights hors-session
   $(basename "$0") dream --since 2026-01-01     # Depuis une date
   $(basename "$0") dream --agent dev            # Focus un agent
+  $(basename "$0") dream --quick --emit         # Rêve rapide + émettre phéromones
   $(basename "$0") dream --dry-run              # Preview sans écrire
   $(basename "$0") consensus --proposal "..."   # Adversarial Consensus Protocol
   $(basename "$0") consensus --history          # Historique des décisions
@@ -160,6 +161,8 @@ Exemples:
   $(basename "$0") stigmergy trails             # Patterns émergents
   $(basename "$0") stigmergy evaporate          # Nettoyer les signaux morts
   $(basename "$0") stigmergy stats              # Statistiques
+  $(basename "$0") status                       # Tableau de bord unifié
+  $(basename "$0") status --json                # Sortie JSON
 
 Options guard:
   guard                    Analyser le budget de contexte de tous les agents
@@ -197,6 +200,8 @@ Options dream:
   dream --since YYYY-MM-DD Analyser depuis une date
   dream --agent AGENT_ID   Filtrer les sources par agent
   dream --validate         Activer la validation stricte des insights
+  dream --quick            Mode rapide O(n) — patterns + opportunités uniquement
+  dream --emit             Émettre les insights en phéromones stigmergy
   dream --dry-run          Afficher sans écrire le journal
   dream --json             Sortie JSON
 
@@ -262,6 +267,10 @@ Options stigmergy:
   stigmergy evaporate             Supprimer les signaux sous le seuil
   stigmergy evaporate --dry-run   Preview sans modifier
   stigmergy stats                 Statistiques rapides
+
+Options status:
+  status                          Tableau de bord unifié du Nervous System
+  status --json                   Sortie JSON machine-readable
 
 EOF
     exit 0
@@ -1082,6 +1091,173 @@ cmd_stigmergy() {
     exit $?
 }
 
+# ─── Status Dashboard ────────────────────────────────────────────────────────
+# Tableau de bord unifié : phéromones, rêves, anti-fragilité, agents
+# Usage: bmad-init.sh status [--json]
+cmd_status() {
+    shift  # retirer "status"
+
+    local project_root
+    project_root="$(pwd)"
+    local tools_dir
+    tools_dir="$(dirname "$(realpath "$0")")/framework/tools"
+    local json_mode=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json) json_mode=true; shift ;;
+            --help)
+                echo -e "${CYAN}Usage: $(basename "$0") status [--json]${NC}"
+                echo ""
+                echo "  Tableau de bord unifié du BMAD Nervous System."
+                echo "  Agrège les données de stigmergy, dream, antifragile et darwinism."
+                echo ""
+                echo "  --json   Sortie JSON machine-readable"
+                exit 0
+                ;;
+            *) shift ;;
+        esac
+    done
+
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour status"
+    fi
+
+    # ─── JSON mode ───
+    if [[ "$json_mode" == true ]]; then
+
+        # Stigmergy
+        local sg_json="{}"
+        if [[ -f "$tools_dir/stigmergy.py" ]]; then
+            sg_json=$(python3 "$tools_dir/stigmergy.py" --project-root "$project_root" sense --json 2>/dev/null || echo '{"pheromones":[]}')
+        fi
+
+        # Dream
+        local dream_sessions=0
+        local dream_journal="$project_root/_bmad-output/dream-journal.md"
+        if [[ -f "$dream_journal" ]]; then
+            dream_sessions=$(grep -c "^## Dream Session" "$dream_journal" 2>/dev/null || echo "0")
+        fi
+        local trigger_count=0
+        local counter_file="$project_root/_bmad/_memory/dream-trigger-count"
+        if [[ -f "$counter_file" ]]; then
+            trigger_count=$(cat "$counter_file" 2>/dev/null || echo "0")
+        fi
+
+        # Antifragile
+        local af_json="{}"
+        if [[ -f "$tools_dir/antifragile-score.py" ]]; then
+            af_json=$(python3 "$tools_dir/antifragile-score.py" --project-root "$project_root" --json 2>/dev/null || echo '{}')
+        fi
+
+        # Darwinism
+        local dw_json="{}"
+        if [[ -f "$tools_dir/agent-darwinism.py" ]]; then
+            dw_json=$(python3 "$tools_dir/agent-darwinism.py" --project-root "$project_root" evaluate --json 2>/dev/null || echo '{}')
+        fi
+
+        python3 -c "
+import json, sys
+result = {
+    'stigmergy': json.loads(sys.argv[1]),
+    'dream': {'sessions': int(sys.argv[2]), 'auto_trigger_count': int(sys.argv[3]), 'auto_trigger_interval': int(sys.argv[4])},
+    'antifragile': json.loads(sys.argv[5]),
+    'darwinism': json.loads(sys.argv[6])
+}
+print(json.dumps(result, indent=2))
+" "$sg_json" "$dream_sessions" "$trigger_count" "${BMAD_DREAM_INTERVAL:-10}" "$af_json" "$dw_json"
+        exit $?
+    fi
+
+    # ─── Text dashboard ───
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║              🧠  BMAD Nervous System — Status              ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+
+    # ─── Stigmergy ───
+    echo "┌─── 🐜 Stigmergy ─────────────────────────────────────────────┐"
+    if [[ -f "$tools_dir/stigmergy.py" ]]; then
+        python3 "$tools_dir/stigmergy.py" --project-root "$project_root" stats 2>/dev/null \
+            | sed 's/^/  /' || echo "  (aucune donnée)"
+    else
+        echo "  stigmergy.py introuvable"
+    fi
+    echo ""
+
+    # ─── Dream ───
+    echo "┌─── 🌙 Dream Mode ────────────────────────────────────────────┐"
+    local dream_journal="$project_root/_bmad-output/dream-journal.md"
+    if [[ -f "$dream_journal" ]]; then
+        local sessions
+        sessions=$(grep -c "^## Dream Session" "$dream_journal" 2>/dev/null || echo "0")
+        local insights
+        insights=$(grep -c "^- \\*\\*" "$dream_journal" 2>/dev/null || echo "0")
+        echo "  Sessions: $sessions | Insights total: $insights"
+    else
+        echo "  (aucun journal — lancez: bmad-init.sh dream)"
+    fi
+    local counter_file="$project_root/_bmad/_memory/dream-trigger-count"
+    if [[ -f "$counter_file" ]]; then
+        local count
+        count=$(cat "$counter_file" 2>/dev/null || echo "0")
+        local interval="${BMAD_DREAM_INTERVAL:-10}"
+        echo "  Auto-trigger: $count/$interval commits"
+    else
+        echo "  Auto-trigger: inactif"
+    fi
+    echo ""
+
+    # ─── Anti-Fragile ───
+    echo "┌─── 💪 Anti-Fragile Score ────────────────────────────────────┐"
+    if [[ -f "$tools_dir/antifragile-score.py" ]]; then
+        local af_output
+        af_output=$(python3 "$tools_dir/antifragile-score.py" --project-root "$project_root" --json 2>/dev/null)
+        if [[ -n "$af_output" ]]; then
+            local score_line
+            score_line=$(echo "$af_output" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(f\"  Score: {d.get('score', 'N/A')}/100 — Grade: {d.get('grade', 'N/A')}\")
+except Exception:
+    print('  (erreur de lecture)')" 2>/dev/null)
+            echo "$score_line"
+        else
+            echo "  (aucune donnée — lancez: bmad-init.sh antifragile)"
+        fi
+    else
+        echo "  antifragile-score.py introuvable"
+    fi
+    echo ""
+
+    # ─── Darwinism ───
+    echo "┌─── 🧬 Agent Darwinism ───────────────────────────────────────┐"
+    if [[ -f "$tools_dir/agent-darwinism.py" ]]; then
+        local darwin_output
+        darwin_output=$(python3 "$tools_dir/agent-darwinism.py" --project-root "$project_root" leaderboard 2>/dev/null | head -8)
+        if [[ -n "$darwin_output" ]]; then
+            echo "$darwin_output" | sed 's/^/  /'
+        else
+            echo "  (aucune donnée — lancez: bmad-init.sh darwinism evaluate)"
+        fi
+    else
+        echo "  agent-darwinism.py introuvable"
+    fi
+    echo ""
+
+    echo "════════════════════════════════════════════════════════════════"
+    echo "  Commandes rapides:"
+    echo "    bmad-init.sh dream --quick --emit   Rêver + émettre phéromones"
+    echo "    bmad-init.sh antifragile --detail    Score détaillé"
+    echo "    bmad-init.sh stigmergy landscape     Carte phéromonique"
+    echo "    bmad-init.sh darwinism evolve        Proposer évolutions"
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+    exit 0
+}
+
 # ─── Upgrade (NEW) ─────────────────────────────────────────────────────────
 # Mise à jour du framework dans un projet existant
 # Usage: bmad-init.sh upgrade [--dry-run] [--force]
@@ -1815,6 +1991,9 @@ if [[ "${1:-}" == "darwinism" ]]; then
 fi
 if [[ "${1:-}" == "stigmergy" ]]; then
     cmd_stigmergy "$@"
+fi
+if [[ "${1:-}" == "status" ]]; then
+    cmd_status "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────
