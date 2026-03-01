@@ -26,6 +26,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
 KIT_DIR = Path(__file__).parent.parent
@@ -617,11 +618,13 @@ class TestDeduplicateInsights(unittest.TestCase):
 
     def test_removes_duplicates(self):
         ins_a = self.mod.DreamInsight(
-            title="A", description="database caching performance optimization layer strategy",
+            title="A",
+            description="database caching performance optimization layer fast query response",
             sources=["a.md"], category="pattern", confidence=0.6,
         )
         ins_b = self.mod.DreamInsight(
-            title="B", description="database caching performance optimization layer approach",
+            title="B",
+            description="database caching performance optimization layer fast query handling",
             sources=["b.md"], category="pattern", confidence=0.8,
         )
         result = self.mod.deduplicate_insights([ins_a, ins_b])
@@ -1397,6 +1400,434 @@ class TestQuickMaxInsights(unittest.TestCase):
     def test_quick_max_less_than_max(self):
         mod = _import_dream()
         self.assertLess(mod.QUICK_MAX_INSIGHTS, mod.MAX_INSIGHTS)
+
+
+# ── Test Bigram Keywords ──────────────────────────────────────────────────────
+
+class TestBigramKeywords(unittest.TestCase):
+    """Vérifie que _extract_keywords retourne aussi des bigrams."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_returns_unigrams(self):
+        kw = self.mod._extract_keywords("API design pattern")
+        self.assertIn("api", kw)
+        self.assertIn("design", kw)
+        self.assertIn("pattern", kw)
+
+    def test_returns_bigrams_for_consecutive_significant_words(self):
+        kw = self.mod._extract_keywords("API design pattern")
+        self.assertIn("api_design", kw)
+        self.assertIn("design_pattern", kw)
+
+    def test_stopwords_break_bigrams(self):
+        """Stopwords entre deux mots significatifs cassent le bigram."""
+        kw = self.mod._extract_keywords("caching for performance")
+        self.assertIn("caching", kw)
+        self.assertIn("performance", kw)
+        # "for" est un stopword → pas de bigram caching_performance
+        self.assertNotIn("caching_performance", kw)
+
+    def test_single_word_no_bigram(self):
+        kw = self.mod._extract_keywords("architecture")
+        self.assertIn("architecture", kw)
+        # Pas de bigram possible
+        bigrams = [k for k in kw if "_" in k]
+        self.assertEqual(bigrams, [])
+
+    def test_empty_text(self):
+        kw = self.mod._extract_keywords("")
+        self.assertEqual(kw, set())
+
+    def test_bigrams_capture_shared_concepts(self):
+        """Bigrams should capture multi-word concepts like 'api_design'."""
+        kw_a = self.mod._extract_keywords("refactorer API design endpoints")
+        kw_b = self.mod._extract_keywords("améliorer API design modules")
+        # Both should contain the shared bigram
+        self.assertIn("api_design", kw_a)
+        self.assertIn("api_design", kw_b)
+        # The shared bigram means they have non-zero similarity
+        sim = self.mod._similarity(
+            "refactorer API design endpoints",
+            "améliorer API design modules",
+        )
+        self.assertGreater(sim, 0.2)
+
+    def test_stopwords_constant_is_frozenset(self):
+        self.assertIsInstance(self.mod._STOPWORDS, frozenset)
+
+
+# ── Test Temporal Decay ───────────────────────────────────────────────────────
+
+class TestTemporalWeight(unittest.TestCase):
+    """Vérifie la pondération temporelle des entrées."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.now = datetime(2026, 2, 28)
+
+    def test_today_returns_one(self):
+        w = self.mod._temporal_weight("2026-02-28", now=self.now)
+        self.assertEqual(w, 1.0)
+
+    def test_empty_date_returns_one(self):
+        w = self.mod._temporal_weight("", now=self.now)
+        self.assertEqual(w, 1.0)
+
+    def test_invalid_date_returns_one(self):
+        w = self.mod._temporal_weight("not-a-date", now=self.now)
+        self.assertEqual(w, 1.0)
+
+    def test_one_halflife_ago_returns_half(self):
+        """An entry exactly DECAY_HALFLIFE_DAYS ago should have weight ~0.5."""
+        halflife = self.mod.DECAY_HALFLIFE_DAYS
+        days_ago = self.now - timedelta(days=halflife)
+        date_str = days_ago.strftime("%Y-%m-%d")
+        w = self.mod._temporal_weight(date_str, now=self.now)
+        self.assertAlmostEqual(w, 0.5, places=1)
+
+    def test_very_old_entry_hits_floor(self):
+        """Entries older than ~2 half-lives should hit the 0.3 floor."""
+        old_date = "2025-01-01"  # ~14 months ago
+        w = self.mod._temporal_weight(old_date, now=self.now)
+        self.assertEqual(w, 0.3)
+
+    def test_recent_entry_high_weight(self):
+        """An entry from 3 days ago should be close to 1.0."""
+        recent = (self.now - timedelta(days=3)).strftime("%Y-%m-%d")
+        w = self.mod._temporal_weight(recent, now=self.now)
+        self.assertGreater(w, 0.8)
+
+    def test_monotonically_decreasing(self):
+        """Older entries should always have lower or equal weight."""
+        weights = []
+        for days in [0, 3, 7, 14, 30, 60, 120]:
+            d = (self.now - timedelta(days=days)).strftime("%Y-%m-%d")
+            weights.append(self.mod._temporal_weight(d, now=self.now))
+        for i in range(len(weights) - 1):
+            self.assertGreaterEqual(weights[i], weights[i + 1])
+
+
+class TestApplyTemporalDecay(unittest.TestCase):
+    """Vérifie que apply_temporal_decay modifie les confidences."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.now = datetime(2026, 2, 28)
+
+    def test_recent_entries_minimal_decay(self):
+        sources = [
+            self.mod.DreamSource(
+                name="recent.md", kind="learnings",
+                entries=["recent entry"], dates=["2026-02-27"],
+            ),
+        ]
+        insight = self.mod.DreamInsight(
+            title="T", description="D", sources=["recent.md"],
+            category="pattern", confidence=0.8,
+        )
+        self.mod.apply_temporal_decay([insight], sources, now=self.now)
+        # Should barely change — entry is from yesterday
+        self.assertGreater(insight.confidence, 0.7)
+
+    def test_old_entries_reduce_confidence(self):
+        sources = [
+            self.mod.DreamSource(
+                name="old.md", kind="learnings",
+                entries=["old entry"], dates=["2025-06-01"],
+            ),
+        ]
+        insight = self.mod.DreamInsight(
+            title="T", description="D", sources=["old.md"],
+            category="pattern", confidence=0.8,
+        )
+        self.mod.apply_temporal_decay([insight], sources, now=self.now)
+        self.assertLess(insight.confidence, 0.5)
+
+    def test_no_dates_no_penalty(self):
+        sources = [
+            self.mod.DreamSource(
+                name="nodates.md", kind="shared-context",
+                entries=["no date entry"], dates=[],
+            ),
+        ]
+        insight = self.mod.DreamInsight(
+            title="T", description="D", sources=["nodates.md"],
+            category="pattern", confidence=0.8,
+        )
+        self.mod.apply_temporal_decay([insight], sources, now=self.now)
+        # No dates → no decay applied (weights list empty)
+        self.assertEqual(insight.confidence, 0.8)
+
+    def test_mixed_sources_averaged(self):
+        sources = [
+            self.mod.DreamSource(
+                name="new.md", kind="learnings",
+                entries=["new"], dates=["2026-02-28"],
+            ),
+            self.mod.DreamSource(
+                name="old.md", kind="decisions",
+                entries=["old"], dates=["2025-01-01"],
+            ),
+        ]
+        insight = self.mod.DreamInsight(
+            title="T", description="D", sources=["new.md", "old.md"],
+            category="connection", confidence=0.8,
+        )
+        self.mod.apply_temporal_decay([insight], sources, now=self.now)
+        # Average of ~1.0 and ~0.3 ≈ 0.65 → 0.8 * 0.65 ≈ 0.52
+        self.assertLess(insight.confidence, 0.7)
+        self.assertGreater(insight.confidence, 0.3)
+
+
+# ── Test Dream Memory ─────────────────────────────────────────────────────────
+
+class TestInsightSignature(unittest.TestCase):
+    """Vérifie la signature stable des insights."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def test_same_insight_same_signature(self):
+        ins = self.mod.DreamInsight(
+            title="Pattern X", description="desc",
+            sources=["a.md"], category="pattern", confidence=0.5,
+        )
+        sig1 = self.mod._insight_signature(ins)
+        sig2 = self.mod._insight_signature(ins)
+        self.assertEqual(sig1, sig2)
+
+    def test_different_description_same_signature(self):
+        """La signature ne dépend pas de la description."""
+        ins1 = self.mod.DreamInsight(
+            title="Pattern X", description="description A",
+            sources=["a.md"], category="pattern", confidence=0.5,
+        )
+        ins2 = self.mod.DreamInsight(
+            title="Pattern X", description="description B completely different",
+            sources=["b.md"], category="pattern", confidence=0.9,
+        )
+        self.assertEqual(
+            self.mod._insight_signature(ins1),
+            self.mod._insight_signature(ins2),
+        )
+
+    def test_different_category_different_signature(self):
+        ins1 = self.mod.DreamInsight(
+            title="Same Title", description="d",
+            sources=["a.md"], category="pattern", confidence=0.5,
+        )
+        ins2 = self.mod.DreamInsight(
+            title="Same Title", description="d",
+            sources=["a.md"], category="tension", confidence=0.5,
+        )
+        self.assertNotEqual(
+            self.mod._insight_signature(ins1),
+            self.mod._insight_signature(ins2),
+        )
+
+    def test_signature_format(self):
+        ins = self.mod.DreamInsight(
+            title="Test Title!", description="d",
+            sources=["a.md"], category="pattern", confidence=0.5,
+        )
+        sig = self.mod._insight_signature(ins)
+        self.assertTrue(sig.startswith("pattern:"))
+        # Should be lowercase alphanumeric after the colon
+        after_colon = sig.split(":")[1]
+        self.assertTrue(after_colon.isalnum())
+
+
+class TestDreamMemoryPersistence(unittest.TestCase):
+    """Vérifie le load/save de dream-memory.json."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.tmpdir = Path(tempfile.mkdtemp())
+        (self.tmpdir / "_bmad-output").mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_load_empty(self):
+        mem = self.mod.load_dream_memory(self.tmpdir)
+        self.assertEqual(mem, {})
+
+    def test_save_and_load_roundtrip(self):
+        mem = {"insights": {"sig1": {"title": "Test"}}, "total_dreams": 1}
+        self.mod.save_dream_memory(self.tmpdir, mem)
+        loaded = self.mod.load_dream_memory(self.tmpdir)
+        self.assertEqual(loaded["total_dreams"], 1)
+        self.assertIn("sig1", loaded["insights"])
+
+    def test_corrupted_file_returns_empty(self):
+        mem_path = self.tmpdir / "_bmad-output" / self.mod.DREAM_MEMORY_FILE
+        mem_path.write_text("not json!", encoding="utf-8")
+        mem = self.mod.load_dream_memory(self.tmpdir)
+        self.assertEqual(mem, {})
+
+
+class TestUpdateDreamMemory(unittest.TestCase):
+    """Vérifie la logique de mise à jour de la mémoire dream."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+
+    def _make_insight(self, title, category="pattern"):
+        return self.mod.DreamInsight(
+            title=title, description=f"Desc for {title}",
+            sources=["a.md"], category=category, confidence=0.6,
+        )
+
+    def test_first_dream_all_new(self):
+        memory = {}
+        insights = [self._make_insight("Alpha"), self._make_insight("Beta")]
+        diff = self.mod.update_dream_memory(insights, memory)
+
+        self.assertEqual(len(diff["new"]), 2)
+        self.assertEqual(len(diff["persistent"]), 0)
+        self.assertEqual(len(diff["resolved"]), 0)
+        self.assertEqual(memory["total_dreams"], 1)
+
+    def test_second_dream_detects_persistent(self):
+        memory = {}
+        ins1 = [self._make_insight("Alpha")]
+        self.mod.update_dream_memory(ins1, memory)
+
+        # Second dream with same insight
+        ins2 = [self._make_insight("Alpha")]
+        diff = self.mod.update_dream_memory(ins2, memory)
+
+        self.assertEqual(len(diff["persistent"]), 1)
+        self.assertEqual(len(diff["new"]), 0)
+        self.assertEqual(memory["total_dreams"], 2)
+        # Confidence should be boosted
+        self.assertGreater(ins2[0].confidence, 0.6)
+
+    def test_persistent_confidence_boost(self):
+        memory = {}
+        ins1 = [self._make_insight("Alpha")]
+        self.mod.update_dream_memory(ins1, memory)
+
+        ins2 = [self._make_insight("Alpha")]
+        original_conf = ins2[0].confidence
+        self.mod.update_dream_memory(ins2, memory)
+
+        self.assertAlmostEqual(
+            ins2[0].confidence,
+            min(1.0, original_conf + self.mod.PERSISTENCE_BOOST),
+            places=3,
+        )
+
+    def test_confidence_boost_capped_at_one(self):
+        memory = {}
+        ins1 = [self._make_insight("Alpha")]
+        ins1[0].confidence = 0.95
+        self.mod.update_dream_memory(ins1, memory)
+
+        ins2 = [self._make_insight("Alpha")]
+        ins2[0].confidence = 0.95
+        self.mod.update_dream_memory(ins2, memory)
+
+        self.assertLessEqual(ins2[0].confidence, 1.0)
+
+    def test_resolved_detection(self):
+        """Insight vu 2+ fois puis absent → resolved."""
+        memory = {}
+        ins_alpha = [self._make_insight("Alpha")]
+        self.mod.update_dream_memory(ins_alpha, memory)
+        ins_alpha2 = [self._make_insight("Alpha")]
+        self.mod.update_dream_memory(ins_alpha2, memory)
+
+        # Third dream WITHOUT Alpha
+        ins3 = [self._make_insight("Beta")]
+        diff = self.mod.update_dream_memory(ins3, memory)
+
+        self.assertEqual(len(diff["resolved"]), 1)
+        self.assertEqual(len(diff["new"]), 1)
+
+    def test_single_occurrence_not_resolved(self):
+        """Insight vu 1 seule fois puis absent → NOT resolved (just noise)."""
+        memory = {}
+        ins1 = [self._make_insight("Alpha")]
+        self.mod.update_dream_memory(ins1, memory)
+
+        ins2 = [self._make_insight("Beta")]
+        diff = self.mod.update_dream_memory(ins2, memory)
+
+        self.assertEqual(len(diff["resolved"]), 0)
+
+    def test_seen_count_increments(self):
+        memory = {}
+        for _ in range(5):
+            self.mod.update_dream_memory([self._make_insight("Alpha")], memory)
+
+        sig = self.mod._insight_signature(self._make_insight("Alpha"))
+        self.assertEqual(memory["insights"][sig]["seen_count"], 5)
+
+    def test_stale_flag_set(self):
+        """Absent insight gets stale flag."""
+        memory = {}
+        self.mod.update_dream_memory([self._make_insight("Alpha")], memory)
+
+        # Second dream without Alpha
+        self.mod.update_dream_memory([self._make_insight("Beta")], memory)
+
+        sig_alpha = self.mod._insight_signature(self._make_insight("Alpha"))
+        self.assertTrue(memory["insights"][sig_alpha].get("stale", False))
+
+
+# ── Test render_journal with dream_diff ───────────────────────────────────────
+
+class TestRenderJournalDreamDiff(unittest.TestCase):
+    """Vérifie que le journal inclut la section Dream Diff."""
+
+    def setUp(self):
+        self.mod = _import_dream()
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_no_diff_no_section(self):
+        ins = [self.mod.DreamInsight(
+            title="T", description="D", sources=["a.md"],
+            category="pattern", confidence=0.5,
+        )]
+        src = [self.mod.DreamSource(name="a.md", kind="learnings",
+                                     entries=["e"])]
+        journal = self.mod.render_journal(ins, src, self.tmpdir)
+        self.assertNotIn("Dream Diff", journal)
+
+    def test_diff_with_persistent(self):
+        ins = [self.mod.DreamInsight(
+            title="Persistent Insight", description="D", sources=["a.md"],
+            category="pattern", confidence=0.75,
+        )]
+        src = [self.mod.DreamSource(name="a.md", kind="learnings",
+                                     entries=["e"])]
+        diff = {"new": [], "persistent": ins, "resolved": []}
+        journal = self.mod.render_journal(ins, src, self.tmpdir,
+                                           dream_diff=diff)
+        self.assertIn("Dream Diff", journal)
+        self.assertIn("Persistants", journal)
+        self.assertIn("Persistent Insight", journal)
+
+    def test_diff_with_new_and_resolved(self):
+        ins = [self.mod.DreamInsight(
+            title="New One", description="D", sources=["a.md"],
+            category="pattern", confidence=0.5,
+        )]
+        src = [self.mod.DreamSource(name="a.md", kind="learnings",
+                                     entries=["e"])]
+        diff = {"new": ins, "persistent": [],
+                "resolved": ["pattern:oldinsight"]}
+        journal = self.mod.render_journal(ins, src, self.tmpdir,
+                                           dream_diff=diff)
+        self.assertIn("Nouveaux", journal)
+        self.assertIn("Résolus", journal)
+        self.assertIn("pattern:oldinsight", journal)
 
 
 if __name__ == "__main__":

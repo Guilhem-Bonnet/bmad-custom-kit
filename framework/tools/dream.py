@@ -35,6 +35,9 @@ MIN_SOURCES = 2            # Un insight doit croiser ≥ 2 sources
 SIMILARITY_THRESHOLD = 0.6 # Seuil de détection doublon
 STALENESS_DAYS = 7         # Insight plus ancien = moindre poids
 QUICK_MAX_INSIGHTS = 5     # Plafond en mode quick (O(n) seulement)
+PERSISTENCE_BOOST = 0.15   # Bonus confiance pour insight persistant
+DECAY_HALFLIFE_DAYS = 14   # Demi-vie pour la pondération temporelle
+DREAM_MEMORY_FILE = "dream-memory.json"  # Historique structuré des insights
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
@@ -274,22 +277,39 @@ def _parse_pheromone_board(project_root: Path,
 
 # ── Analyse et génération d'insights ──────────────────────────────────────────
 
+_STOPWORDS = frozenset({
+    "le", "la", "les", "de", "du", "des", "un", "une", "et", "ou", "en",
+    "à", "au", "aux", "pour", "par", "sur", "dans", "avec", "que", "qui",
+    "est", "sont", "a", "ont", "sera", "seront", "pas", "ne", "ni", "mais",
+    "the", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+    "should", "may", "might", "can", "could", "of", "to", "in", "for",
+    "on", "with", "at", "by", "from", "as", "into", "about", "between",
+    "after", "before", "not", "no", "but", "or", "and", "if", "then",
+    "than", "too", "very", "just", "don", "it", "its", "this", "that",
+})
+
+
 def _extract_keywords(text: str) -> set[str]:
-    """Extrait les mots-clés significatifs d'un texte."""
-    # Mots vides français + anglais
-    stopwords = {
-        "le", "la", "les", "de", "du", "des", "un", "une", "et", "ou", "en",
-        "à", "au", "aux", "pour", "par", "sur", "dans", "avec", "que", "qui",
-        "est", "sont", "a", "ont", "sera", "seront", "pas", "ne", "ni", "mais",
-        "the", "an", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "shall",
-        "should", "may", "might", "can", "could", "of", "to", "in", "for",
-        "on", "with", "at", "by", "from", "as", "into", "about", "between",
-        "after", "before", "not", "no", "but", "or", "and", "if", "then",
-        "than", "too", "very", "just", "don", "it", "its", "this", "that",
-    }
+    """Extrait les mots-clés significatifs d'un texte (unigrams + bigrams)."""
     words = re.findall(r'[a-zA-ZÀ-ÿ]{3,}', text.lower())
-    return {w for w in words if w not in stopwords}
+    significant = [w for w in words if w not in _STOPWORDS]
+
+    # Unigrams
+    result = set(significant)
+
+    # Bigrams — paires de mots significatifs consécutifs dans le texte original
+    # On itère sur les mots bruts pour garder la co-localité
+    prev_sig: str | None = None
+    for w in words:
+        if w in _STOPWORDS:
+            prev_sig = None
+            continue
+        if prev_sig is not None:
+            result.add(f"{prev_sig}_{w}")
+        prev_sig = w
+
+    return result
 
 
 def _similarity(text_a: str, text_b: str) -> float:
@@ -517,13 +537,16 @@ def dream(project_root: Path, since: str | None = None,
     if do_validate:
         all_insights = [i for i in all_insights if validate_insight(i, sources)]
 
-    # 4. Déduplication
+    # 4. Temporal decay — entrées récentes pèsent plus
+    apply_temporal_decay(all_insights, sources)
+
+    # 5. Déduplication
     all_insights = deduplicate_insights(all_insights)
 
-    # 5. Tri par confiance décroissante
+    # 6. Tri par confiance décroissante
     all_insights.sort(key=lambda i: i.confidence, reverse=True)
 
-    # 6. Plafonnement
+    # 7. Plafonnement
     cap = QUICK_MAX_INSIGHTS if quick else MAX_INSIGHTS
     return all_insights[:cap]
 
@@ -648,8 +671,155 @@ def read_last_dream_timestamp(project_root: Path) -> str | None:
     return None
 
 
+# ── Temporal Decay ────────────────────────────────────────────────────────────
+
+def _temporal_weight(date_str: str, now: datetime | None = None) -> float:
+    """Pondération temporelle : récent = 1.0, décroît avec l'âge.
+
+    Utilise une demi-vie exponentielle (DECAY_HALFLIFE_DAYS).
+    Plancher à 0.3 pour ne jamais ignorer complètement une entrée.
+    Retourne 1.0 si date invalide ou vide (pas de pénalité).
+    """
+    if not date_str or len(date_str) < 10:
+        return 1.0
+    try:
+        entry_date = datetime(int(date_str[:4]), int(date_str[5:7]),
+                              int(date_str[8:10]))
+    except (ValueError, IndexError):
+        return 1.0
+    ref = now or datetime.now()
+    age_days = max(0, (ref - entry_date).days)
+    if age_days == 0:
+        return 1.0
+    # Décroissance exponentielle : weight = 2^(-age/halflife)
+    import math
+    weight = math.pow(2.0, -age_days / DECAY_HALFLIFE_DAYS)
+    return max(0.3, round(weight, 3))
+
+
+def apply_temporal_decay(insights: list[DreamInsight],
+                         sources: list[DreamSource],
+                         now: datetime | None = None) -> None:
+    """Applique un facteur de décroissance temporelle à la confiance des insights.
+
+    Pour chaque insight, calcule le poids moyen des dates de ses sources
+    contributrices, puis multiplie la confiance.
+    Modifie les insights in-place.
+    """
+    # Index source_name → dates
+    source_dates: dict[str, list[str]] = {}
+    for src in sources:
+        source_dates[src.name] = src.dates
+
+    for ins in insights:
+        weights: list[float] = []
+        for src_name in ins.sources:
+            dates = source_dates.get(src_name, [])
+            if dates:
+                # Poids moyen des entrées de cette source
+                src_weights = [_temporal_weight(d, now) for d in dates if d]
+                if src_weights:
+                    weights.append(sum(src_weights) / len(src_weights))
+        if weights:
+            avg_weight = sum(weights) / len(weights)
+            ins.confidence = round(ins.confidence * avg_weight, 3)
+
+
+# ── Dream Memory — persistence tracking ──────────────────────────────────────
+
+def _insight_signature(insight: DreamInsight) -> str:
+    """Signature stable d'un insight pour tracking cross-session.
+
+    Combine catégorie + titre normalisé. Les variations mineures de
+    description ne changent pas la signature.
+    """
+    norm_title = re.sub(r'[^a-z0-9]', '', insight.title.lower())
+    return f"{insight.category}:{norm_title}"
+
+
+def load_dream_memory(project_root: Path) -> dict:
+    """Charge dream-memory.json. Retourne {} si inexistant."""
+    mem_path = project_root / "_bmad-output" / DREAM_MEMORY_FILE
+    if not mem_path.exists():
+        return {}
+    try:
+        return json.loads(mem_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_dream_memory(project_root: Path, memory: dict) -> None:
+    """Sauvegarde dream-memory.json."""
+    mem_path = project_root / "_bmad-output" / DREAM_MEMORY_FILE
+    mem_path.parent.mkdir(parents=True, exist_ok=True)
+    mem_path.write_text(json.dumps(memory, indent=2, ensure_ascii=False),
+                        encoding="utf-8")
+
+
+def update_dream_memory(insights: list[DreamInsight],
+                        memory: dict) -> dict[str, list[DreamInsight]]:
+    """Met à jour la mémoire et classifie les insights.
+
+    Retourne {"new": [...], "persistent": [...], "resolved": [sig, ...]}
+    - new : insights jamais vus
+    - persistent : insights vus dans ≥2 sessions consécutives (boost confiance)
+    - resolved : signatures qui étaient dans la mémoire mais plus dans ce dream
+    """
+    now_str = datetime.now().strftime("%Y-%m-%d")
+    seen_sigs: set[str] = set()
+    new_insights: list[DreamInsight] = []
+    persistent_insights: list[DreamInsight] = []
+
+    entries = memory.get("insights", {})
+
+    for ins in insights:
+        sig = _insight_signature(ins)
+        seen_sigs.add(sig)
+
+        if sig in entries:
+            # Déjà vu — incrémenter
+            entries[sig]["seen_count"] += 1
+            entries[sig]["last_seen"] = now_str
+            entries[sig]["confidence"] = ins.confidence
+            # Boost confiance pour la persistence
+            ins.confidence = min(1.0, round(
+                ins.confidence + PERSISTENCE_BOOST, 3))
+            persistent_insights.append(ins)
+        else:
+            # Nouveau
+            entries[sig] = {
+                "title": ins.title,
+                "category": ins.category,
+                "first_seen": now_str,
+                "last_seen": now_str,
+                "seen_count": 1,
+                "confidence": ins.confidence,
+            }
+            new_insights.append(ins)
+
+    # Insights résolus : étaient dans la mémoire (seen_count > 1), absents maintenant
+    resolved_sigs: list[str] = []
+    for sig, entry in list(entries.items()):
+        if sig not in seen_sigs:
+            if entry.get("seen_count", 0) >= 2:
+                resolved_sigs.append(sig)
+            # Garder en mémoire mais marquer comme stale
+            entry["stale"] = True
+
+    memory["insights"] = entries
+    memory["last_dream"] = now_str
+    memory["total_dreams"] = memory.get("total_dreams", 0) + 1
+
+    return {
+        "new": new_insights,
+        "persistent": persistent_insights,
+        "resolved": resolved_sigs,
+    }
+
+
 def render_journal(insights: list[DreamInsight], sources: list[DreamSource],
-                   project_root: Path, since: str | None = None) -> str:
+                   project_root: Path, since: str | None = None,
+                   dream_diff: dict[str, list] | None = None) -> str:
     """Génère le dream-journal.md en Markdown."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     total_entries = sum(len(s.entries) for s in sources)
@@ -662,6 +832,31 @@ def render_journal(insights: list[DreamInsight], sources: list[DreamSource],
     if since:
         lines.append(f"> Période : depuis {since}")
     lines.extend(["", "---", ""])
+
+    # Dream Diff (si disponible)
+    if dream_diff:
+        new_count = len(dream_diff.get("new", []))
+        persist_count = len(dream_diff.get("persistent", []))
+        resolved_count = len(dream_diff.get("resolved", []))
+        if new_count or persist_count or resolved_count:
+            lines.append("## 🔀 Dream Diff")
+            lines.append("")
+            if persist_count:
+                lines.append(f"**🔁 Persistants** ({persist_count}) — insights confirmés sur plusieurs sessions :")
+                for ins in dream_diff["persistent"]:
+                    lines.append(f"- ⬆️ {ins.title} ({ins.confidence:.0%})")
+                lines.append("")
+            if new_count:
+                lines.append(f"**🆕 Nouveaux** ({new_count}) :")
+                for ins in dream_diff["new"]:
+                    lines.append(f"- {ins.title}")
+                lines.append("")
+            if resolved_count:
+                lines.append(f"**✅ Résolus** ({resolved_count}) — n'apparaissent plus :")
+                for sig in dream_diff["resolved"]:
+                    lines.append(f"- ~{sig}~")
+                lines.append("")
+            lines.extend(["---", ""])
 
     # Résumé par catégorie
     by_cat: dict[str, list[DreamInsight]] = {}
@@ -777,6 +972,25 @@ def main():
         print("😴 Aucun insight émergent détecté. Le système est cohérent.")
         sys.exit(0)
 
+    # Dream Memory — tracking persistence cross-session
+    dream_diff = None
+    if not args.dry_run:
+        memory = load_dream_memory(project_root)
+        dream_diff = update_dream_memory(insights, memory)
+        save_dream_memory(project_root, memory)
+
+        new_count = len(dream_diff.get("new", []))
+        persist_count = len(dream_diff.get("persistent", []))
+        resolved_count = len(dream_diff.get("resolved", []))
+        if persist_count:
+            print(f"🔁 {persist_count} insight(s) persistant(s) (confiance boostée)")
+        if new_count:
+            print(f"🆕 {new_count} nouvel(s) insight(s)")
+        if resolved_count:
+            print(f"✅ {resolved_count} insight(s) résolu(s) (disparus)")
+        if persist_count or new_count or resolved_count:
+            print()
+
     # Emit → stigmergy
     if args.emit:
         count = emit_to_stigmergy(insights, project_root)
@@ -800,8 +1014,9 @@ def main():
         print(json.dumps(data, indent=2, ensure_ascii=False))
         sys.exit(0)
 
-    # Rendu Markdown
-    journal = render_journal(insights, sources, project_root, since)
+    # Rendu Markdown (avec dream diff)
+    journal = render_journal(insights, sources, project_root, since,
+                             dream_diff=dream_diff)
     output_path = write_journal(journal, project_root, args.dry_run)
 
     if not args.dry_run:
