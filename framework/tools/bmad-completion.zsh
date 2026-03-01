@@ -72,6 +72,7 @@ _bmad_init_complete() {
         'reasoning:Flux de raisonnement structuré'
         'migrate:Migration cross-projet d'artefacts BMAD'
         'darwinism:Sélection naturelle des agents — fitness et évolution'
+        'stigmergy:Coordination stigmergique — phéromones numériques entre agents'
     )
     
     local context curcontext="$curcontext" line state
@@ -284,6 +285,29 @@ _bmad_init_complete() {
                     case "$state" in
                         darwinism_sub)
                             _describe 'sous-commande darwinism' darwinism_cmds
+                            ;;
+                    esac
+                    ;;
+                stigmergy)
+                    local -a stigmergy_cmds
+                    stigmergy_cmds=('emit:Émettre une phéromone' 'sense:Détecter les phéromones actives' 'amplify:Renforcer un signal' 'resolve:Résoudre un signal' 'landscape:Carte phéromonique' 'trails:Patterns émergents' 'evaporate:Nettoyer les signaux morts' 'stats:Statistiques rapides')
+                    _arguments \
+                        '1:sous-commande:->stigmergy_sub' \
+                        '--type[Type de phéromone]:type:(NEED ALERT OPPORTUNITY PROGRESS COMPLETE BLOCK)' \
+                        '--location[Zone affectée]:location:' \
+                        '--text[Description du signal]:text:' \
+                        '--agent[Agent]:agent:' \
+                        '--tag[Filtrer par tag]:tag:' \
+                        '--emitter[Filtrer par émetteur]:emitter:' \
+                        '--id[ID phéromone]:id:' \
+                        '--tags[Tags comma-sep]:tags:' \
+                        '--intensity[Intensité initiale]:intensity:' \
+                        '--include-resolved[Inclure les résolues]' \
+                        '--dry-run[Preview sans modifier]' \
+                        '--json[Sortie JSON]'
+                    case "$state" in
+                        stigmergy_sub)
+                            _describe 'sous-commande stigmergy' stigmergy_cmds
                             ;;
                     esac
                     ;;

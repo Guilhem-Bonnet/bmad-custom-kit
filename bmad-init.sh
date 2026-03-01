@@ -151,6 +151,15 @@ Exemples:
   $(basename "$0") darwinism evolve             # Actions évolutives
   $(basename "$0") darwinism history            # Historique des générations
   $(basename "$0") darwinism lineage --agent X  # Lignée d'un agent
+  $(basename "$0") stigmergy emit --type NEED --location "src/auth" --text "review" --agent dev
+  $(basename "$0") stigmergy sense              # Phéromones actives
+  $(basename "$0") stigmergy sense --type ALERT # Alertes uniquement
+  $(basename "$0") stigmergy amplify --id PH-xx --agent qa  # Renforcer un signal
+  $(basename "$0") stigmergy resolve --id PH-xx --agent qa  # Résoudre un signal
+  $(basename "$0") stigmergy landscape          # Carte phéromonique
+  $(basename "$0") stigmergy trails             # Patterns émergents
+  $(basename "$0") stigmergy evaporate          # Nettoyer les signaux morts
+  $(basename "$0") stigmergy stats              # Statistiques
 
 Options guard:
   guard                    Analyser le budget de contexte de tous les agents
@@ -236,6 +245,23 @@ Options darwinism:
   darwinism evolve --json         Sortie JSON
   darwinism history               Historique des générations
   darwinism lineage --agent ID    Lignée évolutive d'un agent
+
+Options stigmergy:
+  stigmergy emit --type TYPE --location LOC --text TXT --agent AGENT  Émettre une phéromone
+  stigmergy emit ... --tags t1,t2 --intensity 0.9  Options émission
+  stigmergy sense                 Détecter les phéromones actives
+  stigmergy sense --type ALERT    Filtrer par type (NEED|ALERT|OPPORTUNITY|PROGRESS|COMPLETE|BLOCK)
+  stigmergy sense --location LOC  Filtrer par zone
+  stigmergy sense --tag TAG       Filtrer par tag
+  stigmergy sense --emitter AGENT Filtrer par émetteur
+  stigmergy sense --json          Sortie JSON
+  stigmergy amplify --id PH-xxx --agent AGENT  Renforcer un signal
+  stigmergy resolve --id PH-xxx --agent AGENT  Résoudre un signal
+  stigmergy landscape             Carte complète du paysage phéromonique
+  stigmergy trails                Patterns de coordination émergents
+  stigmergy evaporate             Supprimer les signaux sous le seuil
+  stigmergy evaporate --dry-run   Preview sans modifier
+  stigmergy stats                 Statistiques rapides
 
 EOF
     exit 0
@@ -1035,6 +1061,27 @@ cmd_darwinism() {
     exit $?
 }
 
+# ─── Stigmergy ─────────────────────────────────────────────────────────────
+# Coordination stigmergique — phéromones numériques entre agents
+# Usage: bmad-init.sh stigmergy emit|sense|amplify|resolve|landscape|trails|evaporate|stats [...]
+cmd_stigmergy() {
+    shift  # retirer "stigmergy"
+
+    local sg_script
+    sg_script="$(dirname "$(realpath "$0")")/framework/tools/stigmergy.py"
+
+    if [[ ! -f "$sg_script" ]]; then
+        error "framework/tools/stigmergy.py introuvable — lancez depuis la racine du kit"
+    fi
+    if ! command -v python3 &>/dev/null; then
+        error "python3 requis pour stigmergy"
+    fi
+
+    echo ""
+    python3 "$sg_script" --project-root "$(pwd)" "$@"
+    exit $?
+}
+
 # ─── Upgrade (NEW) ─────────────────────────────────────────────────────────
 # Mise à jour du framework dans un projet existant
 # Usage: bmad-init.sh upgrade [--dry-run] [--force]
@@ -1765,6 +1812,9 @@ if [[ "${1:-}" == "migrate" ]]; then
 fi
 if [[ "${1:-}" == "darwinism" ]]; then
     cmd_darwinism "$@"
+fi
+if [[ "${1:-}" == "stigmergy" ]]; then
+    cmd_stigmergy "$@"
 fi
 
 # ─── Parsing arguments ──────────────────────────────────────────────────────

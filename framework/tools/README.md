@@ -18,6 +18,7 @@ Ce dossier contient les outils Python (stdlib only, Python 3.10+) invocables via
 | `reasoning-stream.py` | `reasoning` | Flux de raisonnement structuré — hypothèses, doutes, assumptions |
 | `cross-migrate.py` | `migrate` | Migration cross-projet d'artefacts BMAD (learnings, rules, DNA, agents) |
 | `agent-darwinism.py` | `darwinism` | Sélection naturelle des agents — fitness, évolution, leaderboard |
+| `stigmergy.py` | `stigmergy` | Coordination stigmergique — phéromones numériques entre agents |
 | `gen-tests.py` | *(direct)* | Génère des templates de tests pour les agents |
 | `bmad-completion.zsh` | *(source)* | Autocomplétion zsh pour `bmad-init.sh` |
 
@@ -234,7 +235,7 @@ echo "source /chemin/vers/bmad-custom-kit/framework/tools/bmad-completion.zsh" >
 source ~/.zshrc
 ```
 
-**Subcommands complétés :** session-branch, install, resume, trace, doctor, validate, changelog, hooks, bench, forge, guard, evolve, dream, consensus, antifragile, reasoning, migrate, darwinism
+**Subcommands complétés :** session-branch, install, resume, trace, doctor, validate, changelog, hooks, bench, forge, guard, evolve, dream, consensus, antifragile, reasoning, migrate, darwinism, stigmergy
 
 ---
 
@@ -303,6 +304,66 @@ bash bmad-init.sh darwinism lineage --agent dev
 **Actions :** ⬆️ PROMOTE | 🔧 IMPROVE | 🧬 HYBRIDIZE | ⬇️ DEPRECATE | 👁️ OBSERVE
 
 **Sortie :** `_bmad-output/darwinism-history.json`
+
+---
+
+## `stigmergy.py` — Coordination Stigmergique
+
+Système de phéromones numériques : les agents déposent des signaux typés dans l'environnement, d'autres agents les captent et adaptent leur comportement. Coordination indirecte — l'environnement est le médium.
+
+### Types de phéromones
+
+| Type | Icône | Description |
+|------|-------|-------------|
+| NEED | 🔵 | Besoin (review, expertise, clarification) |
+| ALERT | 🔴 | Danger (breaking change, dette technique, sécurité) |
+| OPPORTUNITY | 🟢 | Amélioration potentielle |
+| PROGRESS | 🟡 | Travail en cours |
+| COMPLETE | ✅ | Travail terminé, prêt pour la suite |
+| BLOCK | 🚧 | Bloqué, en attente de résolution |
+
+### Mécanique
+
+- **Évaporation :** intensité × 0.5^(age/demi-vie). Demi-vie par défaut : 72h (3 jours)
+- **Amplification :** chaque renforcement ajoute +0.2 (cap 1.0)
+- **Seuil de détection :** signal invisible sous 5% d'intensité
+- **Résolution :** marquage explicite d'un signal comme résolu
+
+### Usage
+
+```bash
+# Émettre un signal
+bash bmad-init.sh stigmergy emit --type NEED --location "src/auth" --text "review sécurité requise" --agent dev
+bash bmad-init.sh stigmergy emit --type ALERT --location "src/db" --text "breaking change" --agent architect --tags "db,urgent"
+
+# Détecter les signaux actifs
+bash bmad-init.sh stigmergy sense
+bash bmad-init.sh stigmergy sense --type ALERT
+bash bmad-init.sh stigmergy sense --location "auth" --json
+
+# Renforcer / Résoudre
+bash bmad-init.sh stigmergy amplify --id PH-a1b2c3d4 --agent qa
+bash bmad-init.sh stigmergy resolve --id PH-a1b2c3d4 --agent qa
+
+# Cartographie
+bash bmad-init.sh stigmergy landscape
+bash bmad-init.sh stigmergy trails
+
+# Maintenance
+bash bmad-init.sh stigmergy evaporate
+bash bmad-init.sh stigmergy evaporate --dry-run
+bash bmad-init.sh stigmergy stats
+```
+
+### Patterns de coordination détectés
+
+- 🔥 **Hot-zone** — ≥3 signaux actifs dans la même zone
+- ❄️ **Cold-zone** — Zone précédemment active, désormais silencieuse
+- 🎯 **Convergence** — ≥2 agents différents sur la même zone
+- 🚧 **Bottleneck** — ≥2 BLOCK dans la même zone
+- 🔄 **Relay** — COMPLETE suivi de NEED/PROGRESS par un agent différent
+
+**Sortie :** `_bmad-output/pheromone-board.json`
 
 ---
 

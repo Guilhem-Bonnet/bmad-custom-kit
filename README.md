@@ -34,6 +34,7 @@ Chaque agent a une persona forte, un domaine d'expertise précis, et s'inscrit d
 - 🧠 **Reasoning Stream** — flux de raisonnement structuré : capture HYPOTHESIS, DOUBT, ASSUMPTION, ALTERNATIVE avec analyse et compaction
 - 📦 **Cross-Project Migration** — exporte et importe des artefacts BMAD entre projets (learnings, rules, DNA, agents, consensus, anti-fragile)
 - 🧬 **Agent Darwinism** — sélection naturelle des agents : fitness multi-dimensionnelle, évolution par générations, leaderboard, hybridation
+- 🐜 **Stigmergy** — coordination indirecte par phéromones numériques : émission, détection, amplification, évaporation, patterns émergents
 
 ## Quick Start
 
@@ -337,6 +338,14 @@ bash bmad-init.sh darwinism leaderboard        # classement
 bash bmad-init.sh darwinism evolve             # actions évolutives
 bash bmad-init.sh darwinism history            # historique des générations
 bash bmad-init.sh darwinism lineage --agent dev # lignée d'un agent
+
+# Stigmergy — coordination indirecte par phéromones
+bash bmad-init.sh stigmergy emit --type NEED --location "src/auth" --text "review sécurité" --agent dev
+bash bmad-init.sh stigmergy sense                # phéromones actives
+bash bmad-init.sh stigmergy amplify --id PH-xx --agent qa  # renforcer
+bash bmad-init.sh stigmergy landscape            # carte phéromonique
+bash bmad-init.sh stigmergy trails               # patterns émergents
+bash bmad-init.sh stigmergy evaporate            # nettoyer les signaux morts
 ```
 
 Voir [framework/tools/README.md](framework/tools/README.md) pour la référence complète.
@@ -381,9 +390,9 @@ bash _bmad/_config/custom/sil-collect.sh
 
 ## 🧪 Tests
 
-Le kit inclut une suite de tests complète (641+ tests) en deux catégories :
+Le kit inclut une suite de tests complète (737+ tests) en deux catégories :
 
-**Tests unitaires Python** (14 fichiers, 641 tests) :
+**Tests unitaires Python** (15 fichiers, 737 tests) :
 ```bash
 # Lancer tous les tests
 python3 -m unittest discover -s tests -v
@@ -408,6 +417,7 @@ python3 -m unittest tests.test_context_guard_advanced -v
 | `test_reasoning_stream.py` | Reasoning Stream | 56 |
 | `test_cross_migrate.py` | Cross-Project Migration | 59 |
 | `test_agent_darwinism.py` | Agent Darwinism | 62 |
+| `test_stigmergy.py` | Stigmergy | 96 |
 
 **Smoke tests Bash** (78 assertions) :
 ```bash
