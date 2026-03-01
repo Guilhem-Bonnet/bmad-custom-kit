@@ -33,12 +33,9 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
-
 
 # ── Structures ────────────────────────────────────────────────────────────────
 
@@ -202,7 +199,7 @@ BEHAVIORAL_PATTERNS = {
 
 def analyze_trace(
     trace_path: Path,
-    since: Optional[str] = None,
+    since: str | None = None,
 ) -> tuple[dict[str, ObservedTool], list[ObservedPattern]]:
     """
     Analyse BMAD_TRACE.md et retourne :
@@ -482,7 +479,7 @@ def render_patch_yaml(dna: DNASnapshot, mutations: list[DNAMutation]) -> str:
         dna_path=dna.source_path,
         archetype_id=dna.archetype_id,
         version=dna.version,
-        date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        date=datetime.now(UTC).strftime("%Y-%m-%d"),
     )]
 
     # Grouper par section
@@ -502,14 +499,14 @@ def render_patch_yaml(dna: DNASnapshot, mutations: list[DNAMutation]) -> str:
                 lines.append(f"  - id: {m.item_id}")
                 lines.append(f'    description: "{m.description}"')
                 if section == "tools_required":
-                    lines.append(f"    required: true")
+                    lines.append("    required: true")
                     lines.append(f'    check_command: "which {m.item_id}"')
                 elif section == "traits":
                     lines.append(f'    rule: "[TODO] Affiner la règle : {m.description}"')
-                    lines.append(f"    agents_affected: \"*\"")
+                    lines.append("    agents_affected: \"*\"")
                 elif section == "constraints":
-                    lines.append(f"    enforcement: soft")
-                    lines.append(f"    checked_by: agent-optimizer")
+                    lines.append("    enforcement: soft")
+                    lines.append("    checked_by: agent-optimizer")
                 lines.append(f"    # Rationale: {m.rationale[:100]}")
                 lines.append("")
 
@@ -519,7 +516,7 @@ def render_patch_yaml(dna: DNASnapshot, mutations: list[DNAMutation]) -> str:
             for m in deprecates:
                 lines.append(f"  # [{m.confidence.upper()}] confidence — {m.rationale[:80]}")
                 lines.append(f"  - id: {m.item_id}")
-                lines.append(f'    action: "move_to_optional  # ou: remove"')
+                lines.append('    action: "move_to_optional  # ou: remove"')
                 lines.append("")
 
     return "\n".join(lines)
@@ -532,7 +529,7 @@ def render_report_md(
     patterns: list[ObservedPattern],
 ) -> str:
     """Génère le rapport Markdown lisible."""
-    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date = datetime.now(UTC).strftime("%Y-%m-%d")
     adds = [m for m in mutations if "add" in m.mutation_type]
     deps = [m for m in mutations if "deprecate" in m.mutation_type]
 
@@ -547,8 +544,8 @@ def render_report_md(
         "",
         "## Résumé",
         "",
-        f"| Metric | Valeur |",
-        f"|--------|--------|",
+        "| Metric | Valeur |",
+        "|--------|--------|",
         f"| Outils observés dans TRACE | {len(observed_tools)} |",
         f"| Patterns comportementaux | {len(patterns)} |",
         f"| Ajouts proposés (HIGH) | {sum(1 for m in adds if m.confidence == 'high')} |",
@@ -684,7 +681,7 @@ Exemples :
     project_root = Path(args.project_root).resolve()
 
     # ── Auto-détecter la DNA ──────────────────────────────────────────────
-    dna_path: Optional[Path] = None
+    dna_path: Path | None = None
     if args.dna:
         dna_path = Path(args.dna)
     else:
@@ -750,7 +747,7 @@ Exemples :
     out_dir = project_root / args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    date_str = datetime.now(UTC).strftime("%Y%m%d")
 
     if not args.report:
         patch_content = render_patch_yaml(dna, mutations)
@@ -765,7 +762,7 @@ Exemples :
 
     # ── Résumé ────────────────────────────────────────────────────────────
     print()
-    print(f"  ──────────────────────────────────────────────────")
+    print("  ──────────────────────────────────────────────────")
     high = [m for m in adds if m.confidence == "high"]
     if high:
         print(f"  🟢 HIGH confidence ({len(high)}) — fortement recommandés :")
@@ -781,7 +778,7 @@ Exemples :
     if not args.report:
         print(f"  1. Réviser : {out_dir.relative_to(project_root)}/archetype.dna.patch.{date_str}.yaml")
     print(f"  2. Rapport détaillé : {out_dir.relative_to(project_root)}/dna-evolution-report.{date_str}.md")
-    print(f"  3. Appliquer : python3 framework/tools/dna-evolve.py --apply")
+    print("  3. Appliquer : python3 framework/tools/dna-evolve.py --apply")
     print(f"  4. Commit : git commit -m 'feat: DNA evolution {dna.archetype_id} — {len(adds)} ajouts'")
     print()
 

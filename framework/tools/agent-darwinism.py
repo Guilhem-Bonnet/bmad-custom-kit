@@ -40,10 +40,8 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
-
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -139,7 +137,7 @@ class FitnessDimensions:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "FitnessDimensions":
+    def from_dict(cls, d: dict) -> FitnessDimensions:
         return cls(**{k: d.get(k, 0.0) for k in
                       ("reliability", "productivity", "learning",
                        "adaptability", "resilience", "influence")})
@@ -166,7 +164,7 @@ class FitnessScore:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "FitnessScore":
+    def from_dict(cls, d: dict) -> FitnessScore:
         return cls(
             agent_id=d.get("agent_id", ""),
             dimensions=FitnessDimensions.from_dict(d.get("dimensions", {})),
@@ -196,7 +194,7 @@ class EvolutionAction:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "EvolutionAction":
+    def from_dict(cls, d: dict) -> EvolutionAction:
         return cls(
             agent_id=d.get("agent_id", ""),
             action=d.get("action", ""),
@@ -225,7 +223,7 @@ class GenerationRecord:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "GenerationRecord":
+    def from_dict(cls, d: dict) -> GenerationRecord:
         return cls(
             generation=d.get("generation", 0),
             timestamp=d.get("timestamp", ""),
@@ -259,7 +257,7 @@ FAILURE_CATEGORIZER = {
 
 
 def parse_trace_stats(trace_path: Path,
-                      since: Optional[str] = None) -> dict[str, RawAgentStats]:
+                      since: str | None = None) -> dict[str, RawAgentStats]:
     """Parse BMAD_TRACE.md et retourne des stats par agent."""
     agents: dict[str, RawAgentStats] = {}
 
@@ -359,8 +357,8 @@ def count_agent_learnings(project_root: Path) -> dict[str, int]:
         agent = f.stem
         try:
             lines = f.read_text(encoding="utf-8").splitlines()
-            count = sum(1 for l in lines
-                        if l.strip() and (l.startswith("- ") or l.startswith("* ")))
+            count = sum(1 for ln in lines
+                        if ln.strip() and (ln.startswith("- ") or ln.startswith("* ")))
             counts[agent] = count
         except OSError:
             pass
@@ -465,14 +463,14 @@ def compute_fitness(stats: RawAgentStats,
         composite=round(composite, 1),
         level=level,
         generation=generation,
-        timestamp=datetime.now(tz=timezone.utc).isoformat(),
+        timestamp=datetime.now(tz=UTC).isoformat(),
     )
 
 
 # ── Evolution Actions ─────────────────────────────────────────────────────────
 
 def propose_actions(scores: list[FitnessScore],
-                    previous_scores: Optional[list[FitnessScore]] = None
+                    previous_scores: list[FitnessScore] | None = None
                     ) -> list[EvolutionAction]:
     """Propose des actions évolutives basées sur les scores de fitness."""
     actions: list[EvolutionAction] = []
@@ -485,7 +483,6 @@ def propose_actions(scores: list[FitnessScore],
 
     # Identify elite agents for potential hybridization sources
     elite_agents = [s for s in scores if s.level == LEVEL_ELITE]
-    elite_ids = [s.agent_id for s in elite_agents]
 
     for score in scores:
         prev_composite = prev_map.get(score.agent_id)
@@ -600,7 +597,7 @@ def save_history(project_root: Path,
 
 
 def get_previous_scores(history: list[GenerationRecord]
-                        ) -> Optional[list[FitnessScore]]:
+                        ) -> list[FitnessScore] | None:
     """Retourne les scores de la dernière génération."""
     if not history:
         return None
@@ -611,7 +608,7 @@ def get_previous_scores(history: list[GenerationRecord]
 # ── Commands ──────────────────────────────────────────────────────────────────
 
 def cmd_evaluate(project_root: Path, trace_path: Path,
-                 since: Optional[str] = None,
+                 since: str | None = None,
                  save: bool = True) -> list[FitnessScore]:
     """Évalue la fitness de tous les agents et enregistre la génération."""
     stats = parse_trace_stats(trace_path, since=since)
@@ -641,7 +638,7 @@ def cmd_evaluate(project_root: Path, trace_path: Path,
 
         record = GenerationRecord(
             generation=gen_num,
-            timestamp=datetime.now(tz=timezone.utc).isoformat(),
+            timestamp=datetime.now(tz=UTC).isoformat(),
             scores=[s.to_dict() for s in scores],
             actions=[a.to_dict() for a in actions],
             summary={
@@ -660,7 +657,7 @@ def cmd_evaluate(project_root: Path, trace_path: Path,
 
 
 def cmd_evolve(project_root: Path, trace_path: Path,
-               since: Optional[str] = None,
+               since: str | None = None,
                dry_run: bool = False) -> list[EvolutionAction]:
     """Évalue et propose des actions évolutives."""
     # First evaluate
@@ -689,7 +686,7 @@ def cmd_evolve(project_root: Path, trace_path: Path,
 
         record = GenerationRecord(
             generation=gen_num,
-            timestamp=datetime.now(tz=timezone.utc).isoformat(),
+            timestamp=datetime.now(tz=UTC).isoformat(),
             scores=[s.to_dict() for s in scores],
             actions=[a.to_dict() for a in actions],
             summary={
@@ -715,8 +712,8 @@ def render_leaderboard(scores: list[FitnessScore]) -> str:
     lines = [
         "# 🏆 Leaderboard Darwiniste",
         "",
-        f"| Rang | Agent | Fitness | Niveau | Fiabilité | Productivité | Apprentissage | Adaptabilité | Résilience | Influence |",
-        f"|------|-------|---------|--------|-----------|--------------|---------------|--------------|------------|-----------|",
+        "| Rang | Agent | Fitness | Niveau | Fiabilité | Productivité | Apprentissage | Adaptabilité | Résilience | Influence |",
+        "|------|-------|---------|--------|-----------|--------------|---------------|--------------|------------|-----------|",
     ]
 
     for i, s in enumerate(sorted_scores, 1):
@@ -752,8 +749,8 @@ def render_evaluate(scores: list[FitnessScore],
         d = s.dimensions
         lines.extend([
             "",
-            f"| Dimension | Score |",
-            f"|-----------|-------|",
+            "| Dimension | Score |",
+            "|-----------|-------|",
             f"| Fiabilité | {d.reliability:.0f} |",
             f"| Productivité | {d.productivity:.0f} |",
             f"| Apprentissage | {d.learning:.0f} |",

@@ -31,11 +31,9 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-from dataclasses import dataclass, field
-
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -134,7 +132,7 @@ class MigrationBundle:
                 "total_items": self.manifest.total_items,
                 "since": self.manifest.since,
             },
-            "learnings": [l.to_dict() for l in self.learnings],
+            "learnings": [entry.to_dict() for entry in self.learnings],
             "rules": [r.to_dict() for r in self.rules],
             "dna_patches": self.dna_patches,
             "agents": self.agents,
@@ -156,8 +154,8 @@ class MigrationBundle:
         )
         return cls(
             manifest=manifest,
-            learnings=[ExportedLearning.from_dict(l)
-                       for l in d.get("learnings", [])],
+            learnings=[ExportedLearning.from_dict(item)
+                       for item in d.get("learnings", [])],
             rules=[ExportedRule.from_dict(r) for r in d.get("rules", [])],
             dna_patches=d.get("dna_patches", []),
             agents=d.get("agents", []),
@@ -189,7 +187,7 @@ def _parse_date_from_line(line: str) -> str:
 
 
 def export_learnings(project_root: Path,
-                     since: Optional[str] = None) -> list[ExportedLearning]:
+                     since: str | None = None) -> list[ExportedLearning]:
     """Exporte les learnings de tous les agents."""
     learnings_dir = project_root / "_bmad" / "_memory" / "agent-learnings"
     results = []
@@ -220,7 +218,7 @@ def export_learnings(project_root: Path,
 
 
 def export_rules(project_root: Path,
-                 since: Optional[str] = None) -> list[ExportedRule]:
+                 since: str | None = None) -> list[ExportedRule]:
     """Exporte les règles instaurées depuis le Failure Museum."""
     fm_path = project_root / "_bmad" / "_memory" / "failure-museum.md"
     if not fm_path.exists():
@@ -339,8 +337,8 @@ def export_antifragile(project_root: Path) -> list[dict]:
         return []
 
 
-def create_bundle(project_root: Path, only: Optional[set[str]] = None,
-                  since: Optional[str] = None) -> MigrationBundle:
+def create_bundle(project_root: Path, only: set[str] | None = None,
+                  since: str | None = None) -> MigrationBundle:
     """Crée un bundle d'export complet."""
     types_to_export = only or ARTIFACT_TYPES
     manifest = BundleManifest(
@@ -435,7 +433,7 @@ class ImportResult:
 def _deduplicate_lines(existing: str, new_lines: list[str]) -> list[str]:
     """Retourne les lignes de new_lines absentes de existing."""
     existing_lower = existing.lower()
-    return [l for l in new_lines if l.strip().lower() not in existing_lower]
+    return [ln for ln in new_lines if ln.strip().lower() not in existing_lower]
 
 
 def import_bundle(bundle: MigrationBundle, project_root: Path,
@@ -452,8 +450,8 @@ def import_bundle(bundle: MigrationBundle, project_root: Path,
             learnings_dir.mkdir(parents=True, exist_ok=True)
 
         by_agent: dict[str, list[ExportedLearning]] = {}
-        for l in bundle.learnings:
-            by_agent.setdefault(l.agent, []).append(l)
+        for entry in bundle.learnings:
+            by_agent.setdefault(entry.agent, []).append(entry)
 
         for agent, items in by_agent.items():
             path = learnings_dir / f"{agent}.md"
@@ -615,8 +613,8 @@ def render_inspect(bundle: MigrationBundle) -> str:
         lines.append(f"## 📚 Learnings ({len(bundle.learnings)})")
         lines.append("")
         by_agent: dict[str, int] = {}
-        for l in bundle.learnings:
-            by_agent[l.agent] = by_agent.get(l.agent, 0) + 1
+        for entry in bundle.learnings:
+            by_agent[entry.agent] = by_agent.get(entry.agent, 0) + 1
         for agent, count in sorted(by_agent.items(),
                                     key=lambda x: x[1], reverse=True):
             lines.append(f"- **{agent}** : {count} learnings")
@@ -690,9 +688,9 @@ def render_diff(bundle: MigrationBundle, project_root: Path) -> str:
 
     # Learnings diff
     existing_learnings = export_learnings(project_root)
-    existing_texts = {l.text.lower().strip() for l in existing_learnings}
-    new_learnings = [l for l in bundle.learnings
-                     if l.text.lower().strip() not in existing_texts]
+    existing_texts = {entry.text.lower().strip() for entry in existing_learnings}
+    new_learnings = [entry for entry in bundle.learnings
+                     if entry.text.lower().strip() not in existing_texts]
     lines.append(f"## Learnings : {len(new_learnings)} nouveaux "
                  f"/ {len(bundle.learnings)} total")
     lines.append("")

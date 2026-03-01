@@ -21,14 +21,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
-
 
 # ── Taxonomie domaine → profil agent ─────────────────────────────────────────
 # Chaque domaine mappe vers : icône, outil CLI principal, tools_list, pattern de prompts
@@ -175,8 +171,8 @@ class AgentProposal:
     cc_check: str
     project_name: str = "{{project_name}}"
     existing_overlap: list[str] = field(default_factory=list)
-    inter_agent_source: Optional[str] = None   # agent qui a fait la requête
-    trace_failure_pattern: Optional[str] = None
+    inter_agent_source: str | None = None   # agent qui a fait la requête
+    trace_failure_pattern: str | None = None
 
 
 @dataclass
@@ -232,7 +228,7 @@ def extract_agent_name(text: str, domain_key: str, domain_profile: dict) -> tupl
     text_clean = re.sub(r"\s+", " ", text_clean).strip()
 
     # ── Stop words FR + EN (articles, prépositions, pronoms)
-    STOP_WORDS = {
+    STOP_WORDS = {  # noqa: N806
         "je", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles",
         "veux", "voudrais", "faut", "besoin", "avoir", "être", "faire",
         "un", "une", "des", "les", "le", "la", "du", "de", "au", "aux",
@@ -242,7 +238,7 @@ def extract_agent_name(text: str, domain_key: str, domain_profile: dict) -> tupl
         "en", "et", "ou", "mais", "donc", "car", "ni",
         "va", "est", "a", "sont", "ont", "fait",
         "agent", "assistant", "outil", "tool",
-        "i", "want", "an", "the", "a", "to", "for", "that", "which", "with",
+        "i", "want", "an", "the", "to", "for", "that", "which", "with",
     }
 
     # ── 1) Chercher les keywords du domaine présents dans le texte
@@ -304,7 +300,7 @@ def extract_agent_name(text: str, domain_key: str, domain_profile: dict) -> tupl
         subject_words = [domain_key]
 
     # ── Translittérer les accents (sécurité → securite) avant de construire le tag
-    _ACCENT_MAP = str.maketrans(
+    _ACCENT_MAP = str.maketrans(  # noqa: N806
         "àâäéèêëïîôùûüÿçñ",
         "aaaeeeeiioouuycn",
     )
@@ -713,7 +709,7 @@ def install_proposal(
     proposal_name: str,
     proposals_dir: Path,
     agents_dir: Path,
-    manifest_path: Optional[Path] = None,
+    manifest_path: Path | None = None,
 ) -> None:
     """
     Déplace un .proposed.md vers le répertoire des agents et met à jour le manifest.
@@ -760,7 +756,7 @@ def install_proposal(
         try:
             with manifest_path.open("a", encoding="utf-8") as f:
                 f.write(f"\n{agent_tag},custom,{agent_tag}.md,[TODO description]")
-            print(f"   ✅ agent-manifest.csv mis à jour")
+            print("   ✅ agent-manifest.csv mis à jour")
         except OSError as e:
             print(f"   ⚠️  Impossible de mettre à jour le manifest : {e}")
 
@@ -786,7 +782,7 @@ def list_proposals(proposals_dir: Path) -> None:
         print(f"  📄 {p.name}")
         print(f"     Source : {source} — {desc}")
         print()
-    print(f"  → Installer : bash bmad-init.sh forge --install <nom-agent>")
+    print("  → Installer : bash bmad-init.sh forge --install <nom-agent>")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -919,7 +915,7 @@ Exemples :
     if proposal.existing_overlap:
         print("  3. ⚠️  Résoudre les overlaps détectés avant installation")
     print(f"  {3 if proposal.existing_overlap else '3'}. bash bmad-init.sh forge --install <nom-agent>")
-    print(f"  4. Sentinel [AA] pour l'audit qualité")
+    print("  4. Sentinel [AA] pour l'audit qualité")
 
 
 if __name__ == "__main__":

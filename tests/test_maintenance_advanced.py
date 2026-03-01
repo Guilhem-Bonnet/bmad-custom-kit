@@ -18,12 +18,11 @@ Fonctions testées :
 import csv
 import importlib
 import json
-import os
 import shutil
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -87,8 +86,8 @@ class TestArchive(_MaintenanceTestBase):
         self.assertIn("Aucune", captured.getvalue())
 
     def test_archive_moves_old_entries(self):
-        old_date = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
-        recent_date = datetime.now(timezone.utc).isoformat()
+        old_date = (datetime.now(UTC) - timedelta(days=60)).isoformat()
+        recent_date = datetime.now(UTC).isoformat()
         memories = [
             {"memory": "old memory", "timestamp": old_date},
             {"memory": "recent memory", "timestamp": recent_date},
@@ -112,7 +111,7 @@ class TestArchive(_MaintenanceTestBase):
         self.assertEqual(archived[0]["memory"], "old memory")
 
     def test_archive_nothing_to_do(self):
-        recent_date = datetime.now(timezone.utc).isoformat()
+        recent_date = datetime.now(UTC).isoformat()
         self.maint.save_memories([{"memory": "fresh", "timestamp": recent_date}])
         captured = StringIO()
         with patch("sys.stdout", captured):
@@ -264,7 +263,7 @@ class TestPruneActivity(_MaintenanceTestBase):
 
         # Check remaining
         with open(self.maint.ACTIVITY_LOG) as f:
-            remaining = [json.loads(l) for l in f if l.strip()]
+            remaining = [json.loads(ln) for ln in f if ln.strip()]
         self.assertEqual(len(remaining), 1)
         self.assertEqual(remaining[0]["ts"], recent_ts)
 
@@ -289,7 +288,7 @@ class TestHealthCheck(_MaintenanceTestBase):
 
     def test_healthy_memory(self):
         self.maint.save_memories([
-            {"memory": "A healthy memory entry here.", "timestamp": datetime.now(timezone.utc).isoformat()},
+            {"memory": "A healthy memory entry here.", "timestamp": datetime.now(UTC).isoformat()},
         ])
         captured = StringIO()
         with patch("sys.stdout", captured):
@@ -298,9 +297,9 @@ class TestHealthCheck(_MaintenanceTestBase):
 
     def test_auto_compact_on_dupes(self):
         self.maint.save_memories([
-            {"memory": "Duplicate memory that should be compacted", "timestamp": datetime.now(timezone.utc).isoformat()},
-            {"memory": "Duplicate memory that should be compacted", "timestamp": datetime.now(timezone.utc).isoformat()},
-            {"memory": "Unique memory entry standing alone.", "timestamp": datetime.now(timezone.utc).isoformat()},
+            {"memory": "Duplicate memory that should be compacted", "timestamp": datetime.now(UTC).isoformat()},
+            {"memory": "Duplicate memory that should be compacted", "timestamp": datetime.now(UTC).isoformat()},
+            {"memory": "Unique memory entry standing alone.", "timestamp": datetime.now(UTC).isoformat()},
         ])
         captured = StringIO()
         with patch("sys.stdout", captured):
@@ -320,7 +319,7 @@ class TestHealthCheck(_MaintenanceTestBase):
     def test_force_bypasses_rate_limit(self):
         self.maint.HEALTH_STATE_FILE.write_text(datetime.now().isoformat())
         self.maint.save_memories([
-            {"memory": "Memory for forced check.", "timestamp": datetime.now(timezone.utc).isoformat()},
+            {"memory": "Memory for forced check.", "timestamp": datetime.now(UTC).isoformat()},
         ])
         captured = StringIO()
         with patch("sys.stdout", captured):
@@ -346,7 +345,7 @@ class TestConsolidateLearnings(_MaintenanceTestBase):
             self.maint.consolidate_learnings("dev")
         content = f.read_text()
         # Should have removed one duplicate
-        lines = [l for l in content.splitlines() if l.startswith("- ")]
+        lines = [ln for ln in content.splitlines() if ln.startswith("- ")]
         self.assertEqual(len(lines), 2)
 
     def test_no_duplicates_no_change(self):
@@ -446,7 +445,7 @@ class TestMemoryAudit(_MaintenanceTestBase):
 
     def test_audit_runs_without_crash(self):
         self.maint.save_memories([
-            {"memory": "A valid memory to audit here.", "timestamp": datetime.now(timezone.utc).isoformat()},
+            {"memory": "A valid memory to audit here.", "timestamp": datetime.now(UTC).isoformat()},
         ])
         captured = StringIO()
         with patch("sys.stdout", captured):

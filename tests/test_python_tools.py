@@ -12,14 +12,11 @@ Usage:
     python3 tests/test_python_tools.py           # unittest runner
 """
 
-import json
 import os
 import sys
 import tempfile
 import unittest
-from dataclasses import dataclass, field
 from pathlib import Path
-from unittest.mock import patch
 
 # ── Ajouter le dossier framework/tools et framework/memory au path ──────────
 KIT_DIR = Path(__file__).parent.parent

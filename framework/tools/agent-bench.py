@@ -19,12 +19,9 @@ import argparse
 import json
 import re
 import sys
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
-
 
 # ── Structures ────────────────────────────────────────────────────────────────
 
@@ -52,7 +49,7 @@ class AgentMetrics:
     checkpoints_created: int = 0
     commits_attributed: int = 0
     learnings_count: int = 0
-    last_activity: Optional[str] = None
+    last_activity: str | None = None
     cycle_times_days: list[float] = field(default_factory=list)
 
     @property
@@ -80,8 +77,8 @@ class AgentMetrics:
 @dataclass
 class SessionMetrics:
     """Métriques globales de la session/période"""
-    period_start: Optional[str]
-    period_end: Optional[str]
+    period_start: str | None
+    period_end: str | None
     total_entries: int = 0
     total_commits: int = 0
     total_decisions: int = 0
@@ -94,7 +91,7 @@ class SessionMetrics:
 
 # ── Parser BMAD_TRACE ─────────────────────────────────────────────────────────
 
-def parse_trace(trace_path: Path, since: Optional[str] = None, agent_filter: Optional[str] = None) -> SessionMetrics:
+def parse_trace(trace_path: Path, since: str | None = None, agent_filter: str | None = None) -> SessionMetrics:
     """Parse BMAD_TRACE.md et retourne des métriques structurées."""
     if not trace_path.exists():
         return SessionMetrics(period_start=None, period_end=None)
@@ -106,7 +103,7 @@ def parse_trace(trace_path: Path, since: Optional[str] = None, agent_filter: Opt
         except ValueError:
             print(f"[WARN] Format --since invalide (attendu: YYYY-MM-DD) : {since}", file=sys.stderr)
 
-    session = SessionMetrics(period_start=since, period_end=datetime.now(tz=timezone.utc).date().isoformat())
+    session = SessionMetrics(period_start=since, period_end=datetime.now(tz=UTC).date().isoformat())
     entries: list[TraceEntry] = []
 
     # ── Patterns de parsing ─────────────────────────────────────────────────
@@ -265,7 +262,7 @@ def read_memory_stats(bmad_dir: Path) -> dict:
         for item in learnings_dir.glob("agent-learnings*.md"):
             try:
                 content = item.read_text(encoding="utf-8", errors="replace")
-                lines = [l for l in content.splitlines() if l.startswith("- ") or l.startswith("* ")]
+                lines = [ln for ln in content.splitlines() if ln.startswith("- ") or ln.startswith("* ")]
                 stats[item.stem] = len(lines)
             except OSError:
                 pass
@@ -287,7 +284,7 @@ def read_memory_stats(bmad_dir: Path) -> dict:
 
 def report_text(session: SessionMetrics, memory_stats: dict, out: Path) -> None:
     """Génère le rapport Markdown de performance."""
-    now = datetime.now(tz=timezone.utc).date().isoformat()
+    now = datetime.now(tz=UTC).date().isoformat()
 
     lines: list[str] = [
         f"# BMAD Agent Benchmark Report — {now}",
@@ -387,7 +384,7 @@ def report_text(session: SessionMetrics, memory_stats: dict, out: Path) -> None:
         "",
         "---",
         f"*Généré par `framework/tools/agent-bench.py` le {now}*",
-        f"*Pour amélioration Sentinel : `bash bmad-init.sh bench --improve`*",
+        "*Pour amélioration Sentinel : `bash bmad-init.sh bench --improve`*",
     ]
 
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -397,7 +394,7 @@ def report_text(session: SessionMetrics, memory_stats: dict, out: Path) -> None:
 
 def generate_bench_context(session: SessionMetrics, out: Path) -> None:
     """Génère bench-context.md — seed structuré pour Sentinel #bench-review."""
-    now = datetime.now(tz=timezone.utc).date().isoformat()
+    now = datetime.now(tz=UTC).date().isoformat()
 
     weak_agents = [
         ag for ag in session.agents.values()
@@ -464,7 +461,7 @@ def generate_bench_context(session: SessionMetrics, out: Path) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"✅ Bench context écrit : {out}")
-    print(f"   → Ouvrez ce fichier et passez-le à Sentinel avec la commande : bench-review")
+    print("   → Ouvrez ce fichier et passez-le à Sentinel avec la commande : bench-review")
 
 
 def _auto_recommendations(session: SessionMetrics) -> list[str]:

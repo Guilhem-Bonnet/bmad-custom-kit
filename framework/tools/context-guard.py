@@ -27,8 +27,6 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
-
 
 # ── Modèles LLM — fenêtres de contexte connues (en tokens) ──────────────────
 
@@ -468,7 +466,7 @@ def analyze_file_for_optimize(path: Path, role: str) -> list[OptimizeHint]:
 def do_optimize(
     project_root: Path,
     model: str,
-    agent_id: Optional[str] = None,
+    agent_id: str | None = None,
 ) -> None:
     """Analyse les fichiers framework et agents pour trouver des optimisations de tokens."""
     window = MODEL_WINDOWS.get(model, MODEL_WINDOWS[DEFAULT_MODEL])
@@ -495,7 +493,7 @@ def do_optimize(
 
     # Analyser chaque fichier pour des optimisations
     all_hints: list[OptimizeHint] = []
-    for path, role, tokens in seen_files.values():
+    for path, role, _tokens in seen_files.values():
         all_hints.extend(analyze_file_for_optimize(path, role))
 
     # Aussi analyser copilot-instructions.md (envoyé à CHAQUE requête, pas analysé par resolve_agent_loads)
@@ -542,7 +540,7 @@ def do_optimize(
     if total_savings > 0:
         per_agent = total_savings
         total_fleet = total_savings * agent_count
-        print(f"  ─────────────────────────────────────────────")
+        print("  ─────────────────────────────────────────────")
         print(f"  Gain estimé par agent  : ~{fmt_tokens(per_agent)} tokens")
         print(f"  Gain total (× {agent_count} agents) : ~{fmt_tokens(total_fleet)} tokens")
         print(f"  Équivalent fenêtre     : {per_agent / window * 100:.1f}% du budget {model}")
@@ -564,7 +562,7 @@ class ModelAffinity:
     cost: str = "medium"
 
 
-def parse_model_affinity(agent_path: Path) -> Optional[ModelAffinity]:
+def parse_model_affinity(agent_path: Path) -> ModelAffinity | None:
     """Parse le frontmatter YAML d'un agent et extrait model_affinity."""
     content = read_file_safe(agent_path)
     if not content:
@@ -671,7 +669,7 @@ def score_model_for_agent(
     return max(0, min(100, score))
 
 
-def load_available_models(project_root: Path) -> Optional[list[dict[str, str]]]:
+def load_available_models(project_root: Path) -> list[dict[str, str]] | None:
     """Charge la section models.available depuis project-context.yaml."""
     ctx_path = project_root / "project-context.yaml"
     if not ctx_path.exists():
@@ -709,7 +707,7 @@ def load_available_models(project_root: Path) -> Optional[list[dict[str, str]]]:
 
 def do_recommend_models(
     project_root: Path,
-    agent_id: Optional[str] = None,
+    agent_id: str | None = None,
 ) -> None:
     """Recommande le meilleur modèle LLM pour chaque agent basé sur model_affinity."""
     agents = find_agents(project_root)
@@ -824,7 +822,7 @@ def do_recommend_models(
 
     # Résumé
     print()
-    print(f"  ─────────────────────────────────────────────")
+    print("  ─────────────────────────────────────────────")
     total = len(recs)
     for tier_name, icon in [("economy", "💚"), ("standard", "💛"), ("premium", "❤️ ")]:
         count = tier_savings.get(tier_name, 0)
@@ -835,7 +833,7 @@ def do_recommend_models(
     economy_pct = tier_savings.get("economy", 0) / total * 100 if total else 0
     if economy_pct >= 30:
         print(f"  💡 {economy_pct:.0f}% des agents peuvent tourner sur des modèles economy")
-        print(f"      → réduction significative des rate limits et coûts API")
+        print("      → réduction significative des rate limits et coûts API")
     print()
 
 def generate_recommendations(budgets: list[AgentBudget]) -> list[str]:
@@ -942,7 +940,7 @@ def print_summary_table(budgets: list[AgentBudget]) -> None:
     total_agent_tokens = sum(b.total_tokens for b in budgets)
 
     print()
-    print(f"  ─────────────────────────────────────────────")
+    print("  ─────────────────────────────────────────────")
     print(f"  Agents analysés : {len(budgets)}")
     print(f"    ✅ OK       : {ok}")
     print(f"    ⚠️  WARNING  : {warn}  (> {THRESHOLD_WARN}% du contexte au démarrage)")

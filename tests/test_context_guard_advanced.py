@@ -15,12 +15,10 @@ Fonctions testées :
 """
 
 import importlib
-import os
 import shutil
 import sys
 import tempfile
 import unittest
-from io import StringIO
 from pathlib import Path
 
 KIT_DIR = Path(__file__).parent.parent
@@ -58,18 +56,18 @@ class TestResolveAgentLoads(unittest.TestCase):
 
     def test_loads_agent_file(self):
         loads = self.cg.resolve_agent_loads(self.agent_path, self.tmpdir)
-        agent_loads = [l for l in loads if l.role == "agent-definition"]
+        agent_loads = [item for item in loads if item.role == "agent-definition"]
         self.assertEqual(len(agent_loads), 1)
         self.assertEqual(agent_loads[0].path, self.agent_path)
 
     def test_loads_base_protocol(self):
         loads = self.cg.resolve_agent_loads(self.agent_path, self.tmpdir)
-        base_loads = [l for l in loads if l.role == "base-protocol"]
+        base_loads = [item for item in loads if item.role == "base-protocol"]
         self.assertEqual(len(base_loads), 1)
 
     def test_loads_project_context(self):
         loads = self.cg.resolve_agent_loads(self.agent_path, self.tmpdir)
-        proj_loads = [l for l in loads if l.role == "project"]
+        proj_loads = [item for item in loads if item.role == "project"]
         self.assertEqual(len(proj_loads), 1)
 
     def test_loads_memory_files(self):
@@ -77,14 +75,14 @@ class TestResolveAgentLoads(unittest.TestCase):
         mem = self.tmpdir / "_bmad/_memory/test-agent-learnings.md"
         mem.write_text("- learned something\n- learned another\n")
         loads = self.cg.resolve_agent_loads(self.agent_path, self.tmpdir)
-        mem_loads = [l for l in loads if l.role == "memory"]
+        mem_loads = [item for item in loads if item.role == "memory"]
         self.assertGreaterEqual(len(mem_loads), 1)
 
     def test_loads_failure_museum(self):
         museum = self.tmpdir / "_bmad/_memory/failure-museum.md"
         museum.write_text("# Failure Museum\n## Error 1\n- description\n")
         loads = self.cg.resolve_agent_loads(self.agent_path, self.tmpdir)
-        mem_loads = [l for l in loads if l.role == "memory" and "failure" in str(l.path)]
+        mem_loads = [item for item in loads if item.role == "memory" and "failure" in str(item.path)]
         self.assertEqual(len(mem_loads), 1)
 
     def test_trace_partial_load(self):
@@ -94,7 +92,7 @@ class TestResolveAgentLoads(unittest.TestCase):
         trace = trace_dir / "BMAD_TRACE.md"
         trace.write_text("\n".join(f"Line {i}" for i in range(300)))
         loads = self.cg.resolve_agent_loads(self.agent_path, self.tmpdir)
-        trace_loads = [l for l in loads if l.role == "trace"]
+        trace_loads = [item for item in loads if item.role == "trace"]
         self.assertEqual(len(trace_loads), 1)
         if trace_loads[0].loaded:
             # Should only have ~200 last lines

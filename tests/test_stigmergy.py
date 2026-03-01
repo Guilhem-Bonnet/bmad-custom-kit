@@ -18,12 +18,11 @@ Fonctions testées :
 
 import importlib
 import json
-import os
 import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 KIT_DIR = Path(__file__).parent.parent
@@ -56,7 +55,7 @@ def _make_pheromone(st, ptype="NEED", location="src/auth",
                     reinforced_by=None, resolved=False,
                     resolved_by="", resolved_at=""):
     if timestamp is None:
-        timestamp = datetime.now(tz=timezone.utc).isoformat()
+        timestamp = datetime.now(tz=UTC).isoformat()
     return st.Pheromone(
         pheromone_id=st._generate_id(ptype, location, text, timestamp),
         pheromone_type=ptype,
@@ -238,34 +237,34 @@ class TestEvaporation(unittest.TestCase):
         self.st = _import_st()
 
     def test_no_decay_at_emission(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         p = _make_pheromone(self.st, timestamp=now.isoformat(), intensity=1.0)
         current = self.st.compute_current_intensity(p, 72.0, now)
         self.assertAlmostEqual(current, 1.0, places=2)
 
     def test_half_decay_at_half_life(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         past = now - timedelta(hours=72)
         p = _make_pheromone(self.st, timestamp=past.isoformat(), intensity=1.0)
         current = self.st.compute_current_intensity(p, 72.0, now)
         self.assertAlmostEqual(current, 0.5, places=2)
 
     def test_quarter_at_two_half_lives(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         past = now - timedelta(hours=144)
         p = _make_pheromone(self.st, timestamp=past.isoformat(), intensity=1.0)
         current = self.st.compute_current_intensity(p, 72.0, now)
         self.assertAlmostEqual(current, 0.25, places=2)
 
     def test_custom_half_life(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         past = now - timedelta(hours=24)
         p = _make_pheromone(self.st, timestamp=past.isoformat(), intensity=1.0)
         current = self.st.compute_current_intensity(p, 24.0, now)
         self.assertAlmostEqual(current, 0.5, places=2)
 
     def test_initial_intensity_scales(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         past = now - timedelta(hours=72)
         p = _make_pheromone(self.st, timestamp=past.isoformat(), intensity=0.8)
         current = self.st.compute_current_intensity(p, 72.0, now)
@@ -277,7 +276,7 @@ class TestEvaporation(unittest.TestCase):
         self.assertEqual(current, p.intensity)
 
     def test_future_timestamp(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         future = now + timedelta(hours=24)
         p = _make_pheromone(self.st, timestamp=future.isoformat(),
                            intensity=0.8)
@@ -285,7 +284,7 @@ class TestEvaporation(unittest.TestCase):
         self.assertEqual(current, 0.8)
 
     def test_evaporate_removes_dead(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         old = now - timedelta(hours=720)  # 30 jours → quasi-0
         p1 = _make_pheromone(self.st, timestamp=old.isoformat(),
                             intensity=0.5, text="old")
@@ -298,7 +297,7 @@ class TestEvaporation(unittest.TestCase):
         self.assertEqual(board.pheromones[0].text, "new")
 
     def test_evaporate_counts_total(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         old = now - timedelta(hours=720)
         p = _make_pheromone(self.st, timestamp=old.isoformat(), intensity=0.3)
         board = _make_board(self.st, pheromones=[p])
@@ -306,7 +305,7 @@ class TestEvaporation(unittest.TestCase):
         self.assertEqual(board.total_evaporated, 1)
 
     def test_evaporate_keeps_all_fresh(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         ps = [_make_pheromone(self.st, timestamp=now.isoformat(),
                               text=f"p{i}") for i in range(5)]
         board = _make_board(self.st, pheromones=ps)
@@ -315,7 +314,7 @@ class TestEvaporation(unittest.TestCase):
         self.assertEqual(len(board.pheromones), 5)
 
     def test_evaporate_removes_resolved(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         p = _make_pheromone(self.st, timestamp=now.isoformat(),
                            intensity=0.8, resolved=True)
         board = _make_board(self.st, pheromones=[p])
@@ -477,7 +476,7 @@ class TestResolve(unittest.TestCase):
 class TestSense(unittest.TestCase):
     def setUp(self):
         self.st = _import_st()
-        self.now = datetime.now(tz=timezone.utc)
+        self.now = datetime.now(tz=UTC)
 
     def _board_with_pheromones(self):
         board = self.st.PheromoneBoard()
@@ -538,7 +537,7 @@ class TestSense(unittest.TestCase):
 
     def test_sense_excludes_below_threshold(self):
         board = self.st.PheromoneBoard()
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         old = now - timedelta(hours=720)
         p = _make_pheromone(self.st, timestamp=old.isoformat(),
                            intensity=0.3)
@@ -565,7 +564,7 @@ class TestSense(unittest.TestCase):
 class TestTrailAnalysis(unittest.TestCase):
     def setUp(self):
         self.st = _import_st()
-        self.now = datetime.now(tz=timezone.utc)
+        self.now = datetime.now(tz=UTC)
 
     def test_hot_zone(self):
         board = self.st.PheromoneBoard()
@@ -656,8 +655,8 @@ class TestRender(unittest.TestCase):
 
     def test_render_sense_with_items(self):
         board = self.st.PheromoneBoard()
-        p = self.st.emit_pheromone(board, "NEED", "src/auth",
-                                   "review", "dev", tags=["security"])
+        self.st.emit_pheromone(board, "NEED", "src/auth",
+                                "review", "dev", tags=["security"])
         items = self.st.sense_pheromones(board)
         out = self.st.render_sense(items)
         self.assertIn("NEED", out)

@@ -24,12 +24,9 @@ Stdlib only — aucune dépendance externe.
 import argparse
 import json
 import re
-import sys
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-from dataclasses import dataclass, field
-
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -86,12 +83,12 @@ class AntifragileResult:
     dimensions: list[DimensionScore]
     total_evidence: int
     summary: str
-    since: Optional[str] = None
+    since: str | None = None
 
 
 # ── Collecte des données ─────────────────────────────────────────────────────
 
-def _count_entries(path: Path, since: Optional[str] = None) -> list[tuple[str, str]]:
+def _count_entries(path: Path, since: str | None = None) -> list[tuple[str, str]]:
     """Parse un markdown et retourne (date, text) pour les entrées listées."""
     if not path.exists():
         return []
@@ -115,7 +112,7 @@ def _count_entries(path: Path, since: Optional[str] = None) -> list[tuple[str, s
     return entries
 
 
-def _count_failure_sections(path: Path, since: Optional[str] = None) -> dict:
+def _count_failure_sections(path: Path, since: str | None = None) -> dict:
     """Compte les sections dans le Failure Museum par catégorie et sévérité."""
     if not path.exists():
         return {"total": 0, "critical": 0, "important": 0, "micro": 0,
@@ -211,7 +208,7 @@ def _count_contradictions(path: Path) -> dict:
     return result
 
 
-def _count_sil_signals(memory_dir: Path, since: Optional[str] = None) -> dict:
+def _count_sil_signals(memory_dir: Path, since: str | None = None) -> dict:
     """Compte les signaux SIL dans les sources mémoire."""
     signals = {cat: 0 for cat in SIL_MARKERS}
 
@@ -240,7 +237,7 @@ def _count_sil_signals(memory_dir: Path, since: Optional[str] = None) -> dict:
     return signals
 
 
-def _count_learnings(memory_dir: Path, since: Optional[str] = None) -> dict:
+def _count_learnings(memory_dir: Path, since: str | None = None) -> dict:
     """Compte les entrées de learnings par agent."""
     learnings_dir = memory_dir / "agent-learnings"
     result = {"total": 0, "agents": {}, "per_agent": []}
@@ -260,7 +257,7 @@ def _count_learnings(memory_dir: Path, since: Optional[str] = None) -> dict:
     return result
 
 
-def _count_decisions(memory_dir: Path, since: Optional[str] = None) -> dict:
+def _count_decisions(memory_dir: Path, since: str | None = None) -> dict:
     """Compte les décisions et les reversals."""
     decisions_path = memory_dir / "decisions-log.md"
     result = {"total": 0, "reversals": 0}
@@ -514,7 +511,7 @@ def score_pattern_recurrence(failures: dict, sil_signals: dict) -> DimensionScor
 # ── Orchestration ─────────────────────────────────────────────────────────────
 
 def compute_antifragile_score(project_root: Path,
-                              since: Optional[str] = None) -> AntifragileResult:
+                              since: str | None = None) -> AntifragileResult:
     """Calcule le score d'anti-fragilité global."""
     memory_dir = project_root / "_bmad" / "_memory"
     timestamp = datetime.now().isoformat()

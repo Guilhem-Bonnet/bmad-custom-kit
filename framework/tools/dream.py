@@ -21,15 +21,12 @@ Stdlib only — aucune dépendance externe.
 """
 
 import argparse
-import hashlib
 import json
 import re
 import sys
-from datetime import datetime, date
-from pathlib import Path
-from typing import Optional
 from dataclasses import dataclass, field
-
+from datetime import datetime
+from pathlib import Path
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -64,8 +61,8 @@ class DreamInsight:
 
 # ── Collecte des sources ──────────────────────────────────────────────────────
 
-def collect_sources(project_root: Path, since: Optional[str] = None,
-                    agent_filter: Optional[str] = None) -> list[DreamSource]:
+def collect_sources(project_root: Path, since: str | None = None,
+                    agent_filter: str | None = None) -> list[DreamSource]:
     """Collecte toutes les sources de mémoire du projet."""
     sources: list[DreamSource] = []
     memory_dir = project_root / "_bmad" / "_memory"
@@ -148,7 +145,7 @@ def collect_sources(project_root: Path, since: Optional[str] = None,
     return sources
 
 
-def _parse_markdown_entries(path: Path, since: Optional[str] = None) -> list[tuple[str, str]]:
+def _parse_markdown_entries(path: Path, since: str | None = None) -> list[tuple[str, str]]:
     """Parse un fichier markdown et retourne [(date, text), ...]."""
     try:
         content = path.read_text(encoding="utf-8")
@@ -173,8 +170,8 @@ def _parse_markdown_entries(path: Path, since: Optional[str] = None) -> list[tup
     return entries
 
 
-def _parse_trace_entries(path: Path, since: Optional[str] = None,
-                         agent_filter: Optional[str] = None) -> list[tuple[str, str]]:
+def _parse_trace_entries(path: Path, since: str | None = None,
+                         agent_filter: str | None = None) -> list[tuple[str, str]]:
     """Parse BMAD_TRACE.md pour les entrées pertinentes."""
     try:
         content = path.read_text(encoding="utf-8")
@@ -227,7 +224,7 @@ def _extract_keywords(text: str) -> set[str]:
         "le", "la", "les", "de", "du", "des", "un", "une", "et", "ou", "en",
         "à", "au", "aux", "pour", "par", "sur", "dans", "avec", "que", "qui",
         "est", "sont", "a", "ont", "sera", "seront", "pas", "ne", "ni", "mais",
-        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+        "the", "an", "is", "are", "was", "were", "be", "been", "being",
         "have", "has", "had", "do", "does", "did", "will", "would", "shall",
         "should", "may", "might", "can", "could", "of", "to", "in", "for",
         "on", "with", "at", "by", "from", "as", "into", "about", "between",
@@ -432,8 +429,8 @@ def deduplicate_insights(insights: list[DreamInsight]) -> list[DreamInsight]:
 
 # ── Orchestration principale ──────────────────────────────────────────────────
 
-def dream(project_root: Path, since: Optional[str] = None,
-          agent_filter: Optional[str] = None,
+def dream(project_root: Path, since: str | None = None,
+          agent_filter: str | None = None,
           do_validate: bool = True) -> list[DreamInsight]:
     """Exécute un cycle de dream complet."""
 
@@ -474,7 +471,7 @@ CATEGORY_ICONS = {
 
 
 def render_journal(insights: list[DreamInsight], sources: list[DreamSource],
-                   project_root: Path, since: Optional[str] = None) -> str:
+                   project_root: Path, since: str | None = None) -> str:
     """Génère le dream-journal.md en Markdown."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     total_entries = sum(len(s.entries) for s in sources)

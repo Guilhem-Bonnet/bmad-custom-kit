@@ -23,13 +23,10 @@ Stdlib only — aucune dépendance externe.
 import argparse
 import hashlib
 import json
-import re
 import sys
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-from dataclasses import dataclass, field
-
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -165,7 +162,6 @@ def _extract_tech_signals(proposal: str) -> dict:
 
 def _score_criterion(proposal: str, criterion: str, signals: dict) -> float:
     """Score heuristique d'un critère (0.0-1.0, 1.0 = bon)."""
-    text = proposal.lower()
     criterion_lower = criterion.lower()
 
     # Complexité : plus c'est long + deps = plus complexe
@@ -242,7 +238,7 @@ def _score_criterion(proposal: str, criterion: str, signals: dict) -> float:
 
 
 def evaluate_proposal(proposal: str, perspective: VoterPerspective,
-                      context: Optional[dict] = None) -> Vote:
+                      context: dict | None = None) -> Vote:
     """Évalue une proposition depuis une perspective donnée."""
     signals = _extract_tech_signals(proposal)
 
@@ -390,7 +386,7 @@ def devil_advocate_analysis(proposal: str, votes: list[Vote]) -> list[DevilChall
 
 def run_consensus(proposal: str, project_root: Path,
                   threshold: float = CONSENSUS_THRESHOLD,
-                  context: Optional[dict] = None) -> ConsensusResult:
+                  context: dict | None = None) -> ConsensusResult:
     """Exécute le protocole de consensus complet."""
     timestamp = datetime.now().isoformat()
 
@@ -663,7 +659,7 @@ def main():
         sys.exit(1)
 
     # Exécuter le consensus
-    print(f"🏛️  Adversarial Consensus Protocol")
+    print("🏛️  Adversarial Consensus Protocol")
     print(f"📝 Proposition : {proposal[:100]}{'...' if len(proposal) > 100 else ''}")
     print(f"🎯 Seuil : {args.threshold:.0%}")
     print()

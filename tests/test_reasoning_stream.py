@@ -16,7 +16,6 @@ Fonctions testées :
 
 import importlib.util
 import json
-import os
 import shutil
 import sys
 import tempfile
@@ -139,7 +138,7 @@ class TestLogEntry(unittest.TestCase):
         self.mod.log_entry(e2, self.tmpdir)
 
         path = self.tmpdir / "_bmad-output" / "reasoning-stream.jsonl"
-        lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
         self.assertEqual(len(lines), 2)
 
     def test_creates_output_dir(self):

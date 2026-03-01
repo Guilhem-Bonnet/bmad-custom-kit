@@ -45,15 +45,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from math import pow as mpow
 from pathlib import Path
-from typing import Optional
-
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -116,7 +113,7 @@ class Pheromone:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Pheromone":
+    def from_dict(cls, d: dict) -> Pheromone:
         return cls(
             pheromone_id=d.get("pheromone_id", ""),
             pheromone_type=d.get("pheromone_type", "NEED"),
@@ -153,7 +150,7 @@ class PheromoneBoard:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "PheromoneBoard":
+    def from_dict(cls, d: dict) -> PheromoneBoard:
         return cls(
             version=d.get("version", STIGMERGY_VERSION),
             half_life_hours=d.get("half_life_hours", DEFAULT_HALF_LIFE_HOURS),
@@ -225,15 +222,15 @@ def _generate_id(ptype: str, location: str, text: str,
 
 def compute_current_intensity(pheromone: Pheromone,
                                half_life_hours: float,
-                               now: Optional[datetime] = None) -> float:
+                               now: datetime | None = None) -> float:
     """Calcule l'intensité actuelle après évaporation."""
     if now is None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
     try:
         emit_time = datetime.fromisoformat(pheromone.timestamp)
         if emit_time.tzinfo is None:
-            emit_time = emit_time.replace(tzinfo=timezone.utc)
+            emit_time = emit_time.replace(tzinfo=UTC)
     except (ValueError, TypeError):
         return pheromone.intensity
 
@@ -247,10 +244,10 @@ def compute_current_intensity(pheromone: Pheromone,
 
 
 def evaporate(board: PheromoneBoard,
-              now: Optional[datetime] = None) -> tuple[PheromoneBoard, int]:
+              now: datetime | None = None) -> tuple[PheromoneBoard, int]:
     """Supprime les phéromones sous le seuil de détection."""
     if now is None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
     surviving = []
     evaporated = 0
@@ -271,10 +268,10 @@ def evaporate(board: PheromoneBoard,
 
 def emit_pheromone(board: PheromoneBoard, ptype: str, location: str,
                    text: str, emitter: str,
-                   tags: Optional[list[str]] = None,
+                   tags: list[str] | None = None,
                    intensity: float = DEFAULT_INTENSITY) -> Pheromone:
     """Dépose une phéromone sur le board."""
-    now = datetime.now(tz=timezone.utc).isoformat()
+    now = datetime.now(tz=UTC).isoformat()
     pid = _generate_id(ptype, location, text, now)
 
     pheromone = Pheromone(
@@ -294,7 +291,7 @@ def emit_pheromone(board: PheromoneBoard, ptype: str, location: str,
 
 
 def amplify_pheromone(board: PheromoneBoard, pheromone_id: str,
-                      agent: str) -> Optional[Pheromone]:
+                      agent: str) -> Pheromone | None:
     """Renforce une phéromone existante."""
     for p in board.pheromones:
         if p.pheromone_id == pheromone_id:
@@ -307,28 +304,28 @@ def amplify_pheromone(board: PheromoneBoard, pheromone_id: str,
 
 
 def resolve_pheromone(board: PheromoneBoard, pheromone_id: str,
-                      agent: str) -> Optional[Pheromone]:
+                      agent: str) -> Pheromone | None:
     """Marque une phéromone comme résolue."""
     for p in board.pheromones:
         if p.pheromone_id == pheromone_id:
             p.resolved = True
             p.resolved_by = agent
-            p.resolved_at = datetime.now(tz=timezone.utc).isoformat()
+            p.resolved_at = datetime.now(tz=UTC).isoformat()
             return p
     return None
 
 
 def sense_pheromones(board: PheromoneBoard,
-                     ptype: Optional[str] = None,
-                     location: Optional[str] = None,
-                     tag: Optional[str] = None,
-                     emitter: Optional[str] = None,
+                     ptype: str | None = None,
+                     location: str | None = None,
+                     tag: str | None = None,
+                     emitter: str | None = None,
                      include_resolved: bool = False,
-                     now: Optional[datetime] = None,
+                     now: datetime | None = None,
                      ) -> list[tuple[Pheromone, float]]:
     """Détecte les phéromones actives avec intensité décroissante."""
     if now is None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
     results = []
     for p in board.pheromones:
@@ -358,10 +355,10 @@ def sense_pheromones(board: PheromoneBoard,
 # ── Trail Analysis ────────────────────────────────────────────────────────────
 
 def analyze_trails(board: PheromoneBoard,
-                   now: Optional[datetime] = None) -> list[TrailPattern]:
+                   now: datetime | None = None) -> list[TrailPattern]:
     """Détecte les patterns de coordination émergents."""
     if now is None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
     patterns: list[TrailPattern] = []
 
@@ -500,10 +497,10 @@ def render_sense(items: list[tuple[Pheromone, float]]) -> str:
 
 
 def render_landscape(board: PheromoneBoard,
-                     now: Optional[datetime] = None) -> str:
+                     now: datetime | None = None) -> str:
     """Affiche la carte complète du paysage phéromonique."""
     if now is None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
     active = sense_pheromones(board, now=now)
     resolved = [p for p in board.pheromones if p.resolved]

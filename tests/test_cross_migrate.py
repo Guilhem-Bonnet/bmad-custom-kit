@@ -20,7 +20,6 @@ Fonctions testées :
 
 import importlib
 import json
-import os
 import shutil
 import sys
 import tempfile
@@ -95,9 +94,9 @@ class BaseTest(unittest.TestCase):
 class TestExportedLearning(BaseTest):
     def test_to_dict(self):
         cm = _import_cm()
-        l = cm.ExportedLearning(agent="dev", text="test learning",
-                                date="2026-01-01")
-        d = l.to_dict()
+        learning = cm.ExportedLearning(agent="dev", text="test learning",
+                                       date="2026-01-01")
+        d = learning.to_dict()
         self.assertEqual(d["agent"], "dev")
         self.assertEqual(d["text"], "test learning")
         self.assertEqual(d["date"], "2026-01-01")
@@ -105,15 +104,15 @@ class TestExportedLearning(BaseTest):
     def test_from_dict(self):
         cm = _import_cm()
         d = {"agent": "qa", "text": "qa learning", "date": "2026-02-01"}
-        l = cm.ExportedLearning.from_dict(d)
-        self.assertEqual(l.agent, "qa")
-        self.assertEqual(l.text, "qa learning")
+        learning = cm.ExportedLearning.from_dict(d)
+        self.assertEqual(learning.agent, "qa")
+        self.assertEqual(learning.text, "qa learning")
 
     def test_from_dict_missing_fields(self):
         cm = _import_cm()
-        l = cm.ExportedLearning.from_dict({})
-        self.assertEqual(l.agent, "")
-        self.assertEqual(l.text, "")
+        learning = cm.ExportedLearning.from_dict({})
+        self.assertEqual(learning.agent, "")
+        self.assertEqual(learning.text, "")
 
 
 class TestExportedRule(BaseTest):
@@ -195,7 +194,7 @@ class TestExportLearnings(BaseTest):
         })
         result = cm.export_learnings(self.root)
         self.assertEqual(len(result), 3)
-        agents = {l.agent for l in result}
+        agents = {entry.agent for entry in result}
         self.assertIn("dev", agents)
         self.assertIn("qa", agents)
 

@@ -27,13 +27,10 @@ Stdlib only — aucune dépendance externe.
 
 import argparse
 import json
-import re
 import sys
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
-from dataclasses import dataclass, field
-
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -128,11 +125,11 @@ def log_entry(entry: ReasoningEntry, project_root: Path) -> Path:
     return path
 
 
-def read_stream(project_root: Path, agent: Optional[str] = None,
-                entry_type: Optional[str] = None,
-                status: Optional[str] = None,
-                since: Optional[str] = None,
-                limit: Optional[int] = None) -> list[ReasoningEntry]:
+def read_stream(project_root: Path, agent: str | None = None,
+                entry_type: str | None = None,
+                status: str | None = None,
+                since: str | None = None,
+                limit: int | None = None) -> list[ReasoningEntry]:
     """Lit et filtre le flux de raisonnement."""
     path = _get_stream_path(project_root)
     if not path.exists():
@@ -201,7 +198,7 @@ def update_entry_status(project_root: Path, timestamp: str,
 # ── Analyse ───────────────────────────────────────────────────────────────────
 
 def analyze_stream(project_root: Path,
-                   since: Optional[str] = None) -> StreamAnalysis:
+                   since: str | None = None) -> StreamAnalysis:
     """Analyse le flux de raisonnement complet."""
     entries = read_stream(project_root, since=since)
 
@@ -290,7 +287,7 @@ def analyze_stream(project_root: Path,
 # ── Compaction ────────────────────────────────────────────────────────────────
 
 def compact_stream(project_root: Path,
-                   before: Optional[str] = None,
+                   before: str | None = None,
                    dry_run: bool = False) -> dict:
     """Compacte les anciennes entrées en résumé Markdown."""
     if before is None:

@@ -1,0 +1,9 @@
+# BMAD Custom Kit — Ruff configuration
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "N"]
+ignore = [
+    "E501",   # Line too long — handled by formatter, not linter
+]

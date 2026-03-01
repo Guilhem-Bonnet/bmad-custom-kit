@@ -10,7 +10,6 @@ Fonctions testées :
 """
 
 import importlib
-import os
 import shutil
 import sys
 import tempfile
