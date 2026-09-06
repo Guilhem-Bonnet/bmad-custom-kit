@@ -260,6 +260,17 @@ export async function mount(root, ctx) {
   const zoomLevels = ctx.host.kind === 'cockpit' ? ZOOM_LEVELS_COCKPIT : ZOOM_LEVELS_ATELIER;
   const graphAvailable = ctx.host.kind !== 'cockpit';
 
+  // Rail « 2 » (bibliothèque) : la coque ne sait pas ce qu'est une palette de
+  // nœuds (README, « ctx.rail … enregistre ce que fait le rail ‘2’ tant que
+  // cet espace est monté »). Le tiroir n'existe qu'au niveau Workflow, avec
+  // un blueprint chargé — mêmes conditions que le bouton « Bibliothèque » de
+  // la barre d'outils du graphe ; en dehors, « 2 » n'a rien à faire.
+  ctx.rail?.on('library', () => {
+    if (!graphAvailable || state.zoom !== 'workflow' || !state.selectedId) return;
+    state.paletteOpen = !state.paletteOpen;
+    render();
+  });
+
   function aborted() {
     return ctx.signal.aborted;
   }

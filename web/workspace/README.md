@@ -84,7 +84,9 @@ directement dans le DOM de la coque :
 | `ctx.dock` | `log(onglet, …lignes)`, `clear`, `setTab`, `echo(commande)` |
 | `ctx.empty` | `(titre, phrase, commande)` → le bloc d'état vide unique |
 | `ctx.signal` | Un `AbortSignal` annulé quand l'espace est démonté |
-| `ctx.goto` | Naviguer vers un autre espace |
+| `ctx.goto` | `goto(id, params?)` — naviguer vers un autre espace ; `params` n'est vu qu'au montage qui suit (ex. `goto('source', { file })` depuis ⌘K), jamais persisté dans le hash |
+| `ctx.params` | Ce que l'appelant de `goto()` a demandé pour CE montage — `{}` la plupart du temps |
+| `ctx.rail` | `{ on(id, handler) }` — enregistre ce que fait un rail sans panneau dédié (ex. « 2 », bibliothèque de Concevoir) tant que cet espace reste monté ; remis à zéro par la coque à chaque changement d'espace |
 
 Deux règles opposables :
 

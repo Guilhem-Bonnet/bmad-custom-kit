@@ -80,6 +80,15 @@ export async function mount(root, ctx) {
   state.tree = tree;
   renderExplorer(ctx, root);
   renderCanvas(root, ctx);
+
+  // ⌘K « fichier de Source » : la coque passe le chemin choisi dans
+  // `ctx.params.file` plutôt que dans le hash (README, « aucun module
+  // d'espace n'écrit dans le DOM de l'autre » — et le hash n'est pas fait
+  // pour porter un chemin arbitraire). Sans ce relais, la palette listait
+  // les fichiers mais n'en ouvrait jamais un.
+  if (ctx.params && ctx.params.file) {
+    await openFile(ctx, root, ctx.params.file);
+  }
 }
 
 // ── Explorateur : trois étages, dossiers, badges ────────────────────────────
