@@ -2710,6 +2710,10 @@
    "version": "3.32.0",
    "path": "framework/tools/guardrail-policy-rules.yaml"
   },
+  "cbd2fde15db635e492c64b1ae34b69ac4c090bb291f124b4c1f91b2f9ddb326b": {
+   "version": "3.38.0",
+   "path": "framework/glossary.yaml"
+  },
   "cc1c7a3012f7771f0f030946fce24368ada4d81eed037a5af4a8ab84396e24c3": {
    "version": "3.4.2",
    "path": "framework/memory/backends/backend_qdrant_local.py"

@@ -157,13 +157,12 @@ def test_aucun_texte_rendu_sous_le_plancher(workspace: Page, theme: str, floor: 
     """
     _apply(workspace, theme=theme)
     offenders = [
-        node for node in _rendered(workspace)
+        node
+        for node in _rendered(workspace)
         if node["size"] < floor and not any(x in node["cls"] for x in _FLOOR_EXEMPT)
     ]
 
-    assert not offenders, "\n  ".join(
-        f"{n['tag']}.{n['cls']} « {n['text']} » → {n['size']}px" for n in offenders[:20]
-    )
+    assert not offenders, "\n  ".join(f"{n['tag']}.{n['cls']} « {n['text']} » → {n['size']}px" for n in offenders[:20])
 
 
 @pytest.mark.parametrize("theme", ["dark", "light"])
@@ -247,9 +246,7 @@ def test_la_palette_s_ouvre_au_clavier_et_montre_les_commandes(workspace: Page) 
     assert workspace.evaluate("() => window.GrimoireWorkspace.paletteOpen") is False
 
 
-def test_le_theme_et_la_densite_se_choisissent_et_survivent_au_rechargement(
-    workspace: Page, served: str
-) -> None:
+def test_le_theme_et_la_densite_se_choisissent_et_survivent_au_rechargement(workspace: Page, served: str) -> None:
     """L'état est mémorisé par projet, côté client (spec §3.1)."""
     workspace.locator("#st-theme").click()
     assert workspace.evaluate("() => window.GrimoireWorkspace.theme") == "light"
@@ -296,13 +293,175 @@ def test_une_bulle_s_ouvre_se_fige_et_la_pile_se_ferme(workspace: Page) -> None:
     assert workspace.locator(".tip").count() == 0
 
 
+#: `#project-chip` porte `data-term="projet"` en dur dans index.html (lot 1) —
+#: un vrai bouton, toujours visible, sans mécanique de survol concurrente.
+#: `#zoom-seg` est le seul `data-term` du squelette qui n'est *pas* un élément
+#: nativement focusable : il vérifie que `glossary.attach()` lui donne un
+#: `tabindex`, pas seulement les boutons qui n'en avaient pas besoin.
+_HOVER_ANCHOR = "#project-chip"
+_NON_FOCUSABLE_ANCHOR = "#zoom-seg"
+
+
+def test_le_survol_ouvre_une_bulle_apres_le_delai(workspace: Page) -> None:
+    """Un vrai survol, pas l'appel direct à `glossary.open()` des tests ci-dessus.
+
+    Sans le délai, une bulle s'ouvrirait à chaque passage de souris — c'est le
+    défaut que 500 ms existe pour éviter.
+    """
+    workspace.hover(_HOVER_ANCHOR)
+    assert workspace.locator(".tip").count() == 0, "la bulle ne doit pas s'ouvrir avant le délai"
+
+    workspace.wait_for_selector(".tip", timeout=2_000)
+    assert workspace.locator(".tip").count() == 1
+    assert workspace.locator(".tip .t").inner_text() == "Projet"
+    assert workspace.locator(".tip .lbl").first.inner_text() == "Alt · épingler"
+
+
+def test_alt_fige_la_bulle_et_le_pointeur_peut_y_entrer(workspace: Page) -> None:
+    """Alt : le cadenas apparaît, et survoler la bulle elle-même ne la ferme pas."""
+    workspace.hover(_HOVER_ANCHOR)
+    workspace.wait_for_selector(".tip", timeout=2_000)
+
+    workspace.locator("body").press("Alt")
+    assert workspace.locator(".tip .lbl").first.inner_text() == "épinglée"
+    assert workspace.locator(".tip svg.ico").count() == 1, "le cadenas de la maquette « Encre »"
+    assert workspace.locator(".tip button[aria-label^='Fermer']").count() == 1
+
+    # Le pointeur quitte l'ancre pour entrer dans la bulle : elle doit survivre.
+    box = workspace.locator(".tip").bounding_box()
+    workspace.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    workspace.wait_for_timeout(50)
+    assert workspace.locator(".tip").count() == 1, "une bulle épinglée survit à l'entrée du pointeur"
+
+
+def test_la_croix_ferme_la_bulle_epinglee(workspace: Page) -> None:
+    """Le remède documenté par le README : la croix, ou Échap."""
+    workspace.evaluate(
+        "() => window.GrimoireWorkspace.glossary.open('porte-de-preuve', document.getElementById('brand'), 0, true)"
+    )
+    assert workspace.locator(".tip").count() == 1
+
+    workspace.locator(".tip button[aria-label^='Fermer']").click()
+    assert workspace.locator(".tip").count() == 0
+
+
+def test_clic_ailleurs_ferme_les_bulles_non_epinglees_laisse_les_epinglees(workspace: Page) -> None:
+    workspace.hover(_HOVER_ANCHOR)
+    workspace.wait_for_selector(".tip", timeout=2_000)
+    assert workspace.locator(".tip .lbl").first.inner_text() == "Alt · épingler"
+
+    # Loin du coin haut-gauche où s'ancrent `#project-chip` et `#brand` : le
+    # clic ne doit pas atterrir sur la bulle elle-même, sans quoi ce ne
+    # serait plus « ailleurs ».
+    workspace.mouse.click(700, 850)
+    assert workspace.locator(".tip").count() == 0, "un clic ailleurs ferme une bulle non épinglée"
+
+    workspace.evaluate(
+        "() => window.GrimoireWorkspace.glossary.open('porte-de-preuve', document.getElementById('brand'), 0, true)"
+    )
+    workspace.mouse.click(700, 850)
+    assert workspace.locator(".tip").count() == 1, "une bulle épinglée ne se ferme pas par un clic ailleurs"
+
+
+def test_un_quatrieme_niveau_est_refuse(workspace: Page) -> None:
+    """`porte-de-preuve` → `evidence-pack` → `tache` : trois bulles, pas de quatrième bouton."""
+    api = "window.GrimoireWorkspace.glossary"
+    workspace.evaluate(f"() => {api}.open('porte-de-preuve', document.getElementById('brand'), 0, true)")
+    workspace.locator('.tip[data-term="porte-de-preuve"] .term[data-term="evidence-pack"]').click()
+    workspace.locator('.tip[data-term="evidence-pack"] .term[data-term="tache"]').click()
+
+    assert workspace.locator(".tip").count() == 3, "trois niveaux : porte, evidence pack, tâche"
+    assert workspace.locator('.tip[data-term="tache"] .term').count() == 0, "le troisième niveau n'ouvre plus rien"
+
+    # Et refusé même en contournant l'interface : `open()` lui-même le refuse.
+    fourth = workspace.evaluate(f"() => {api}.open('porte-de-preuve', document.getElementById('brand'), 3, true)")
+    assert fourth is None
+    assert workspace.locator(".tip").count() == 3, "aucune quatrième bulle n'a été créée"
+
+
+@pytest.mark.parametrize("stack_depth", [1, 2, 3])
+def test_echap_ferme_toute_la_pile_quelle_que_soit_sa_hauteur(workspace: Page, stack_depth: int) -> None:
+    api = "window.GrimoireWorkspace.glossary"
+    workspace.evaluate(f"() => {api}.open('porte-de-preuve', document.getElementById('brand'), 0, true)")
+    if stack_depth >= 2:
+        workspace.locator('.tip[data-term="porte-de-preuve"] .term[data-term="evidence-pack"]').click()
+    if stack_depth >= 3:
+        workspace.locator('.tip[data-term="evidence-pack"] .term[data-term="tache"]').click()
+    assert workspace.locator(".tip").count() == stack_depth
+
+    workspace.locator("body").press("Escape")
+    assert workspace.locator(".tip").count() == 0
+
+
+def test_densite_concentration_reduit_la_bulle_et_attend_800ms(workspace: Page) -> None:
+    """Spec §3.4 : nom et raccourci seulement, 800 ms. Alt rouvre la définition.
+
+    `[data-panel="inspector"]` cite `inspecteur`, qui a un raccourci (« 4 ») —
+    contrairement à `#project-chip`, la bulle réduite a donc quelque chose à
+    montrer *et* quelque chose à taire.
+    """
+    _apply(workspace, density="concentration")
+
+    workspace.hover('[data-panel="inspector"]')
+    workspace.wait_for_timeout(600)
+    assert workspace.locator(".tip").count() == 0, "800 ms en Concentration, pas 500"
+
+    workspace.wait_for_selector(".tip", timeout=2_000)
+    reduced = workspace.locator(".tip").inner_text()
+    assert "Inspecteur" in reduced
+    assert workspace.locator(".tip .kbd").inner_text() == "4"
+    assert "propriétés" not in reduced, "réduite : pas de définition tant qu'elle n'est pas épinglée"
+
+    workspace.locator("body").press("Alt")
+    expanded = workspace.locator(".tip").inner_text()
+    assert "propriétés" in expanded, "Alt rouvre la définition"
+
+
+def test_navigation_clavier_le_focus_ouvre_sans_delai_et_alt_epingle(workspace: Page) -> None:
+    """Critère d'accessibilité : Tab atteint tout `[data-term]`, y compris un
+    élément qui n'est pas nativement focusable, et `aria-describedby` le lie
+    à sa bulle.
+
+    Les touches passent par ``page.keyboard`` et non par
+    ``locator("body").press()`` : ce dernier focus d'abord `<body>`, ce qui
+    aurait déclenché un `focusout` sur l'ancre et fermé la bulle avant même
+    qu'Alt ne soit lu — exactement le défaut qu'un test au clavier doit
+    surprendre, pas contourner.
+    """
+    assert workspace.evaluate(f"() => document.querySelector('{_NON_FOCUSABLE_ANCHOR}').tabIndex") == 0, (
+        "ensureFocusable doit rendre le segment de zoom atteignable au clavier"
+    )
+
+    workspace.locator(_NON_FOCUSABLE_ANCHOR).focus()
+    workspace.wait_for_selector(".tip", timeout=1_000)
+    assert workspace.locator(".tip .t").inner_text() == "Niveau de zoom"
+
+    described_by = workspace.evaluate(
+        f"() => document.querySelector('{_NON_FOCUSABLE_ANCHOR}').getAttribute('aria-describedby')"
+    )
+    assert described_by
+    assert workspace.locator(f"#{described_by}").count() == 1
+
+    workspace.keyboard.press("Alt")
+    assert workspace.locator(".tip .lbl").first.inner_text() == "épinglée"
+
+    workspace.keyboard.press("Escape")
+    assert workspace.locator(".tip").count() == 0
+    assert (
+        workspace.evaluate(f"() => document.querySelector('{_NON_FOCUSABLE_ANCHOR}').hasAttribute('aria-describedby')")
+        is False
+    )
+
+
 # ── Critère 8 : la même coque, deux hôtes ──────────────────────────────────
 
 
 def test_la_coque_sait_quel_hote_la_sert(workspace: Page) -> None:
     """L'atelier n'est pas en lecture seule ; le cockpit l'est. Le front lit
     `status.host`, pas une supposition sur le port."""
-    host = workspace.evaluate("() => ({ kind: window.GrimoireWorkspace.host.kind, ro: window.GrimoireWorkspace.host.readOnly })")
+    host = workspace.evaluate(
+        "() => ({ kind: window.GrimoireWorkspace.host.kind, ro: window.GrimoireWorkspace.host.readOnly })"
+    )
 
     assert host["kind"] == "atelier"
     assert host["ro"] is False
