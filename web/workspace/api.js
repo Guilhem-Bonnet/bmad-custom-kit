@@ -70,6 +70,15 @@ function post(path, body) {
   return request(path, { method: 'POST', body: JSON.stringify(body || {}) });
 }
 
+// `/api/projects/update` n'est PAS une écriture de la vue de travail : c'est
+// la seule route où le cockpit, lecture seule sur les tâches et les fichiers,
+// écrit légitimement dans un dépôt — avec son propre aperçu par défaut et son
+// `confirm` explicite (spec §4, Piloter → « mettre à jour »). La gate générale
+// de `post()` la refuserait par erreur ; elle appelle donc `request` directement.
+function postOpen(path, body) {
+  return request(path, { method: 'POST', body: JSON.stringify(body || {}) });
+}
+
 function put(path, body) {
   if (host.readOnly) {
     return Promise.reject(new ApiError('hôte en lecture seule', 403, { readOnly: true }));
@@ -95,9 +104,13 @@ export async function boot() {
 
 export const api = {
   status: () => get('/api/status'),
-  health: () => get('/api/health'),
+  // `project` cible un AUTRE projet que celui déjà résolu par l'hôte — c'est ce
+  // dont a besoin le niveau Flotte de Piloter, qui appelle la santé de chaque
+  // projet du registre l'un après l'autre. Sans argument, le comportement est
+  // celui d'avant : la santé du projet déjà ciblé par l'hôte.
+  health: (project) => get('/api/health', project ? { project } : undefined),
   projects: () => get('/api/projects'),
-  memoryStatus: () => get('/api/memory/status'),
+  memoryStatus: (project) => get('/api/memory/status', project ? { project } : undefined),
   blueprints: () => get('/api/blueprints'),
   primitives: () => get('/api/primitives'),
   features: () => get('/api/features'),
@@ -116,7 +129,7 @@ export const api = {
   fileUsage: (path) => get(WS + 'file/usage', { path }),
   fileHistory: (path) => get(WS + 'file/history', { path }),
   commands: () => get(WS + 'commands'),
-  doctor: () => get(WS + 'doctor'),
+  doctor: (project) => get(WS + 'doctor', project ? { project } : undefined),
   // Concevoir (lot 3) : les containers enrichis (genre, agents, équipe,
   // dernière modification) que `/api/blueprints` seul ne porte pas.
   blueprintContainers: () => get(WS + 'blueprints'),
@@ -140,6 +153,13 @@ export const api = {
   writeFile: (path, text) => post(WS + 'file/write', { path, text }),
   run: (argv) => post(WS + 'command', { argv }),
   blueprintPut: (id, blueprint) => put('/api/blueprints/' + encodeURIComponent(id), blueprint),
+
+  // Aligner un projet sur le kit installé (`grimoire up`). Disponible sur les
+  // deux hôtes : `confirm: false` (par défaut) rend un aperçu, `confirm: true`
+  // écrit réellement. `project` est le slug ciblé (portefeuille) ; omis, la
+  // cible est le projet déjà servi par l'atelier.
+  updateProject: (project, confirm = false) =>
+    postOpen('/api/projects/update', { project: project || undefined, confirm }),
 };
 
 export default api;

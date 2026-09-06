@@ -111,6 +111,92 @@ def served(real_project: Path, tmp_path_factory: pytest.TempPathFactory) -> Iter
 
 
 @pytest.fixture(scope="session")
+def served_cockpit(
+    real_project: Path, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[tuple[str, str]]:
+    """`grimoire cockpit serve` sur un port haut, avec le projet réel enrôlé.
+
+    Lot 4 : Piloter a un niveau Flotte, et « écritures désactivées » (spec §5,
+    « une interface partagée … prouve, par un test, que chaque route honore la
+    cible ») n'a jamais été couvert côté cockpit avant ce lot. `--no-refresh`
+    évite `gen-site-data.py` : la vue de travail lit `/api/health` et
+    `/api/workspace/…`, jamais `data/projects.json`, donc rien n'a besoin
+    d'être généré pour ce harnais.
+
+    Dépend de `real_project` (portée session), pas de `project_with_task`
+    (portée fonction) : une fixture session ne peut pas requérir une fixture
+    plus étroite. La tâche est donc ouverte ici, idempotente comme le fait
+    `project_with_task`.
+    """
+    from grimoire.missions.service import TaskService
+
+    if not TaskService(real_project).has_ledger:
+        subprocess.run(
+            [
+                sys.executable, "-m", "grimoire", "task", "add",
+                "Vérifier la vue de travail (cockpit)",
+                "-a", "Les six espaces s'ouvrent", "-a", "Aucune couleur hors tokens",
+                "--owner", "winston",
+            ],
+            cwd=str(real_project), capture_output=True, text=True, check=False, timeout=180,
+        )
+    project_root = real_project
+    port = _free_port()
+    cockpit_home = tmp_path_factory.mktemp("cockpit-home-flotte")
+    env = dict(os.environ)
+    env["GRIMOIRE_COCKPIT_HOME"] = str(cockpit_home)
+    env["NO_COLOR"] = "1"
+    added = subprocess.run(
+        [sys.executable, "-m", "grimoire", "cockpit", "add", str(project_root)],
+        env=env, capture_output=True, text=True, check=False, timeout=60,
+    )
+    registry_path = cockpit_home / "registry.json"
+    if not registry_path.is_file():
+        pytest.skip(f"`grimoire cockpit add` n'a pas peuplé le registre : {added.stderr[-400:]}")
+    import json
+
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    slug = next((str(e.get("slug", "")) for e in registry if e.get("path") == str(project_root)), "")
+    if not slug:
+        pytest.skip("slug introuvable au registre du cockpit après `add`")
+
+    process = subprocess.Popen(
+        [
+            sys.executable, "-m", "grimoire", "cockpit", "serve",
+            "--port", str(port), "--no-open", "--no-refresh",
+        ],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        _wait_ready(port, time.monotonic() + 60)
+        yield f"http://127.0.0.1:{port}", slug
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
+        assert not _alive(process.pid), f"cockpit survivant : pid {process.pid}"
+
+
+@pytest.fixture
+def cockpit_workspace(browser: Browser, served_cockpit: tuple[str, str]) -> Iterator[Page]:
+    """La coque, chargée sur le cockpit et ciblée sur le projet enrôlé."""
+    served, slug = served_cockpit
+    context = browser.new_context(viewport={"width": 1440, "height": 900}, reduced_motion="reduce")
+    page = context.new_page()
+    page.goto(f"{served}/workspace/index.html?project={slug}", wait_until="domcontentloaded")
+    page.wait_for_selector("body[data-ready='1']", timeout=30_000)
+    try:
+        yield page
+    finally:
+        context.close()
+
+
+@pytest.fixture(scope="session")
 def browser() -> Iterator[Browser]:
     """Chromium, cherché là où il est réellement installé.
 

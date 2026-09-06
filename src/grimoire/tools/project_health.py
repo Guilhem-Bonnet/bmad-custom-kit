@@ -20,6 +20,7 @@ Les trois réponses viennent de faits sur disque, jamais d'une estimation :
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
@@ -80,6 +81,12 @@ RUN_SILENT_AFTER_MINUTES = 60
 #: cette machine, 14 Mo pour une seule ligne utile — et ces fichiers ne font
 #: que grossir. 64 Kio couvrent largement les dernières entrées.
 _TAIL_BYTES = 64 * 1024
+
+#: `git rev-list --count` sur un dépôt local est de l'ordre de la milliseconde ;
+#: cette borne n'existe que pour qu'une route de statut ne bloque jamais sur un
+#: dépôt distant mal configuré (un remote lent ne devrait pas être consulté ici
+#: de toute façon — la commande ne touche que l'historique local).
+_GIT_TIMEOUT_S = 5.0
 
 
 def _installed_kit_version() -> str:
@@ -415,6 +422,51 @@ def activity(project_root: Path, *, now: datetime | None = None) -> dict[str, An
     }
 
 
+def commits_total(project_root: Path) -> int | None:
+    """Nombre de commits sur ``HEAD``, ou ``None`` hors dépôt git ou sans historique.
+
+    Corrige la revue §4.1 : le portefeuille lisait ``p.commits`` quand la donnée
+    réelle qui existait ailleurs s'appelait ``commits_total`` — un nom qui ne
+    correspondait à rien plutôt qu'une valeur fausse. Ici, la donnée est
+    calculée pour de vrai (``git rev-list --count``), sous ce nom, et ``None``
+    quand elle ne peut pas l'être : un dépôt sans ``.git`` ou sans commit n'a
+    pas zéro commit, il n'a pas de réponse.
+    """
+    if not (project_root / ".git").exists():
+        return None
+    try:
+        result = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            timeout=_GIT_TIMEOUT_S,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    text = result.stdout.strip()
+    return int(text) if text.isdigit() else None
+
+
+def ci_status(project_root: Path) -> str:
+    """Statut CI du projet — ``"unknown"`` tant qu'aucune source locale ne le mesure.
+
+    Corrige la revue §4.1 : le portefeuille traitait un statut inconnu comme un
+    échec silencieux (``isFail(undefined)``) au lieu de le nommer. Ce module ne
+    lit ni le réseau ni ``gh`` — une route de statut appelée à chaque rendu du
+    portefeuille ne doit pas dépendre d'un appel API externe ni d'une
+    authentification locale. Elle rend donc honnêtement ``"unknown"``, que
+    l'interface affiche en gris sous le mot « inconnue » plutôt qu'une couleur
+    inventée. Le jour où une sonde CI locale existe (webhook mis en cache,
+    fichier de statut écrit par la CI elle-même), c'est ici qu'elle se branche
+    — la forme de la réponse ne change pas pour les appelants.
+    """
+    return "unknown"
+
+
 def project_health(project_root: Path) -> dict[str, Any]:
     """Vue unique consommée par l'atelier et par le portefeuille."""
     root = project_root.resolve()
@@ -423,4 +475,16 @@ def project_health(project_root: Path) -> dict[str, Any]:
         "kit": kit_alignment(root),
         "flows": flows(root),
         "activity": activity(root),
+        # Corrections dues par la revue §4.1 : les trois champs qu'un portefeuille
+        # honnête doit pouvoir rendre sans les inventer. `antifragile` reste
+        # `None` — aucun module de ce dépôt ne calcule ce score aujourd'hui —
+        # et `antifragile_note` porte le texte que l'interface affiche à sa
+        # place, pour qu'un score jamais mesuré ne se lise jamais comme zéro.
+        "commits_total": commits_total(root),
+        "ci_status": ci_status(root),
+        "antifragile": None,
+        "antifragile_note": "pas encore mesurée",
+        # Ce module ne lit jamais de jeu de données de démonstration : la
+        # donnée qu'il rend est toujours celle du projet servi.
+        "demo": False,
     }

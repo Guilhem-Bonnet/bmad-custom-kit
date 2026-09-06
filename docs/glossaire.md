@@ -6,7 +6,7 @@
 > (`web/workspace/glossary.js`, spécification §3.2) : éditer une définition ici
 > n'aurait aucun effet, éditer le YAML met à jour les deux.
 
-**61 concepts.**
+**62 concepts.**
 
 ## Espace de travail {: #espace-de-travail }
 
@@ -427,3 +427,9 @@ Termes liés : [Mémoire](#memoire), [Store](#store), [Graphe](#graphe)
 Le jeu de données de démonstration, toujours explicitement demandé et toujours marqué comme tel : une vue sans donnée reste vide.
 
 Termes liés : [Projet](#projet)
+
+## Coût {: #cout }
+
+La dépense en tokens d'un span ou d'une trace, convertie en devise par le modèle de coût du projet — jamais estimée quand aucune trace n'existe.
+
+Termes liés : [Span](#span), [Trace](#trace), [Agent](#agent)

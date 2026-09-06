@@ -203,7 +203,10 @@ def test_in_flight_tasks_come_from_the_project_board(project: Path) -> None:
 
 def test_project_health_reports_the_three_surfaces(project: Path) -> None:
     health = ph.project_health(project)
-    assert set(health) == {"projectRoot", "kit", "flows", "activity"}
+    assert set(health) == {
+        "projectRoot", "kit", "flows", "activity",
+        "commits_total", "ci_status", "antifragile", "antifragile_note", "demo",
+    }
     assert health["projectRoot"] == str(project.resolve())
 
 
@@ -355,3 +358,92 @@ def test_instances_are_read_whole_not_by_the_tail(project: Path) -> None:
     assert (runtime / "instances.jsonl").stat().st_size > ph._TAIL_BYTES
 
     assert len(ph.runs(project)) == 400
+
+
+# ── Portefeuille : ci_status, commits_total, antifragile ────────────────────
+#
+# Revue DESIGN-REVIEW-2026-09 §4.1 : le portefeuille lisait `p.ci` et
+# `p.commits`, des champs que la donnée réelle ne portait jamais — elle
+# s'appelle `ci_status` et `commits_total`. Et `p.antifragile || 0` rendait un
+# score jamais mesuré comme un score nul. Ces tests prouvent le nom exact et
+# l'absence d'invention, pas seulement la présence d'une valeur.
+
+
+def _git(args: list[str], cwd: Path) -> None:
+    import subprocess
+
+    subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True,
+        env={"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "HOME": str(cwd)},
+    )
+
+
+def _git_commit(cwd: Path, message: str) -> None:
+    import subprocess
+
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-q", "-m", message],
+        cwd=cwd, check=True, capture_output=True,
+        env={
+            "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+            "HOME": str(cwd),
+        },
+    )
+
+
+def test_commits_total_counts_a_real_git_history(project: Path) -> None:
+    """La donnée du nom qu'attend le portefeuille, calculée pour de vrai."""
+    _git(["init", "-q"], project)
+    _git_commit(project, "premier")
+    _git_commit(project, "second")
+    _git_commit(project, "troisième")
+
+    assert ph.commits_total(project) == 3
+
+
+def test_commits_total_is_none_without_a_git_repository(tmp_path: Path) -> None:
+    """Pas de `.git` : pas de réponse, jamais zéro."""
+    bare = tmp_path / "pas-un-depot"
+    bare.mkdir()
+
+    assert ph.commits_total(bare) is None
+
+
+def test_commits_total_is_none_on_a_repository_without_commits(project: Path) -> None:
+    """Un dépôt initialisé mais sans commit n'a pas de HEAD à compter."""
+    _git(["init", "-q"], project)
+
+    assert ph.commits_total(project) is None
+
+
+def test_ci_status_is_named_unknown_never_invented(project: Path) -> None:
+    """Aucune sonde CI locale n'existe dans ce dépôt : le dire, pas le taire.
+
+    La revue a trouvé `isFail(p.ci)` traiter un `undefined` comme un échec — le
+    contraire de « pas la couleur seule ». `unknown` est ce que l'interface
+    rend en gris sous le mot « inconnue ».
+    """
+    assert ph.ci_status(project) == "unknown"
+
+
+def test_project_health_never_fabricates_an_antifragility_score(project: Path) -> None:
+    """`antifragile: null` reste `null` — jamais un zéro qui se lirait comme un score."""
+    health = ph.project_health(project)
+
+    assert health["antifragile"] is None
+    assert health["antifragile_note"] == "pas encore mesurée"
+    assert health["demo"] is False
+
+
+def test_project_health_carries_the_corrected_field_names(project: Path) -> None:
+    """`commits_total` et `ci_status` : les noms que le portefeuille doit lire."""
+    _git(["init", "-q"], project)
+    _git_commit(project, "unique")
+
+    health = ph.project_health(project)
+
+    assert health["commits_total"] == 1
+    assert health["ci_status"] == "unknown"
+    assert "ci" not in health, "le nom fautif ne doit même pas traîner à côté du bon"
+    assert "commits" not in health

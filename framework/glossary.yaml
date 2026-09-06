@@ -596,3 +596,12 @@ entries:
     raccourci: ""
     termes: [projet]
     doc: ""
+
+  - id: cout
+    nom: Coût
+    définition: >-
+      La dépense en tokens d'un span ou d'une trace, convertie en devise par
+      le modèle de coût du projet — jamais estimée quand aucune trace n'existe.
+    raccourci: ""
+    termes: [span, trace, agent]
+    doc: ""
