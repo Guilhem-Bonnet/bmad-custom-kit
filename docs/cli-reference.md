@@ -920,8 +920,8 @@ utiliser la forme longue : `python -m grimoire.tools.forge_server`.
 ### La vue de travail, page par défaut
 
 `--open` ouvre `workspace/index.html` — la coque unique décrite par
-[`web/DESIGN-SPEC-workspace-2026-09.md`](../web/DESIGN-SPEC-workspace-2026-09.md)
-et son [ADR](adr-006-vue-de-travail.md). Les pages historiques
+`web/DESIGN-SPEC-workspace-2026-09.md` et son
+[ADR](adr-006-vue-de-travail.md). Les pages historiques
 (`atelier.html`, `kanban.html`, `observability.html`, `memory.html`,
 `blueprints.html`, `patterns.html`, `extensions.html`, `labs.html`,
 `documentation.html`) restent servies mais redirigent désormais vers l'espace

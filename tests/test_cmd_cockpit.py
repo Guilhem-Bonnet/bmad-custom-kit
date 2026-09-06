@@ -133,10 +133,13 @@ def _mock_daemon(monkeypatch: pytest.MonkeyPatch, pid: int = 4321, alive: bool =
 
 
 def test_default_callback_invokes_start(runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Basculement, pas 2 (ADR-006) : la vue de travail est la page par défaut
+    # depuis que les cinq lots sont mergés — `portfolio.html` reste servie
+    # mais redirige désormais vers elle (workspace_legacy.LEGACY_PAGES).
     opened = _mock_daemon(monkeypatch, pid=555)
     res = runner.invoke(app, ["cockpit"])
     assert res.exit_code == 0
-    assert opened and opened[0].endswith("/portfolio.html")
+    assert opened and opened[0].endswith("/workspace/index.html")
 
 
 def test_start_status_stop_lifecycle(runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
