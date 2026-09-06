@@ -304,6 +304,7 @@ export async function mount(root, ctx) {
     ));
     ctx.inspector.replaceChildren(text('p', 'lbl', 'Aucun span à inspecter.'));
     ctx.dock.log('traces', 'Aucune trace dans le TraceLedger de ce projet.');
+    ctx.dock.echo('grimoire task trace');
     return;
   }
 

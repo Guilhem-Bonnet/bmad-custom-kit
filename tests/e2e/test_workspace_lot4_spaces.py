@@ -93,9 +93,13 @@ def test_executer_un_move_reussi_deplace_la_carte_puis_un_claim_est_refuse(
     workspace.locator(".ex-card").filter(has_text="Vérifier la vue de travail").first.click()
     inspector.get_by_text(task_id, exact=True).wait_for()
 
-    # Première porte : proposed → ready, déclarée et satisfaite.
+    # Première porte : proposed → ready, déclarée et satisfaite. Le succès
+    # déclenche un réaffichage complet de l'inspecteur (nouvelle porte, preuves
+    # à jour) : on attend cet état stable — « → En cours », la porte suivante —
+    # plutôt que le message de confirmation transitoire, que le réaffichage
+    # peut effacer avant que le harnais ne l'observe.
     inspector.locator("button", has_text="Réaliser").first.click()
-    inspector.get_by_text("transition : proposed").wait_for()
+    inspector.get_by_text("→ En cours").first.wait_for()
 
     # Deuxième porte, maintenant proposée : ready → in_progress (claim), refusée.
     inspector.locator("button", has_text="Réaliser").first.click()

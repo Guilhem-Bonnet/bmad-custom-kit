@@ -92,7 +92,8 @@ function renderStore(wrap, ctx, memory) {
     const tbody = document.createElement('tbody');
     for (const [key, value] of Object.entries(memory.detail)) {
       const tr = document.createElement('tr');
-      tr.append(text('td', 'lbl', key), text('td', 'mono', String(value)));
+      const rendered = value !== null && typeof value === 'object' ? JSON.stringify(value) : String(value);
+      tr.append(text('td', 'lbl', key), text('td', 'mono', rendered));
       tbody.append(tr);
     }
     table.append(tbody);
