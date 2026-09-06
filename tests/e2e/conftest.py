@@ -39,6 +39,18 @@ from playwright.sync_api import Browser, Page, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 
+#: Le vrai répertoire personnel, capturé à l'import de CE fichier — et non
+#: réimporté depuis ``tests/conftest.py``. Sans ``tests/__init__.py``, pytest
+#: charge ce dernier comme un module nu ``conftest`` ; un `from tests.conftest
+#: import REAL_HOME` ici force Python à le résoudre en plus via le chemin
+#: pointé `tests.conftest` (paquet à espace de noms), donc à en réexécuter le
+#: code une seconde fois — **après** que `_isolate_user_state` a déjà détourné
+#: `HOME`. Le `REAL_HOME` importé vaut alors le faux `HOME`, Playwright
+#: cherche Chromium sous un répertoire jetable qui n'existe plus à la fin du
+#: test précédent, et le harnais entier se skippe en silence. Le capturer ici,
+#: dans le seul module que pytest charge pour ce fichier, ferme le trou.
+REAL_HOME = Path.home()
+
 
 def _free_port() -> int:
     """Un port haut libre, choisi par le noyau — pas par une constante optimiste."""
@@ -108,8 +120,6 @@ def browser() -> Iterator[Browser]:
     absent » alors qu'il est là : un faux vert de plus, exactement le mode de
     panne que ce dépôt traque.
     """
-    from tests.conftest import REAL_HOME
-
     os.environ.setdefault(
         "PLAYWRIGHT_BROWSERS_PATH", str(REAL_HOME / ".cache" / "ms-playwright")
     )

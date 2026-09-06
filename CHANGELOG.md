@@ -17,6 +17,20 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   densités Découverte et Concentration. Les espaces sont des stubs qui exposent
   `mount(root, ctx)` : les écrans viennent avec les lots d'implémentation.
   Décisions, alternatives écartées et découpage : `docs/adr-006-vue-de-travail.md`.
+- **Lot 1 de la vue de travail — la coque et ses mécaniques.** Les trois états
+  de panneau tiennent leur contrat complet : clic sur le rail ouvre en
+  surimpression, survol 450 ms entrouvre (jamais au survol du contenu),
+  cadenas ou `⌘`/`Ctrl` + clic épingle dans la grille, et le panneau épinglé se
+  redimensionne à la souris par une poignée sur son bord. L'état — replié,
+  entrouvert, épinglé, largeur — est mémorisé **par espace de travail et par
+  projet**, dans `localStorage`, en échec silencieux hors navigation privée.
+  Geist et Geist Mono sont embarquées en woff2 (400/500/600 et 400/500, 260 Ko,
+  licence SIL OFL 1.1 dans `web/workspace/fonts/OFL.txt`) : plus aucun appel à
+  Google Fonts. Neuf tests Playwright de plus couvrent chaque mécanique prise
+  séparément (ouverture par clic, entrouverture par survol, non-ouverture au
+  survol du contenu, épinglage au cadenas et au clic modifié, redimensionnement
+  à la poignée, navigation clavier de la palette, bascule de densité,
+  persistance par espace après rechargement).
 - **Contrats d'API de la vue de travail**, sous le préfixe `/api/workspace/`.
   Lectures servies par **les deux hôtes** via la table partagée
   `forge_routes.api_get` : glossaire, tâches, détail de tâche avec les preuves
