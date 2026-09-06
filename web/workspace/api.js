@@ -79,6 +79,13 @@ function postOpen(path, body) {
   return request(path, { method: 'POST', body: JSON.stringify(body || {}) });
 }
 
+function put(path, body) {
+  if (host.readOnly) {
+    return Promise.reject(new ApiError('hôte en lecture seule', 403, { readOnly: true }));
+  }
+  return request(path, { method: 'PUT', body: JSON.stringify(body || {}) });
+}
+
 /** Amorçage : résout l'hôte et le projet ciblé. À appeler une fois. */
 export async function boot() {
   const params = new URLSearchParams(location.search);
@@ -110,7 +117,6 @@ export const api = {
   stigmergy: () => get('/api/stigmergy'),
   eventsLog: () => get('/api/events/log'),
   otel: () => get('/api/otel'),
-  costModel: () => get('/api/cost-model'),
 
   // ── Vue de travail ────────────────────────────────────────────────────────
   glossary: () => get(WS + 'glossary'),
@@ -124,6 +130,21 @@ export const api = {
   fileHistory: (path) => get(WS + 'file/history', { path }),
   commands: () => get(WS + 'commands'),
   doctor: (project) => get(WS + 'doctor', project ? { project } : undefined),
+  // Concevoir (lot 3) : les containers enrichis (genre, agents, équipe,
+  // dernière modification) que `/api/blueprints` seul ne porte pas.
+  blueprintContainers: () => get(WS + 'blueprints'),
+
+  // ── Blueprints : éditeur de graphe (atelier seulement — voir forge_routes.py) ─
+  blueprintGet: (id) => get('/api/blueprints/' + encodeURIComponent(id)),
+  blueprintDiff: (id, ref) =>
+    get('/api/blueprints/' + encodeURIComponent(id) + '/diff', ref ? { ref } : undefined),
+  blueprintValidate: (id, blueprint) =>
+    post('/api/blueprints/' + encodeURIComponent(id) + '/validate', blueprint),
+  blueprintSimulate: (id, blueprint) =>
+    post('/api/blueprints/' + encodeURIComponent(id) + '/simulate', blueprint),
+  blueprintCompile: (id, blueprint) =>
+    post('/api/blueprints/' + encodeURIComponent(id) + '/compile', blueprint),
+  costModel: (model) => get('/api/cost-model', model ? { model } : undefined),
 
   // ── Écritures : atelier seulement, refusées côté cockpit ──────────────────
   taskAction: (id, action, body) =>
@@ -131,6 +152,7 @@ export const api = {
   createOverride: (path) => post(WS + 'file/override', { path }),
   writeFile: (path, text) => post(WS + 'file/write', { path, text }),
   run: (argv) => post(WS + 'command', { argv }),
+  blueprintPut: (id, blueprint) => put('/api/blueprints/' + encodeURIComponent(id), blueprint),
 
   // Aligner un projet sur le kit installé (`grimoire up`). Disponible sur les
   // deux hôtes : `confirm: false` (par défaut) rend un aperçu, `confirm: true`
