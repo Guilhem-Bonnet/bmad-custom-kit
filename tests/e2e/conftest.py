@@ -114,14 +114,20 @@ def browser() -> Iterator[Browser]:
         "PLAYWRIGHT_BROWSERS_PATH", str(REAL_HOME / ".cache" / "ms-playwright")
     )
     with sync_playwright() as playwright:
+        # `else` plutôt qu'un `yield` à la suite du `except` : `pytest.skip`
+        # lève, mais rien dans sa signature ne le dit, et une analyse statique
+        # lit donc `instance` comme possiblement non initialisée. La forme
+        # ci-dessous rend l'affectation certaine pour un lecteur comme pour un
+        # analyseur.
         try:
             instance = playwright.chromium.launch()
         except Exception as exc:  # pragma: no cover — navigateur non installé
             pytest.skip(f"Chromium absent : {exc} — `playwright install chromium`")
-        try:
-            yield instance
-        finally:
-            instance.close()
+        else:
+            try:
+                yield instance
+            finally:
+                instance.close()
 
 
 @pytest.fixture
