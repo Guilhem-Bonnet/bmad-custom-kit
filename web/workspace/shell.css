@@ -379,6 +379,7 @@ select {
 }
 
 .panel {
+  position: relative;
   background: var(--e1);
   display: flex;
   flex-direction: column;
@@ -444,6 +445,38 @@ select {
 
 .pin[aria-pressed="true"] {
   color: var(--acc);
+}
+
+/* Poignée de redimensionnement : seulement quand le panneau est épingle
+ * dans la grille (spec §3.1 « cadenas ou ⌘+clic : épingle, le contenu se
+ * redimensionne »). En surimpression ou replié, il n'y a rien à tirer. */
+.panel-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+  touch-action: none;
+  background: transparent;
+  transition: background var(--dur);
+}
+
+.panel-resize:hover,
+.panel-resize:focus-visible {
+  background: var(--accsoft);
+}
+
+.panel-left .panel-resize {
+  right: -3px;
+}
+
+.panel-right .panel-resize {
+  left: -3px;
+}
+
+.panel[data-state="peek"] .panel-resize {
+  display: none;
 }
 
 /* ── Centre : barre de document, toile, dock ───────────────────────────────*/

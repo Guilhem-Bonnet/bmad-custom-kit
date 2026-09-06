@@ -103,8 +103,17 @@ function toggleFocus() {
 }
 
 // ── Panneaux à trois états : collapsed, peek, pinned ────────────────────────
+//
+// L'état (et la largeur) est mémorisé par ESPACE et par PROJET (spec §3.1) :
+// la clé porte `current`, l'identifiant de l'espace actif, jamais un nom de
+// panneau seul. `current` est déjà affecté par `goto()` avant que quoi que ce
+// soit ici ne s'exécute — voir `restorePanelsForSpace`.
 
 let peekTimer = null;
+
+function panelKey(kind, id) {
+  return `${kind}.${current || 'piloter'}.${id}`;
+}
 
 function panelState(id) {
   const el = $(PANELS[id]);
@@ -119,7 +128,7 @@ function setPanel(id, state) {
   if (pin) pin.setAttribute('aria-pressed', String(state === 'pinned'));
   const button = document.querySelector(`.rail-btn[data-panel="${id}"]`);
   if (button) button.setAttribute('aria-pressed', String(state !== 'collapsed'));
-  writeState({ [`panel.${id}`]: state });
+  writeState({ [panelKey('panel', id)]: state });
 }
 
 function togglePanel(id) {
@@ -130,7 +139,33 @@ function setDock(state) {
   $('dock').dataset.state = state;
   const button = document.querySelector('.rail-btn[data-panel="dock"]');
   if (button) button.setAttribute('aria-pressed', String(state !== 'collapsed'));
-  writeState({ 'panel.dock': state });
+  writeState({ [panelKey('panel', 'dock')]: state });
+}
+
+/** Découverte ouvre par défaut ; Concentration replie tout (spec §3.4). */
+function defaultPanelState() {
+  return root.dataset.density === 'concentration' ? 'collapsed' : 'pinned';
+}
+
+/** Largeur : un panneau redimensionné à la souris (poignée) la garde, par
+ * espace et par projet ; sinon la valeur par défaut de tokens.css s'applique. */
+function restoreWidth(id) {
+  const el = $(PANELS[id]);
+  if (!el) return;
+  const saved = readState()[panelKey('panelWidth', id)];
+  el.style.width = saved ? saved + 'px' : '';
+}
+
+/** Rappelée par `goto()` à chaque changement d'espace, après que `current`
+ * a été mis à jour : c'est ce qui rend l'état « par espace et par projet ». */
+function restorePanelsForSpace() {
+  const saved = readState();
+  const fallback = defaultPanelState();
+  setPanel('explorer', saved[panelKey('panel', 'explorer')] || fallback);
+  setPanel('inspector', saved[panelKey('panel', 'inspector')] || fallback);
+  setDock(saved[panelKey('panel', 'dock')] || 'pinned');
+  restoreWidth('explorer');
+  restoreWidth('inspector');
 }
 
 function buildRail() {
@@ -147,9 +182,18 @@ function buildRail() {
     button.innerHTML =
       `<svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="${item.path}"/></svg>` +
       `<span class="rail-lbl">${item.label}</span>`;
-    button.addEventListener('click', () => {
-      if (item.id === 'dock') setDock($('dock').dataset.state === 'collapsed' ? 'pinned' : 'collapsed');
-      else if (PANELS[item.id]) togglePanel(item.id);
+    // Clic sur l'icône du rail : ouvre en surimpression (spec §3.1) ; un
+    // second clic referme. ⌘/Ctrl + clic épingle directement dans la grille,
+    // sans passer par l'entrouvert — le même geste que le cadenas du panneau.
+    button.addEventListener('click', (event) => {
+      clearTimeout(peekTimer);
+      if (item.id === 'dock') { setDock($('dock').dataset.state === 'collapsed' ? 'pinned' : 'collapsed'); return; }
+      if (!PANELS[item.id]) return;
+      if (event.metaKey || event.ctrlKey) {
+        setPanel(item.id, panelState(item.id) === 'pinned' ? 'collapsed' : 'pinned');
+        return;
+      }
+      setPanel(item.id, panelState(item.id) === 'collapsed' ? 'peek' : 'collapsed');
     });
     // Survol du rail, 450 ms : entrouvre en surimpression. Jamais au survol du contenu.
     button.addEventListener('pointerenter', () => {
@@ -175,6 +219,45 @@ function buildRail() {
       }
     }
   });
+}
+
+// ── Redimensionnement à la poignée ───────────────────────────────────────────
+//
+// Seulement quand le panneau est épinglé dans la grille : en surimpression, il
+// n'y a pas de grille à redimensionner (la poignée est masquée en CSS).
+
+const PANEL_MIN_WIDTH = 180;
+const PANEL_MAX_WIDTH = 480;
+
+function bindResize() {
+  for (const handle of document.querySelectorAll('.panel-resize')) {
+    const id = handle.dataset.resize;
+    const panel = handle.closest('.panel');
+    if (!panel) continue;
+    // Le panneau de gauche s'élargit vers la droite, celui de droite vers la
+    // gauche : le signe du déplacement dépend du bord que la poignée tient.
+    const sign = id === 'explorer' ? 1 : -1;
+    handle.addEventListener('pointerdown', (event) => {
+      if (panel.dataset.state !== 'pinned') return;
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = panel.getBoundingClientRect().width;
+      handle.setPointerCapture(event.pointerId);
+      const onMove = (moveEvent) => {
+        const delta = (moveEvent.clientX - startX) * sign;
+        const width = Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, Math.round(startWidth + delta)));
+        panel.style.width = width + 'px';
+      };
+      const onUp = () => {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        const width = parseInt(panel.style.width, 10);
+        if (Number.isFinite(width)) writeState({ [panelKey('panelWidth', id)]: width });
+      };
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+    });
+  }
 }
 
 // ── Dock ────────────────────────────────────────────────────────────────────
@@ -359,6 +442,7 @@ async function goto(id) {
   if (controller) controller.abort();
   controller = new AbortController();
   current = space.id;
+  restorePanelsForSpace();
   location.hash = '#' + space.id;
   for (const button of document.querySelectorAll('[data-space]')) {
     button.setAttribute('aria-selected', String(button.dataset.space === space.id));
@@ -399,20 +483,58 @@ async function goto(id) {
 let paletteItems = [];
 let paletteIndex = 0;
 
+// Chaque source alimente la palette indépendamment : une route absente ou en
+// erreur (projet sans ledger, sans blueprint…) ne doit jamais vider les
+// autres. `settle` réduit un Promise.allSettled à sa valeur, ou au repli.
+function settle(result, fallback) {
+  return result.status === 'fulfilled' ? result.value : fallback;
+}
+
 async function buildPalette() {
-  const spaces = SPACES.map((s, i) => ({
+  const spaces = SPACES.map((s) => ({
     label: s.label, hint: 'Espace', command: `grimoire serve # ${s.id}`,
     run: () => goto(s.id),
   }));
-  let commands = [];
-  try {
-    const payload = await api.commands();
-    commands = (payload.commands || []).map((c) => ({
-      label: c.command, hint: c.summary, command: c.command,
-      run: () => runCommand(c.key.split(' ')),
-    }));
-  } catch { /* la palette reste utile sans le catalogue */ }
-  paletteItems = [...spaces, ...commands];
+
+  const [commandsResult, projectsResult, blueprintsResult, tasksResult, filesResult] =
+    await Promise.allSettled([api.commands(), api.projects(), api.blueprints(), api.tasks(), api.files()]);
+
+  const commands = (settle(commandsResult, {}).commands || []).map((c) => ({
+    label: c.command, hint: c.summary, command: c.command,
+    run: () => runCommand(c.key.split(' ')),
+  }));
+
+  // Projets : seulement au cockpit — l'atelier sert un projet fixe, en
+  // changer n'a pas de sens (spec §3.3 : « projets (/api/workspace… sur le
+  // cockpit) »).
+  const projects = host.kind === 'cockpit'
+    ? (settle(projectsResult, {}).projects || []).map((p) => ({
+        label: p.name || p.slug, hint: 'Projet', command: `grimoire cockpit serve # ${p.slug}`,
+        run: () => { location.search = '?project=' + encodeURIComponent(p.slug); },
+      }))
+    : [];
+
+  const workflows = (settle(blueprintsResult, [])).map((b) => ({
+    label: b.name || b.id, hint: 'Workflow', command: `grimoire blueprint validate # ${b.id}`,
+    run: () => goto('concevoir'),
+  }));
+
+  // Tâches : `task show <id>` est une vraie sous-commande de la Console
+  // (workspace_exec.ALLOWED) — sélectionner l'entrée l'exécute réellement,
+  // au lieu de naviguer vers un espace encore vide (lot 4).
+  const tasks = (settle(tasksResult, {}).tasks || []).map((t) => ({
+    label: t.title || t.id, hint: 'Tâche', command: `grimoire task show ${t.id}`,
+    run: () => runCommand(['task', 'show', t.id]),
+  }));
+
+  const files = (settle(filesResult, {}).tiers || []).flatMap((tier) =>
+    (tier.files || []).map((f) => ({
+      label: f.path, hint: `Fichier · ${tier.label || tier.id}`, command: `grimoire # source ${f.path}`,
+      run: () => goto('source'),
+    })),
+  ).slice(0, 500);
+
+  paletteItems = [...spaces, ...commands, ...projects, ...workflows, ...tasks, ...files];
 }
 
 function openPalette() {
@@ -514,6 +636,7 @@ async function main() {
   buildSpaces();
   buildRail();
   buildDock();
+  bindResize();
   bindShortcuts();
   $('st-theme').addEventListener('click', toggleTheme);
   $('st-density').addEventListener('click', toggleDensity);
@@ -545,12 +668,8 @@ async function main() {
     await buildPalette();
   }
 
-  // Restaure l'état des panneaux mémorisé pour ce projet.
-  const saved = readState();
-  setPanel('explorer', saved['panel.explorer'] || 'pinned');
-  setPanel('inspector', saved['panel.inspector'] || 'pinned');
-  setDock(saved['panel.dock'] || 'pinned');
-
+  // L'état des panneaux (replié, entrouvert, épinglé, largeur) est restauré
+  // par `goto()` lui-même, par espace et par projet — voir `restorePanelsForSpace`.
   await goto((location.hash || '#piloter').slice(1));
   window.addEventListener('hashchange', () => goto(location.hash.slice(1)));
 
