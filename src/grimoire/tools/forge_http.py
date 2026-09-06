@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlparse
 from grimoire.tools.ext_manager import ExtensionError
 from grimoire.tools.forge_routes import API_GET_UNHANDLED, api_get
 from grimoire.tools.project_registry import DEFAULT_SCAN_DEPTH, looks_grimoire, register_project
+from grimoire.tools.workspace_legacy import legacy_redirect_target
 from grimoire.tools.workspace_routes import PREFIX as WORKSPACE_PREFIX
 from grimoire.tools.workspace_routes import WORKSPACE_UNHANDLED, workspace_post
 
@@ -49,6 +50,14 @@ def make_handler(api: ForgeAPI) -> type[BaseHTTPRequestHandler]:
 
         def _error(self, message: str, code: int = 400) -> None:
             self._json({"error": message}, code)
+
+        def _redirect(self, location: str) -> None:
+            """302 vers ``location`` — le basculement (ADR-006, pas 2) : une page
+            héritée envoie ici plutôt que refuser ou dupliquer son contenu."""
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
 
         def _body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", 0))
@@ -135,7 +144,7 @@ def make_handler(api: ForgeAPI) -> type[BaseHTTPRequestHandler]:
                     else:
                         self._json(api.blueprint_get(path.rsplit("/", 1)[1]))
                 else:
-                    self._static(path)
+                    self._static(path, query)
             except FileNotFoundError as exc:
                 self._error(f"introuvable : {exc}", 404)
             except PermissionError as exc:
@@ -303,13 +312,21 @@ def make_handler(api: ForgeAPI) -> type[BaseHTTPRequestHandler]:
 
         # ── statique ──────────────────────────────────────────────────────
 
-        def _static(self, path: str) -> None:
+        def _static(self, path: str, query: dict[str, list[str]] | None = None) -> None:
             if api.ui_dir is None:
                 self._json({"grimoire": "serve", "hint": "API disponible sous /api/"}, 200)
                 return
             rel = path.lstrip("/") or "index.html"
             if rel.startswith("data/"):
                 self._data_file(rel[len("data/"):])
+                return
+            # Basculement, pas 2 (ADR-006) : une page héritée redirige vers
+            # l'espace qui la remplace, sauf `?legacy=1` — la sortie de
+            # secours explicite tant que le pas 3 (suppression) n'est pas
+            # décidé.
+            space = legacy_redirect_target(rel)
+            if space is not None and not (query or {}).get("legacy"):
+                self._redirect(f"/workspace/index.html#{space}")
                 return
             target = (api.ui_dir / rel).resolve()
             # is_relative_to évite la confusion de préfixe (/a/web vs /a/web2).
