@@ -400,9 +400,7 @@ def test_la_densite_se_choisit_et_survit_au_rechargement(workspace: Page, served
     assert workspace.evaluate("() => window.GrimoireWorkspace.density") == "concentration"
 
 
-def test_l_etat_des_panneaux_est_memorise_par_espace_et_survit_au_rechargement(
-    workspace: Page, served: str
-) -> None:
+def test_l_etat_des_panneaux_est_memorise_par_espace_et_survit_au_rechargement(workspace: Page, served: str) -> None:
     """« mémorisé par espace de travail et par projet » (spec §3.1) : deux
     espaces gardent chacun leur propre état de panneau, y compris après recharge."""
     api = "window.GrimoireWorkspace"
