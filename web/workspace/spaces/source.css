@@ -1,0 +1,212 @@
+/* Espace Source — styles scopés .sr-, propriété du lot 5.
+ *
+ * Aucune couleur littérale : uniquement les tokens de ../tokens.css, par la
+ * cascade des variables custom déjà posées sur :root (voir
+ * tests/unit/test_workspace_tokens.py, qui scanne aussi ce fichier).
+ */
+
+.sr-tree-tier {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 26px;
+  padding: 0 var(--sp-2);
+  margin-top: var(--sp-2);
+  font-size: var(--t-min);
+  color: var(--ink3);
+  text-transform: none;
+}
+
+.sr-tree-dir {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 var(--sp-2);
+  width: 100%;
+  background: none;
+  border: 0;
+  color: var(--ink2);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: var(--t-min);
+}
+
+.sr-tree-dir:hover {
+  color: var(--ink);
+}
+
+.sr-tree-file {
+  padding-left: calc(var(--sp-2) + 14px);
+}
+
+.sr-badge {
+  margin-left: auto;
+  flex: none;
+}
+
+.sr-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.sr-docrow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: 36px;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.sr-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--e1);
+  color: var(--ink2);
+  font-size: var(--t-s);
+  flex: none;
+}
+
+.sr-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--e2);
+}
+
+/* Source : textarea + colonne de numéros, défilement synchronisé */
+.sr-code {
+  display: flex;
+  min-height: 100%;
+  font-family: var(--mono);
+  font-size: var(--t-s);
+  line-height: 20px;
+}
+
+.sr-gutter {
+  flex: none;
+  padding: var(--sp-2) var(--sp-2);
+  text-align: right;
+  color: var(--ink3);
+  background: var(--e1);
+  border-right: 1px solid var(--line);
+  user-select: none;
+  white-space: pre;
+}
+
+.sr-textarea {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  resize: none;
+  padding: var(--sp-2) var(--sp-3);
+  background: none;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--t-s);
+  line-height: 20px;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.sr-textarea[readonly] {
+  color: var(--ink2);
+  cursor: not-allowed;
+}
+
+/* Diff : les tokens d'état portent l'ajout et le retrait, pas une couleur choisie ici. */
+.sr-diff {
+  font-family: var(--mono);
+  font-size: var(--t-s);
+  line-height: 20px;
+  padding: var(--sp-2) 0;
+}
+
+.sr-diff > div {
+  padding: 0 var(--sp-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sr-diff .add {
+  background: var(--accsoft);
+  color: var(--ok);
+}
+
+.sr-diff .del {
+  background: var(--accsoft);
+  color: var(--bad);
+}
+
+.sr-diff .hunk {
+  color: var(--ink3);
+}
+
+/* Rendu : Markdown minimal, sans dépendance */
+.sr-rendered {
+  padding: var(--sp-4);
+  color: var(--ink);
+  max-width: 760px;
+}
+
+.sr-rendered h1,
+.sr-rendered h2,
+.sr-rendered h3 {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.sr-rendered code {
+  font-family: var(--mono);
+  background: var(--e1);
+  padding: 1px 4px;
+  border-radius: var(--r);
+}
+
+.sr-rendered pre {
+  font-family: var(--mono);
+  background: var(--e1);
+  padding: var(--sp-3);
+  border-radius: var(--r);
+  overflow: auto;
+}
+
+.sr-rendered a {
+  color: var(--ink);
+}
+
+/* Inspecteur */
+.sr-insp-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.sr-insp-body {
+  padding: var(--sp-3);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.sr-usage-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--t-min);
+  color: var(--ink2);
+}
+
+.sr-usage-empty {
+  color: var(--ink3);
+  font-size: var(--t-s);
+}

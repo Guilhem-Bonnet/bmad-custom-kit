@@ -84,6 +84,27 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   `web/workspace/api.js` (routes déjà servies par les deux hôtes, ou route
   cockpit existante pour `updateProject`) ; aucun ne dépend d'un jeu de
   données de démonstration.
+- **Lot 5 de la vue de travail — l'espace Source et la Console du dock.**
+  `web/workspace/spaces/source.js` remplit l'écran nouveau : arbre par étage
+  (overrides possédés, kit généré, projections des hôtes) avec badge de
+  dérive sur un override qui diverge de son homologue kit ; éditeur à trois
+  onglets — Source (textarea avec numéros de ligne), Diff contre le kit
+  (unifié, rendu par le serveur, ajouts et retraits par tokens), Rendu
+  (Markdown minimal, sans dépendance, ADR-006 D2) ; bandeau « Ce fichier est
+  généré par le kit » avec prise d'override en un geste ; enregistrement
+  `⌘S` avec confirmation dans le dock. Inspecteur à trois onglets — Fichier
+  (étage, version, empreinte au catalogue, override), Utilisé par (projections
+  vers `.claude/`, `.github/`, `AGENTS.md` et fichiers qui citent celui-ci,
+  deux nouvelles routes `GET /api/workspace/file/usage` et
+  `GET /api/workspace/file/history`), Historique (`git log --follow`, ou un
+  vide honnête hors dépôt git). La Console du dock — invite, historique au
+  clavier, complétion sur la liste blanche, exécution via
+  `POST /api/workspace/command`, refus explicite affiché — est rendue
+  entièrement à travers le contrat `ctx.dock.log/clear` du lot 1, sans jamais
+  toucher le DOM du dock. Neuf tests Python de plus (badge de dérive, usage,
+  historique, symlink refusé, hôte étranger refusé sur `/api/workspace/`) et
+  cinq tests Playwright sur un projet jetable réel : ouvrir, éditer, override,
+  diff, `grimoire doctor` vert après, Console qui exécute et qui refuse.
 
 ### Corrigé
 
