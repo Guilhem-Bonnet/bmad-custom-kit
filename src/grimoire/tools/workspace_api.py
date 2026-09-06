@@ -46,6 +46,8 @@ __all__ = [
     "WorkspacePathError",
     "blueprints_view",
     "file_diff",
+    "file_history",
+    "file_usage",
     "file_view",
     "files_view",
     "glossary_view",
@@ -326,6 +328,21 @@ def _file_entry(
         override = _override_for(project_root, rel)
         entry["override_path"] = override.as_posix() if override else None
         entry["overridden"] = bool(override and (project_root / override).is_file())
+    if tier["id"] == "overrides":
+        # Le kit qu'un override masque, s'il existe encore à cet emplacement.
+        # C'est ce que l'arbre affiche comme badge de dérive : un override dont
+        # le kit a changé depuis n'est pas signalé par `shipped_by_kit` (qui ne
+        # dit que « ce contenu exact a déjà été livré, à une version
+        # quelconque ») — il faut confronter l'un à l'autre, ici, pas deviner.
+        from grimoire.core import layout
+
+        prefix = f"{layout.OVERRIDES_DIR}/"
+        kit_rel = f"{layout.KIT_DIR}/{rel[len(prefix):]}" if rel.startswith(prefix) else None
+        kit_path = (project_root / kit_rel) if kit_rel else None
+        masks = bool(kit_path and kit_path.is_file())
+        entry["kit_counterpart"] = kit_rel
+        entry["masks_kit"] = masks
+        entry["diverges"] = masks and _digest(kit_path) != digest if kit_path else False
     return entry
 
 
@@ -573,3 +590,165 @@ def blueprints_view(project_root: Path) -> dict[str, Any]:
         )
     containers.sort(key=lambda c: str(c["name"]).lower())
     return {"count": len(containers), "blueprints": containers}
+
+
+# ── Provenance : projeté vers, chargé par, historique ───────────────────────
+
+#: Où chercher une trace de projection : les arbres que les hôtes régénèrent,
+#: plus le fichier d'entrée qu'ils citent tous deux.
+_PROJECTION_ROOTS = (".claude", ".github")
+_PROJECTION_ROOT_FILES = ("AGENTS.md",)
+
+#: Bornes du grep « chargé par » : un projet gouverné a des milliers de
+#: fichiers sous `.claude/` seul. Sans plafond, l'inspecteur deviendrait le
+#: point le plus lent de l'espace Source pour la question la moins critique.
+_REFERENCE_SCAN_LIMIT = 4000
+_REFERENCE_RESULT_LIMIT = 20
+
+
+def _find_projections(root: Path, name: str, stem: str) -> list[str]:
+    """Fichiers projetés par les hôtes qui semblent dérivés de ce fichier.
+
+    Aucun émetteur n'inscrit la source dans le fichier qu'il régénère
+    (:mod:`grimoire.hosts.emitters.base`) : le rapprochement se fait donc sur
+    le nom, pas sur une référence garantie. C'est une heuristique honnête —
+    elle peut manquer un renommage, elle n'invente jamais une projection.
+    """
+    hits: list[str] = []
+    for tree in _PROJECTION_ROOTS:
+        base = root / tree
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*")):
+            if not path.is_file() or path.is_symlink():
+                continue
+            # `concierge.md` ↔ `concierge.agent.md` ↔ `concierge.md` : le
+            # premier segment du nom de fichier, avant tout point, doit
+            # correspondre à la racine du fichier source.
+            head = path.name.split(".", 1)[0]
+            if head == stem or path.name == name:
+                hits.append(path.relative_to(root).as_posix())
+    for rel_file in _PROJECTION_ROOT_FILES:
+        entry_file = root / rel_file
+        if not entry_file.is_file():
+            continue
+        try:
+            text = entry_file.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if stem and stem in text:
+            hits.append(f"{rel_file} · entrée")
+    return hits
+
+
+def _find_references(root: Path, rel: str, name: str) -> dict[str, Any]:
+    """Fichiers du projet qui citent le nom de *rel* — chargé par, au sens large.
+
+    Un grep littéral sur le nom de fichier, pas une résolution d'import : le
+    kit cite ses propres fichiers par chemin ou par nom dans des balises
+    `<step>`, des `@fichier` ou des listes, jamais par un mécanisme qu'on
+    pourrait résoudre statiquement dans tous les cas.
+    """
+    hits: list[dict[str, Any]] = []
+    scanned = 0
+    truncated = False
+    for tier in TIERS:
+        if truncated:
+            break
+        for tier_root in tier["roots"]:
+            if truncated:
+                break
+            base = root / tier_root
+            if not base.is_dir():
+                continue
+            for path in sorted(base.rglob("*")):
+                if not path.is_file() or path.is_symlink():
+                    continue
+                prel = path.relative_to(root).as_posix()
+                if prel == rel:
+                    continue
+                scanned += 1
+                if scanned > _REFERENCE_SCAN_LIMIT:
+                    truncated = True
+                    break
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if name not in text:
+                    continue
+                for lineno, line in enumerate(text.splitlines(), start=1):
+                    if name in line:
+                        hits.append({"path": prel, "line": lineno, "text": line.strip()[:200]})
+                        break
+                if len(hits) >= _REFERENCE_RESULT_LIMIT:
+                    truncated = True
+                    break
+    return {"entries": hits, "truncated": truncated}
+
+
+def file_usage(project_root: Path, raw_path: str | None) -> dict[str, Any]:
+    """L'onglet « Utilisé par » : projections des hôtes et fichiers qui citent celui-ci.
+
+    Les deux listes viennent d'un grep littéral, plafonné — jamais d'un
+    « aucune référence trouvée » présenté comme une preuve d'absence : la
+    réponse dit ce qui a été cherché et jusqu'où (:data:`_REFERENCE_SCAN_LIMIT`),
+    pas plus.
+    """
+    root = project_root.resolve()
+    target = safe_relpath(root, raw_path)
+    tier = tier_of(root, target)
+    if tier is None:
+        raise WorkspacePathError("ce chemin n'appartient à aucun étage de la vue Source")
+    if not target.is_file():
+        raise FileNotFoundError(f"introuvable : {raw_path}")
+    rel = target.relative_to(root).as_posix()
+    return {
+        "path": rel,
+        "projections": _find_projections(root, target.name, target.stem),
+        "loaded_by": _find_references(root, rel, target.name),
+    }
+
+
+def file_history(project_root: Path, raw_path: str | None) -> dict[str, Any]:
+    """L'onglet « Historique » : le journal git du fichier, ou un vide honnête.
+
+    Un projet qui n'est pas un dépôt git n'a pas d'historique à montrer — ce
+    n'est pas une panne, et l'interface ne doit pas prétendre qu'elle a
+    cherché et rien trouvé.
+    """
+    import subprocess
+
+    root = project_root.resolve()
+    target = safe_relpath(root, raw_path)
+    tier = tier_of(root, target)
+    if tier is None:
+        raise WorkspacePathError("ce chemin n'appartient à aucun étage de la vue Source")
+    if not target.is_file():
+        raise FileNotFoundError(f"introuvable : {raw_path}")
+    rel = target.relative_to(root).as_posix()
+    if not (root / ".git").exists():
+        return {"path": rel, "is_repo": False, "commits": []}
+    try:
+        proc = subprocess.run(
+            [
+                "git", "log", "--follow", "--max-count=50", "--date=iso-strict",
+                "--pretty=format:%H%x1f%ad%x1f%an%x1f%s", "--", rel,
+            ],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {"path": rel, "is_repo": True, "commits": [], "error": "git indisponible ou trop lent"}
+    if proc.returncode != 0:
+        return {"path": rel, "is_repo": True, "commits": []}
+    commits: list[dict[str, str]] = []
+    for line in proc.stdout.splitlines():
+        parts = line.split("\x1f")
+        if len(parts) == 4:
+            sha, date, author, subject = parts
+            commits.append({"sha": sha, "date": date, "author": author, "subject": subject})
+    return {"path": rel, "is_repo": True, "commits": commits}

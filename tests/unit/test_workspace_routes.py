@@ -32,9 +32,13 @@ from grimoire.tools.forge_server import ForgeAPI, make_handler
 from grimoire.tools.workspace_routes import GET_ROUTES, POST_ROUTES, PREFIX
 
 # Les lectures sans paramètre obligatoire : celles qu'on peut interroger telles
-# quelles sur les deux hôtes. `file` et `file/diff` exigent un `?path=` et sont
-# testées séparément.
-SHARED_READS = sorted(set(GET_ROUTES) - {f"{PREFIX}file", f"{PREFIX}file/diff", f"{PREFIX}doctor"})
+# quelles sur les deux hôtes. `file`, `file/diff`, `file/usage` et
+# `file/history` exigent un `?path=` et sont testées séparément ; `doctor`
+# lance un sous-processus et a son propre test, plus lent.
+SHARED_READS = sorted(
+    set(GET_ROUTES)
+    - {f"{PREFIX}file", f"{PREFIX}file/diff", f"{PREFIX}file/usage", f"{PREFIX}file/history", f"{PREFIX}doctor"}
+)
 
 
 def _get(port: int, path: str) -> tuple[int, Any]:
@@ -211,3 +215,69 @@ def test_l_atelier_sert_la_coque_de_la_vue_de_travail(atelier: int) -> None:
     assert resp.status == 200
     assert 'id="shell"' in body
     assert './shell.js' in body
+
+
+# ── 4. L'inspecteur : usage et historique, sur les deux hôtes ───────────────
+
+
+def _kit_markdown_path(port: int) -> str:
+    _, tree = _get(port, f"{PREFIX}files?tier=kit")
+    sample = next(f for f in tree["tiers"][0]["files"] if f["path"].endswith(".md"))
+    return str(sample["path"])
+
+
+def test_file_usage_et_file_history_repondent_sur_les_deux_hotes(
+    atelier: int, cockpit: int
+) -> None:
+    """Les deux onglets de l'inspecteur ont besoin d'un `?path=`, donc ils ne
+    sont pas dans :data:`SHARED_READS` — mais la promesse « chaque route honore
+    la cible » leur reste due."""
+    path = _kit_markdown_path(atelier)
+
+    code_a, usage_a = _get(atelier, f"{PREFIX}file/usage?path={path}")
+    code_b, usage_b = _get(cockpit, f"{PREFIX}file/usage?path={path}&project=projet-a")
+    code_c, history_a = _get(atelier, f"{PREFIX}file/history?path={path}")
+    code_d, history_b = _get(cockpit, f"{PREFIX}file/history?path={path}&project=projet-a")
+
+    assert code_a == code_b == 200
+    assert usage_a["path"] == usage_b["path"] == path
+    assert "projections" in usage_a and "loaded_by" in usage_a
+    assert code_c == code_d == 200
+    assert history_a["path"] == history_b["path"] == path
+    assert "commits" in history_a
+
+
+# ── 5. Un chemin hostile est refusé, symlink compris ────────────────────────
+
+
+def test_un_symlink_qui_sort_du_projet_est_refuse(atelier: int, real_project: Path) -> None:
+    """Un lien symbolique n'est pas un détour autour du garde de chemin : la
+    résolution suit le lien, et la cible réelle est ce qui compte."""
+    escape = real_project / "vers-ailleurs"
+    try:
+        escape.symlink_to("/etc")
+    except OSError:
+        pytest.skip("liens symboliques indisponibles sur ce système de fichiers")
+
+    code, payload = _get(atelier, f"{PREFIX}file?path=vers-ailleurs/passwd")
+
+    assert code == 403
+    assert payload["error"]
+
+
+# ── 6. Refus explicite hors loopback, vu depuis la vue de travail ──────────
+
+
+def test_une_lecture_de_la_vue_de_travail_refuse_un_host_etranger(atelier: int) -> None:
+    """Le garde anti rebinding-DNS de `forge_http` est générique — ce test
+    prouve qu'il couvre bien le préfixe `/api/workspace/`, pas seulement les
+    routes héritées qui ont leur propre test dans `test_serve_hardening.py`."""
+    req = urllib.request.Request(f"http://127.0.0.1:{atelier}{PREFIX}glossary")
+    req.add_header("Host", "evil.example.com")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 — loopback de test
+            code = resp.status
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+
+    assert code == 403

@@ -102,6 +102,14 @@ def _blueprints(project_root: Path, _query: _Query) -> Any:
     return workspace_api.blueprints_view(project_root)
 
 
+def _file_usage(project_root: Path, query: _Query) -> Any:
+    return workspace_api.file_usage(project_root, _one(query, "path"))
+
+
+def _file_history(project_root: Path, query: _Query) -> Any:
+    return workspace_api.file_history(project_root, _one(query, "path"))
+
+
 def _commands(_project_root: Path, _query: _Query) -> Any:
     return {"commands": workspace_exec.catalogue(), "count": len(workspace_exec.ALLOWED)}
 
@@ -119,6 +127,8 @@ GET_ROUTES: dict[str, _GetHandler] = {
     f"{PREFIX}files": _files,
     f"{PREFIX}file": _file,
     f"{PREFIX}file/diff": _file_diff,
+    f"{PREFIX}file/usage": _file_usage,
+    f"{PREFIX}file/history": _file_history,
     f"{PREFIX}commands": _commands,
     f"{PREFIX}doctor": _doctor,
     f"{PREFIX}blueprints": _blueprints,
