@@ -466,6 +466,10 @@
    "version": "3.4.2",
    "path": "archetypes/fix-loop/agents/fix-loop-orchestrator.tpl.md"
   },
+  "23cf259b26a180939fe25a0d91d029f5d6d7c7364d5e84373c0cf0d5223245f3": {
+   "version": "3.38.0",
+   "path": "framework/glossary.yaml"
+  },
   "23d6cb78d243af7c576cf792c2fe34e3f41ee74ff35aa4d9c03fcf1ad47a3cb2": {
    "version": "3.24.0",
    "path": "archetypes/meta/agents/creative-toolsmith.md"

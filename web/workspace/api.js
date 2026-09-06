@@ -70,6 +70,15 @@ function post(path, body) {
   return request(path, { method: 'POST', body: JSON.stringify(body || {}) });
 }
 
+// `/api/projects/update` n'est PAS une écriture de la vue de travail : c'est
+// la seule route où le cockpit, lecture seule sur les tâches et les fichiers,
+// écrit légitimement dans un dépôt — avec son propre aperçu par défaut et son
+// `confirm` explicite (spec §4, Piloter → « mettre à jour »). La gate générale
+// de `post()` la refuserait par erreur ; elle appelle donc `request` directement.
+function postOpen(path, body) {
+  return request(path, { method: 'POST', body: JSON.stringify(body || {}) });
+}
+
 /** Amorçage : résout l'hôte et le projet ciblé. À appeler une fois. */
 export async function boot() {
   const params = new URLSearchParams(location.search);
@@ -88,15 +97,20 @@ export async function boot() {
 
 export const api = {
   status: () => get('/api/status'),
-  health: () => get('/api/health'),
+  // `project` cible un AUTRE projet que celui déjà résolu par l'hôte — c'est ce
+  // dont a besoin le niveau Flotte de Piloter, qui appelle la santé de chaque
+  // projet du registre l'un après l'autre. Sans argument, le comportement est
+  // celui d'avant : la santé du projet déjà ciblé par l'hôte.
+  health: (project) => get('/api/health', project ? { project } : undefined),
   projects: () => get('/api/projects'),
-  memoryStatus: () => get('/api/memory/status'),
+  memoryStatus: (project) => get('/api/memory/status', project ? { project } : undefined),
   blueprints: () => get('/api/blueprints'),
   primitives: () => get('/api/primitives'),
   features: () => get('/api/features'),
   stigmergy: () => get('/api/stigmergy'),
   eventsLog: () => get('/api/events/log'),
   otel: () => get('/api/otel'),
+  costModel: () => get('/api/cost-model'),
 
   // ── Vue de travail ────────────────────────────────────────────────────────
   glossary: () => get(WS + 'glossary'),
@@ -107,7 +121,7 @@ export const api = {
   file: (path) => get(WS + 'file', { path }),
   fileDiff: (path) => get(WS + 'file/diff', { path }),
   commands: () => get(WS + 'commands'),
-  doctor: () => get(WS + 'doctor'),
+  doctor: (project) => get(WS + 'doctor', project ? { project } : undefined),
 
   // ── Écritures : atelier seulement, refusées côté cockpit ──────────────────
   taskAction: (id, action, body) =>
@@ -115,6 +129,13 @@ export const api = {
   createOverride: (path) => post(WS + 'file/override', { path }),
   writeFile: (path, text) => post(WS + 'file/write', { path, text }),
   run: (argv) => post(WS + 'command', { argv }),
+
+  // Aligner un projet sur le kit installé (`grimoire up`). Disponible sur les
+  // deux hôtes : `confirm: false` (par défaut) rend un aperçu, `confirm: true`
+  // écrit réellement. `project` est le slug ciblé (portefeuille) ; omis, la
+  // cible est le projet déjà servi par l'atelier.
+  updateProject: (project, confirm = false) =>
+    postOpen('/api/projects/update', { project: project || undefined, confirm }),
 };
 
 export default api;

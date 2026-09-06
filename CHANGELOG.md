@@ -53,8 +53,36 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   `GRIMOIRE_COCKPIT_HOME` détourné, et mesure sur le DOM rendu ce que la
   spécification exige — plancher typographique, contraste, mécaniques au
   clavier. Il se skippe proprement sans Playwright, jamais en faux vert.
+- **Lot 4 de la vue de travail — Piloter, Exécuter, Observer, Mémoire.**
+  Piloter : niveau Flotte (cockpit, tableau sur bureau / cartes sur mobile,
+  KPI en une carte divisée, « À traiter » toujours visible) et niveau Projet
+  (fiche du projet servi, même signaux) ; inspecteur avec mise à jour derrière
+  aperçu (`/api/projects/update`, `confirm: false` par défaut) puis
+  confirmation. Exécuter : Board 4 colonnes (états repliés nommés sous le
+  titre) et Board 8, Liste, Timeline ; carte de tâche à trois niveaux ;
+  inspecteur avec critères d'acceptation, preuves déclarées, prochaine porte
+  actionnable (`claim`/`move`/`block`/`close`, gate compris) et sa commande
+  équivalente dans le dock. Observer : six KPI, coût par modèle (`--s1..3`),
+  latence p50/p95/p99 (une teinte neutre — une seule série), spans lents,
+  traces par agent ; un seul état vide sur un projet sans trace, jamais un mur
+  de zéros. Mémoire : store et graphe d'abord (`/api/memory/status`), couches
+  ensuite, l'explication d'architecture derrière un onglet. Les quatre espaces
+  ajoutent `api.health(project?)`, `api.memoryStatus(project?)`,
+  `api.doctor(project?)`, `api.costModel()` et `api.updateProject()` à
+  `web/workspace/api.js` (routes déjà servies par les deux hôtes, ou route
+  cockpit existante pour `updateProject`) ; aucun ne dépend d'un jeu de
+  données de démonstration.
 
 ### Corrigé
+
+- **Le portefeuille peut désormais dire ce qu'il ne sait pas.**
+  `project_health()` rend `commits_total` (compté sur `HEAD`, `None` hors
+  dépôt git ou sans commit) et `ci_status` (`"unknown"`, honnêtement — aucune
+  sonde locale ne le mesure encore) sous ces noms exacts : la vue héritée lisait
+  `p.ci` et `p.commits`, deux champs que la donnée réelle n'a jamais portés.
+  `antifragile` reste `None`, avec `antifragile_note: "pas encore mesurée"` —
+  jamais un score à zéro pour un score qui n'a simplement jamais été calculé.
+  `demo` vaut toujours `False` : ce module ne lit aucune donnée de vitrine.
 
 - **Trois valeurs de la palette ne tenaient pas le contraste que la
   spécification exige d'elle-même**, trouvées par la mesure et non par la
