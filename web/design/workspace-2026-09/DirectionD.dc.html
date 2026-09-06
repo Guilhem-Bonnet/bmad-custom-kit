@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f1f1d; background: #f4f4f1; }
+    a { color: #b4432b; } a:hover { color: #8f3320; }
+    .wf { font-size: 13px; line-height: 1.35; }
+    .lbl { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #6b6b66; }
+    .box { border: 1px solid #c9c9c3; background: #ffffff; }
+    .muted { color: #6b6b66; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid #c9c9c3; border-radius: 999px; font-size: 12px; background: #fff; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: #8a8a84; display: inline-block; }
+    .dot.ok { background: #2f9e5f; } .dot.warn { background: #d29a1a; } .dot.acc { background: #ff6b3d; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .nav > div { padding: 6px 10px; border-radius: 6px; }
+    .nav .on { background: #ffe6dc; font-weight: 600; }
+    .seg { display: flex; border: 1px solid #c9c9c3; border-radius: 8px; overflow: hidden; background: #fff; }
+    .seg > div { padding: 6px 12px; font-size: 12px; color: #6b6b66; }
+    .seg > .on { background: #1f1f1d; color: #fff; }
+    .th { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #6b6b66; padding: 10px 12px; border-bottom: 1px solid #c9c9c3; }
+    .td { padding: 12px; border-bottom: 1px solid #e8e8e3; }
+    .btn { padding: 6px 12px; border: 1px solid #1f1f1d; border-radius: 6px; font-size: 13px; background: #fff; }
+    .btn.pri { background: #ff6b3d; border-color: #ff6b3d; color: #fff; }
+  </style>
+</helmet>
+<div class="wf" style="width: 1440px; height: 900px; display: grid; grid-template-columns: 240px minmax(0, 1fr) 400px; background: #f4f4f1; overflow: hidden;">
+
+  <!-- Navigation par sections -->
+  <div class="box" style="border-width: 0 1px 0 0; display: flex; flex-direction: column; padding: 14px 10px; gap: 18px;">
+    <div class="row" style="padding: 0 8px;"><span style="font-weight: 700; letter-spacing: .06em; font-size: 13px;">GRIMOIRE</span><span style="flex-grow: 1;"></span><span class="chip"><span class="dot ok"></span>proj-da</span></div>
+    <div class="chip muted" style="justify-content: space-between;"><span>Rechercher ou commander</span><span>⌘K</span></div>
+    <div class="nav" style="display: flex; flex-direction: column; gap: 1px;">
+      <div class="lbl" style="padding: 0 10px 6px;">Piloter</div>
+      <div>Portefeuille</div>
+      <div class="on">Tâches</div>
+      <div>Incidents</div>
+    </div>
+    <div class="nav" style="display: flex; flex-direction: column; gap: 1px;">
+      <div class="lbl" style="padding: 0 10px 6px;">Concevoir</div>
+      <div>Agents</div>
+      <div>Workflows</div>
+      <div>Blueprints</div>
+      <div>Patterns et extensions</div>
+    </div>
+    <div class="nav" style="display: flex; flex-direction: column; gap: 1px;">
+      <div class="lbl" style="padding: 0 10px 6px;">Observer</div>
+      <div>Traces</div>
+      <div>Coûts</div>
+      <div>Mémoire</div>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div class="muted" style="padding: 0 10px; font-size: 12px;">grimoire-kit 3.38.0 · governed</div>
+  </div>
+
+  <!-- Vue principale : en-tête d'une ligne + liste -->
+  <div style="display: flex; flex-direction: column; min-width: 0;">
+    <div class="box" style="height: 56px; display: flex; align-items: center; gap: 16px; padding: 0 20px; border-width: 0 0 1px 0;">
+      <div style="font-size: 20px; font-weight: 600;">Tâches</div>
+      <div class="muted">1 ouverte · 8 états · 6 portes</div>
+      <div style="flex-grow: 1;"></div>
+      <div class="seg"><div>Board</div><div class="on">Liste</div><div>Timeline</div></div>
+      <div class="chip">Filtre <span class="muted">&#9662;</span></div>
+      <div class="seg"><div class="on">Aéré</div><div>Dense</div></div>
+      <div class="btn pri">Nouvelle tâche</div>
+    </div>
+    <div style="padding: 20px; overflow: hidden;">
+      <div class="box" style="border-radius: 10px; overflow: hidden;">
+        <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr 1.4fr 1fr;">
+          <div class="th">Tâche</div><div class="th">État</div><div class="th">Owner</div><div class="th">Preuves</div><div class="th">Prochaine porte</div>
+          <div class="td" style="background: #fff7f3; font-weight: 600;">Bootstrap agentic standard runtime</div>
+          <div class="td row" style="background: #fff7f3;"><span class="dot acc"></span>in_progress</div>
+          <div class="td" style="background: #fff7f3;">grimoire-maintainers</div>
+          <div class="td row" style="background: #fff7f3;"><span class="dot ok"></span><span class="dot ok"></span><span class="dot"></span><span class="dot"></span></div>
+          <div class="td" style="background: #fff7f3;">review · evidence pack</div>
+          <div class="td muted">GAO-exposer-les-001</div>
+          <div class="td row muted"><span class="dot ok"></span>accepted</div>
+          <div class="td muted">claude</div>
+          <div class="td row"><span class="dot ok"></span><span class="dot ok"></span><span class="dot ok"></span><span class="dot ok"></span></div>
+          <div class="td muted">released · autorisation</div>
+          <div class="td muted">r7-forge-kit-adoption</div>
+          <div class="td row muted"><span class="dot ok"></span>accepted</div>
+          <div class="td muted">grimoire-maintainers</div>
+          <div class="td row"><span class="dot ok"></span><span class="dot ok"></span><span class="dot ok"></span><span class="dot ok"></span></div>
+          <div class="td muted">released · score</div>
+        </div>
+      </div>
+      <div class="muted" style="margin-top: 12px; font-size: 12px;">Huit tâches archivées masquées · afficher</div>
+    </div>
+  </div>
+
+  <!-- Volet latéral de détail -->
+  <div class="box" style="border-width: 0 0 0 1px; display: flex; flex-direction: column;">
+    <div style="padding: 14px 20px; border-bottom: 1px solid #e3e3de; display: flex; align-items: center; justify-content: space-between;"><span class="lbl">Tâche</span><span class="muted">fermer</span></div>
+    <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="font-size: 17px; font-weight: 600; line-height: 1.3;">Bootstrap agentic standard runtime</div>
+      <div class="row" style="flex-wrap: wrap;"><span class="chip"><span class="dot acc"></span>in_progress</span><span class="chip">governed</span><span class="chip">grimoire-maintainers</span></div>
+      <div>
+        <div class="lbl">Critères d'acceptation</div>
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
+          <div class="row"><span class="dot ok"></span>standard verify passe depuis la racine</div>
+          <div class="row"><span class="dot ok"></span>artefacts governed générés et remplis</div>
+          <div class="row"><span class="dot"></span>release consommée sur les deux hôtes</div>
+        </div>
+      </div>
+      <div>
+        <div class="lbl">Preuves</div>
+        <div class="row" style="flex-wrap: wrap; margin-top: 6px;"><span class="chip"><span class="dot ok"></span>task envelope</span><span class="chip"><span class="dot ok"></span>context bundle</span><span class="chip"><span class="dot"></span>evidence pack</span><span class="chip"><span class="dot"></span>decision trace</span></div>
+      </div>
+      <div class="box" style="border-radius: 8px; padding: 12px; background: #fbfbf9;">
+        <div class="lbl">Prochaine porte</div>
+        <div style="margin: 4px 0 10px;">in_progress → review exige evidence pack et decision trace.</div>
+        <div class="row"><div class="btn pri">Passer en revue</div><div class="btn">Ouvrir la preuve</div></div>
+      </div>
+      <div>
+        <div class="lbl">Timeline</div>
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px; font-size: 12px;">
+          <div class="row"><span class="muted">21:14</span><span class="dot ok"></span>claim par claude</div>
+          <div class="row"><span class="muted">21:20</span><span class="dot ok"></span>task envelope écrit</div>
+          <div class="row"><span class="muted">21:31</span><span class="dot acc"></span>gate refusé · evidence pack manquant</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

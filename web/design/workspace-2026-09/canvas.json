@@ -1,0 +1,274 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Directions"
+    },
+    {
+      "id": "page-2",
+      "name": "Direction retenue"
+    },
+    {
+      "id": "page-3",
+      "name": "Propositions DA"
+    },
+    {
+      "id": "page-4",
+      "name": "Couleurs"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "A · Atelier docké (Blender, Godot, Unity)",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1"
+    },
+    {
+      "file": "DirectionB.dc.html",
+      "title": "B · Studio à rails (suite Adobe)",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1"
+    },
+    {
+      "file": "DirectionC.dc.html",
+      "title": "C · Carte continue (IcePanel)",
+      "x": 0,
+      "y": 1180,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1"
+    },
+    {
+      "file": "DirectionD.dc.html",
+      "title": "D · Liste et volet (outils de gestion)",
+      "x": 1560,
+      "y": 1180,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1"
+    },
+    {
+      "file": "Concevoir.dc.html",
+      "title": "Concevoir · sombre",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2"
+    },
+    {
+      "file": "ConcevoirClair.dc.html",
+      "title": "Concevoir · clair",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2"
+    },
+    {
+      "file": "Mecaniques.dc.html",
+      "title": "Mécaniques : panneaux, infobulles, raccourcis",
+      "x": 0,
+      "y": 1180,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2"
+    },
+    {
+      "file": "DAArdoise.dc.html",
+      "title": "DA 1 · Ardoise",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-3"
+    },
+    {
+      "file": "DAPapier.dc.html",
+      "title": "DA 2 · Papier",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-3"
+    },
+    {
+      "file": "DAStudio.dc.html",
+      "title": "DA 3 · Studio",
+      "x": 0,
+      "y": 1180,
+      "w": 1440,
+      "h": 900,
+      "page": "page-3"
+    },
+    {
+      "file": "Source.dc.html",
+      "title": "Source · framework, overrides, projections",
+      "x": 1560,
+      "y": 1180,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2"
+    },
+    {
+      "file": "Couleurs.dc.html",
+      "title": "Palettes candidates, contrastes mesurés",
+      "x": 0,
+      "y": 0,
+      "w": 1900,
+      "h": 1180,
+      "page": "page-4"
+    },
+    {
+      "file": "Encre.dc.html",
+      "title": "Encre · sombre (accent = encre, orange réservé à l'action primaire)",
+      "x": 0,
+      "y": 1300,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4"
+    },
+    {
+      "file": "EncreClair.dc.html",
+      "title": "Encre · clair",
+      "x": 1560,
+      "y": 1300,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "principes",
+      "page": "page-1",
+      "x": 0,
+      "y": -300,
+      "w": 720,
+      "text": "Brainstorm de la vue de travail · 5 septembre\n\nCe que les références apportent :\n- Blender, Godot, Unity : un espace de travail par intention (onglets), des panneaux dockables, un explorateur à gauche, un inspecteur à droite, une console en bas. La densité est ordonnée, pas réduite.\n- Suite Adobe : un rail d'outils, une barre d'options contextuelle à l'outil, des panneaux repliés en onglets verticaux. Un seul panneau ouvert à la fois : l'air vient du repli.\n- IcePanel : la carte est l'interface. Niveaux de zoom (flotte, projet, workflow, nœud), chrome flottant, détail sur sélection. Le maximum d'air, au prix d'une convention à apprendre.\n- Outils de gestion (Linear, Notion) : navigation par sections, en-tête d'une ligne, liste ou board, volet de détail. Le plus lisible, le moins « atelier ».\n\nInvariants, quelle que soit la direction :\n- Plancher 13 px sur fond sombre, 12 px sur fond clair ; un seul accent ; états = point + mot.\n- Une palette de commandes (⌘K) qui atteint tout : projets, workflows, tâches, commandes du kit.\n- Densité choisie par l'utilisateur (aéré / dense), pas imposée.\n- Le même modèle sur les deux hôtes : l'atelier mono-projet et le cockpit multi-projets ne diffèrent que par le niveau « flotte »."
+    },
+    {
+      "id": "note-a",
+      "page": "page-1",
+      "x": 0,
+      "y": -100,
+      "w": 520,
+      "text": "A · Atelier docké\nMotivation : c'est le modèle mental de tes références 3D. Tout est visible et à sa place : explorateur, document, inspecteur, traces. Les espaces de travail (Piloter, Concevoir, Exécuter, Observer, Mémoire) remplacent neuf pages par cinq intentions.\nRisque : densité élevée par défaut ; demande des panneaux repliables et un mode aéré soigné pour ne pas se sentir à l'étroit."
+    },
+    {
+      "id": "note-b",
+      "page": "page-1",
+      "x": 1560,
+      "y": -100,
+      "w": 520,
+      "text": "B · Studio à rails\nMotivation : l'air par le repli. Un rail d'icônes, une barre d'options qui suit l'outil, un seul panneau ouvert. Le document occupe 70 % de l'écran.\nRisque : les icônes seules exigent des infobulles et un apprentissage ; les traces perdent leur place permanente (pastille flottante)."
+    },
+    {
+      "id": "note-c",
+      "page": "page-1",
+      "x": 0,
+      "y": 1080,
+      "w": 520,
+      "text": "C · Carte continue\nMotivation : la carte devient l'interface, comme IcePanel. Zoom continu de la flotte au nœud, chrome flottant, détail sur sélection. C'est la direction la plus aérée et la plus distinctive.\nRisque : les objets non spatiaux (tâches, mémoire, coûts) doivent trouver leur place sur la carte ou dans des fiches ; convention à apprendre."
+    },
+    {
+      "id": "note-d",
+      "page": "page-1",
+      "x": 1560,
+      "y": 1080,
+      "w": 520,
+      "text": "D · Liste et volet\nMotivation : lisibilité irréprochable et UX connue de tous : sections, en-tête d'une ligne, liste ou board, volet de détail, densité au choix. Le moins risqué à livrer.\nRisque : ce n'est plus un atelier ; l'éditeur de blueprints y devient une page parmi d'autres."
+    },
+    {
+      "id": "retenue",
+      "page": "page-2",
+      "x": 0,
+      "y": -200,
+      "w": 760,
+      "text": "Direction retenue · décisions de Guilhem du 5 septembre\n\nCoque A : six espaces de travail (dont Source, ajouté le 5 septembre), explorateur, inspecteur, dock avec Console (terminal du kit), Traces, Timeline, Problèmes.\nRepli B : rail d'icônes à gauche, panneaux repliés, entrouverts ou épinglés (cadenas), raccourcis 1 à 5, mode concentration.\nToile C : niveaux de zoom Flotte, Projet, Workflow, Nœud dans l'espace Concevoir ; le cockpit n'ajoute que le niveau Flotte.\nVue D : chaque collection se voit en Carte, Board ou Liste ; la liste sert à gérer flows et groupes.\nInfobulles épinglables façon Baldur's Gate : Alt fige, on entre, les termes ouvrent d'autres bulles, Échap ferme la pile.\n\nCe qui reste ouvert : le rendu visuel, à choisir sur la page Propositions DA. Les deux artboards ci-dessous portent l'identité actuelle resserrée (Forge), en sombre et en clair."
+    },
+    {
+      "id": "da-intro",
+      "page": "page-3",
+      "x": 0,
+      "y": -220,
+      "w": 760,
+      "text": "Trois propositions de direction artistique sur la même coque\n\nLa structure ne change pas d'une planche à l'autre ; seuls la palette, la typographie, les rayons et le matériau des surfaces changent. Chacune est construite sur des tokens complets, prête à devenir la PR tokens.\n\n1 · Ardoise : graphite froid, accent sarcelle, IBM Plex, rayons 4 px. Calme, technique, lisible longtemps.\n2 · Papier : clair d'abord, blanc cassé chaud, encre et vert profond, Source Sans, rayons 2 px. Le plus aéré, le plus « document ».\n3 · Studio : gris moyen des éditeurs 3D (Blender, Unity), accent bleu, angles serrés, Geist. Familier pour tes références, fatigue moindre que le noir pur.\n\nLa quatrième option est la page précédente : Forge, l'identité actuelle resserrée, en sombre et en clair."
+    },
+    {
+      "id": "da-1",
+      "page": "page-3",
+      "x": 0,
+      "y": -90,
+      "w": 520,
+      "text": "Ardoise · quand on veut rester sombre sans le noir absolu ni l'orange. Le sarcelle contraste avec les états (vert, ambre) sans se confondre avec eux."
+    },
+    {
+      "id": "da-2",
+      "page": "page-3",
+      "x": 1560,
+      "y": -90,
+      "w": 520,
+      "text": "Papier · quand la lisibilité prime sur l'ambiance : c'est la proposition la plus proche d'IcePanel et des outils de gestion. Le sombre en dérive facilement."
+    },
+    {
+      "id": "da-3",
+      "page": "page-3",
+      "x": 0,
+      "y": 1090,
+      "w": 520,
+      "text": "Studio · quand on veut que l'outil ressemble à un éditeur professionnel. Les surfaces se distinguent par des ombres portées noires, pas par des bordures claires."
+    },
+    {
+      "id": "source-note",
+      "page": "page-2",
+      "x": 1560,
+      "y": 1090,
+      "w": 560,
+      "text": "Source · le sixième espace\nLes trois étages du projet : overrides possédés par le projet, kit généré (lecture seule, « créer un override » quand on édite), projections des hôtes régénérées. Éditeur avec Source, Diff contre le kit et Rendu ; l'inspecteur dit d'où vient le fichier, où il est projeté et qui le charge. Angles resserrés à 3 px sur toute la direction retenue."
+    },
+    {
+      "id": "couleur-roles",
+      "page": "page-4",
+      "x": 0,
+      "y": -330,
+      "w": 640,
+      "text": "Brainstorm couleurs · à quoi sert la couleur dans cet outil\n\nPar ordre de priorité, et chaque rôle a UNE réponse :\n1. Hiérarchie des surfaces : fond, panneaux, surfaces posées. Trois valeurs, sans grille ni halo.\n2. Encre : trois niveaux, tous lisibles (AA sur la surface des panneaux). C'est là que l'atelier actuel échoue le plus (encre discrète à 2,4:1).\n3. États : ok, à vérifier, bloqué. Toujours point + mot, jamais la couleur seule. Trois teintes séparées pour un daltonien.\n4. Interaction : sélection, onglet actif, focus. Un seul accent, lisible sur les panneaux.\n5. Action primaire : un bouton par écran. Peut partager l'accent ou s'en distinguer.\n6. Données : trois séries au plus, sur une bande de luminance validée ; une seule série = neutre.\n7. Marque : le logo. Rien d'autre n'a besoin d'être orange."
+    },
+    {
+      "id": "couleur-regles",
+      "page": "page-4",
+      "x": 680,
+      "y": -330,
+      "w": 640,
+      "text": "Règles qui découlent des rôles\n\n- L'accent d'interaction ne doit pas ressembler à un état : l'orange Forge voisine avec l'ambre « à vérifier » (contraste 1,96 entre les deux, 1,3 pour le sarcelle et le vert ok d'Ardoise).\n- Sur fond sombre, une chroma élevée sur une grande surface vibre ; l'accent se pose sur des lignes et des traits (soulignement d'onglet, liseré de sélection), pas sur des fonds.\n- L'encre discrète a un plancher : 4,5:1 sur la surface des panneaux. Studio (3,9) et Papier sombre (4,5 tout juste) n'y sont pas ou de justesse.\n- Le clair n'est pas l'inverse du sombre : l'accent y perd de la luminance (orange 217,72,26 au lieu de 255,107,61), les états y sont plus profonds.\n- Les couleurs de séries ne sont jamais réutilisées pour les états, et inversement."
+    },
+    {
+      "id": "couleur-reco",
+      "page": "page-4",
+      "x": 1360,
+      "y": -330,
+      "w": 540,
+      "text": "Recommandation\n\nEncre : l'accent d'interaction devient l'encre (soulignement, liseré, focus), l'orange ne reste que sur la marque et l'action primaire, les états et les données portent seuls la chroma. C'est ce que font les outils les moins chargés (Linear, Raycast, Figma en mode sombre) : l'œil n'a plus qu'une couleur à interpréter à la fois.\n\nSi tu veux garder une couleur d'interaction, Ardoise est la meilleure des chromatiques : contraste 6,7 sur les panneaux, loin de l'ambre et du rouge. Studio est éliminé par ses encres sous AA. Forge reste possible en corrigeant une chose : l'ambre des avertissements doit s'éloigner de l'orange (plus jaune, plus clair) ou l'accent doit baisser en chroma."
+    },
+    {
+      "id": "surfaces",
+      "page": "page-4",
+      "x": 0,
+      "y": 1200,
+      "w": 760,
+      "text": "Surfaces · cinq niveaux, un rôle chacun (révision du 5 septembre, après tes deux remarques)\n\n- Toile : la plus profonde en sombre, un gris moyen en clair, jamais blanche. Grille de points discrète pour qu'on la reconnaisse sans la lire.\n- Panneaux : explorateur, inspecteur, rails.\n- Barres : barre d'application, en-têtes de panneaux, onglets du dock, barre d'état. Un cran au-dessus des panneaux pour que la structure se lise d'un coup d'œil.\n- Posé : nœuds, cartes, champs, bulles. Le blanc pur n'existe qu'ici en clair, et sur des petites surfaces.\n- Terminal : toujours sombre, dans les deux thèmes. On lit une console sur fond sombre, et le dock se distingue du reste sans effort.\n\nÉcarts : en sombre, environ 5 % de luminance entre chaque niveau au lieu de 2 ; en clair, la toile est 10 % plus sombre que les panneaux. Les deux thèmes ci-dessus (page Direction retenue et cette page) sont régénérés avec ce modèle."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-4"
+  }
+}

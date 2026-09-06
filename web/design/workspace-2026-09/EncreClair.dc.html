@@ -1,0 +1,173 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <style>
+    :root { --bg: #E5E6E2; --e1: #F3F3F0; --e2: #FFFFFF; --e3: #DFE0DB; --bar: #EAEAE6; --term: #1B1F25; --termink: #D6DAE0; --ink: #17191C; --ink2: #4E545C; --ink3: #767C85; --line: rgba(23,25,28,0.13); --acc: #17191C; --accsoft: rgba(23,25,28,0.07); --pri: #D9481A; --ok: #1F8A55; --warn: #9C6D0C; --r: 3px; }
+    body { margin: 0; font-family: 'Geist', system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+    a { color: var(--acc); } a:hover { color: var(--ink); }
+    .ui { font-size: 13px; line-height: 1.4; }
+    .mono { font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+    .lbl { font-size: 12px; color: var(--ink3); }
+    .soft { color: var(--ink2); }
+    .surf { background: var(--e1); }
+    .chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--r); font-size: 12px; background: var(--e2); color: var(--ink2); }
+    .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ink3); flex: none; }
+    .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.acc { background: var(--acc); }
+    .tab { height: 100%; display: flex; align-items: center; padding: 0 12px; color: var(--ink2); border-bottom: 2px solid transparent; }
+    .tab.on { color: var(--ink); border-bottom-color: var(--acc); font-weight: 500; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .ico { width: 18px; height: 18px; flex: none; }
+    .rail-btn { width: 44px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--ink2); border-left: 2px solid transparent; }
+    .rail-btn.on { color: var(--ink); border-left-color: var(--acc); background: var(--accsoft); }
+    .tree > div { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: var(--r); color: var(--ink2); }
+    .tree > .sel { background: var(--accsoft); color: var(--ink); }
+    .node { position: absolute; width: 176px; background: var(--e2); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,.18); border-radius: calc(var(--r) + 1px); padding: 10px 12px; font-size: 12px; color: var(--ink2); }
+    .node .t { font-weight: 500; font-size: 13px; color: var(--ink); }
+    .node.sel { border-color: var(--acc); box-shadow: 0 0 0 3px var(--accsoft); }
+    .btn { height: 30px; display: inline-flex; align-items: center; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r); font-size: 13px; background: var(--e2); color: var(--ink); }
+    .btn.pri { background: var(--pri); border-color: var(--pri); color: #FFFFFF; font-weight: 500; }
+    .seg { display: flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--e1); height: 28px; }
+    .seg > div { padding: 0 11px; display: flex; align-items: center; font-size: 12px; color: var(--ink2); }
+    .seg > .on { background: var(--e3); color: var(--ink); }
+    .kbd { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; font-size: 11px; color: var(--ink2); background: var(--e1); }
+    .tip { position: absolute; width: 268px; background: var(--e3); border: 1px solid var(--line); border-radius: calc(var(--r) + 1px); padding: 10px 12px; box-shadow: 0 16px 40px rgba(0,0,0,.35); font-size: 12px; color: var(--ink2); }
+    .tip .t { font-size: 13px; font-weight: 500; color: var(--ink); }
+    .tip u { text-decoration: underline dotted; text-underline-offset: 3px; color: var(--ink); }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .input { height: 30px; display: flex; align-items: center; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--r); background: var(--e1); color: var(--ink); }
+  </style>
+</helmet>
+<div class="ui" style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: var(--bg); overflow: hidden;">
+
+  <!-- Barre d'application -->
+  <div style="background: var(--bar); height: 44px; display: flex; align-items: stretch; gap: 14px; padding: 0 14px; border-bottom: 1px solid var(--line);">
+    <div class="row" style="font-weight: 600; letter-spacing: .08em; font-size: 12px;">GRIMOIRE</div>
+    <div class="row"><span class="chip" style="color: var(--ink);"><span class="dot ok"></span>proj-da<span class="soft">&#9662;</span></span></div>
+    <div style="display: flex; margin-left: 16px;">
+      <div class="tab">Piloter</div><div class="tab on">Concevoir</div><div class="tab">Exécuter</div><div class="tab">Observer</div><div class="tab">Mémoire</div><div class="tab">Source</div>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div class="row"><span class="chip" style="width: 250px; justify-content: space-between;"><span>Rechercher ou commander</span><span class="kbd">⌘K</span></span></div>
+    <div class="row"><span class="btn pri">Compiler</span></div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; min-height: 0;">
+
+    <!-- Rail des panneaux gauche -->
+    <div class="surf" style="width: 44px; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding-top: 4px;">
+      <div class="rail-btn on"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5.5h5l1.5 1.5H17v8H3z"></path></svg></div>
+      <div class="rail-btn"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h6v12H4zM10 4h6v12h-6z"></path></svg></div>
+      <div class="rail-btn"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3l6 2v5c0 4-3 6-6 7-3-1-6-3-6-7V5z"></path></svg></div>
+      <div class="rail-btn"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="10" cy="5.5" rx="6" ry="2.5"></ellipse><path d="M4 5.5v9c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-9M4 10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5"></path></svg></div>
+      <div style="flex-grow: 1;"></div>
+      <div class="rail-btn"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="6.5"></circle><path d="M10 7v3l2 2"></path></svg></div>
+    </div>
+
+    <!-- Explorateur épinglé -->
+    <div class="surf" style="width: 236px; border-right: 1px solid var(--line); display: flex; flex-direction: column;">
+      <div class="row" style="height: 40px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--line); background: var(--bar);"><span style="font-weight: 500;">Explorateur</span><span style="flex-grow: 1;"></span><span class="kbd">1</span><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="var(--acc)" stroke-width="1.5"><rect x="5" y="9" width="10" height="8" rx="1.5"></rect><path d="M7 9V6.5a3 3 0 0 1 6 0V9"></path></svg></div>
+      <div class="tree" style="padding: 8px 6px; display: flex; flex-direction: column; gap: 1px;">
+        <div style="color: var(--ink);"><span class="soft">&#9662;</span>proj-da</div>
+        <div style="padding-left: 22px;"><span class="soft">&#9656;</span>Agents<span class="lbl" style="margin-left: auto;">7</span></div>
+        <div style="padding-left: 22px; color: var(--ink);"><span class="soft">&#9662;</span>Workflows<span class="lbl" style="margin-left: auto;">6</span></div>
+        <div class="sel" style="padding-left: 38px;">boomerang-orchestration</div>
+        <div style="padding-left: 38px;">subagent-orchestration</div>
+        <div style="padding-left: 38px;">party-mode</div>
+        <div style="padding-left: 38px;">incident-response</div>
+        <div style="padding-left: 38px;">state-checkpoint</div>
+        <div style="padding-left: 38px;">repo-map-generator</div>
+        <div style="padding-left: 22px;"><span class="soft">&#9656;</span>Blueprints<span class="lbl" style="margin-left: auto;">2</span></div>
+        <div style="padding-left: 22px;"><span class="soft">&#9656;</span>Tâches<span class="lbl" style="margin-left: auto;">1</span></div>
+        <div style="padding-left: 22px;"><span class="soft">&#9656;</span>Preuves<span class="lbl" style="margin-left: auto;">3</span></div>
+      </div>
+    </div>
+
+    <!-- Centre -->
+    <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+      <div style="background: var(--bar); height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--line);">
+        <div class="row soft"><span>Flotte</span><span>›</span><span>proj-da</span><span>›</span><span style="color: var(--ink); font-weight: 500;">boomerang-orchestration</span></div>
+        <div style="flex-grow: 1;"></div>
+        <div class="seg"><div>Flotte</div><div>Projet</div><div class="on">Workflow</div><div>Nœud</div></div>
+        <div class="seg"><div class="on">Carte</div><div>Board</div><div>Liste</div></div>
+        <span class="chip"><span class="dot warn"></span>2 avertissements</span>
+      </div>
+
+      <div style="flex-grow: 1; position: relative; min-height: 0; background-color: var(--bg); background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 22px 22px;">
+        <svg style="position: absolute; inset: 0; width: 100%; height: 100%;" viewBox="0 0 800 420" preserveAspectRatio="none" fill="none">
+          <path d="M226 130 L300 130" stroke="var(--ink3)" stroke-width="1.5"></path>
+          <path d="M476 130 L560 90" stroke="var(--ink3)" stroke-width="1.5"></path>
+          <path d="M476 130 L560 170" stroke="var(--ink3)" stroke-width="1.5"></path>
+          <path d="M736 190 L736 280 L388 280 L388 310" stroke="var(--acc)" stroke-width="1.5" stroke-dasharray="4 4"></path>
+        </svg>
+        <div class="node" style="left: 50px; top: 100px;"><div class="t">Concierge</div><div>triage · reformule</div></div>
+        <div class="node sel" style="left: 300px; top: 100px;"><div class="t">Découper</div><div>boomerang · 3 sous-tâches</div></div>
+        <div class="node" style="left: 560px; top: 60px;"><div class="t">Project navigator</div><div>contexte</div></div>
+        <div class="node" style="left: 560px; top: 140px;"><div class="t">Memory keeper</div><div>rappel</div></div>
+        <div class="node" style="left: 300px; top: 310px; border-style: dashed;"><div class="t">Gate · preuve</div><div>evidence pack requis</div></div>
+
+        <!-- Infobulle épinglée, avec un terme qui ouvre une seconde bulle -->
+        <div class="tip" style="left: 500px; top: 300px;">
+          <div class="row" style="justify-content: space-between;"><span class="t">Porte de preuve</span><span class="row" style="gap: 4px;"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="var(--acc)" stroke-width="1.5" style="width: 14px; height: 14px;"><rect x="5" y="9" width="10" height="8" rx="1.5"></rect><path d="M7 9V6.5a3 3 0 0 1 6 0V9"></path></svg><span class="lbl">épinglée</span></span></div>
+          <div style="margin-top: 6px;">Transition refusée tant que l'<u>evidence pack</u> et la <u>decision trace</u> ne sont pas présents. Le refus est tracé sous la tâche.</div>
+          <div class="row" style="margin-top: 8px; gap: 10px;"><span class="lbl">Ouvrir</span><span class="kbd">G</span><span class="lbl">Échap ferme la pile</span></div>
+        </div>
+        <div class="tip" style="left: 560px; top: 396px; width: 240px;">
+          <div class="row" style="justify-content: space-between;"><span class="t">Evidence pack</span><span class="lbl">Alt · épingler</span></div>
+          <div style="margin-top: 6px;">Inventaire des preuves d'une tâche : commande, test, diff. Vit sous <span class="mono">_grimoire-output/evidence/</span>.</div>
+        </div>
+
+        <div class="row" style="position: absolute; right: 14px; bottom: 12px; gap: 6px;"><span class="btn" style="height: 26px; padding: 0 9px;">−</span><span class="chip mono">100 %</span><span class="btn" style="height: 26px; padding: 0 9px;">+</span></div>
+      </div>
+
+      <!-- Dock : console, traces, timeline -->
+      <div style="height: 200px; border-top: 1px solid var(--line); display: flex; flex-direction: column; background: var(--term);">
+        <div style="height: 34px; display: flex; align-items: stretch; padding: 0 8px; border-bottom: 1px solid var(--line); background: var(--bar);">
+          <div class="tab on">Console</div><div class="tab">Traces</div><div class="tab">Timeline</div><div class="tab row" style="gap: 6px;">Problèmes <span class="chip" style="height: 18px; padding: 0 6px;">2</span></div>
+          <div style="flex-grow: 1;"></div>
+          <div class="row lbl" style="gap: 6px;">Commande équivalente de la dernière action : <span class="mono" style="color: var(--ink2);">grimoire workflows show boomerang-orchestration</span></div>
+          <div class="row" style="margin-left: 14px;"><span class="kbd">5</span></div>
+        </div>
+        <div class="mono" style="padding: 10px 14px; font-size: 12.5px; display: flex; flex-direction: column; gap: 5px; color: var(--termink);">
+          <div><span style="color: var(--pri);">$</span> grimoire task show bootstrap</div>
+          <div>bootstrap · in_progress · owner grimoire-maintainers · prochaine porte : review</div>
+          <div>preuves : task-envelope <span style="color: var(--ok);">ok</span> · context-bundle <span style="color: var(--ok);">ok</span> · evidence-pack <span style="color: var(--warn);">manquant</span> · decision-trace <span style="color: var(--warn);">manquant</span></div>
+          <div><span style="color: var(--pri);">$</span> <span style="border-left: 1.5px solid var(--termink); padding-left: 1px;">&nbsp;</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspecteur épinglé -->
+    <div class="surf" style="width: 300px; border-left: 1px solid var(--line); display: flex; flex-direction: column;">
+      <div style="height: 40px; display: flex; align-items: stretch; padding: 0 8px; border-bottom: 1px solid var(--line); background: var(--bar);">
+        <div class="tab on">Propriétés</div><div class="tab">Validation</div><div class="tab">Coût</div><div class="tab">Preuves</div>
+        <div style="flex-grow: 1;"></div>
+        <div class="row"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="var(--acc)" stroke-width="1.5"><rect x="5" y="9" width="10" height="8" rx="1.5"></rect><path d="M7 9V6.5a3 3 0 0 1 6 0V9"></path></svg></div>
+      </div>
+      <div style="padding: 14px; display: flex; flex-direction: column; gap: 14px;">
+        <div><div class="lbl">Nœud</div><div style="font-size: 15px; font-weight: 500; margin-top: 2px;">Découper</div></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+          <div class="field"><div class="lbl">Genre</div><div class="input">boomerang</div></div>
+          <div class="field"><div class="lbl">Équipe</div><div class="input">team-build</div></div>
+        </div>
+        <div class="field"><div class="lbl">Agents</div><div class="row" style="flex-wrap: wrap;"><span class="chip" style="color: var(--ink);">concierge</span><span class="chip" style="color: var(--ink);">dev</span><span class="chip">+ ajouter</span></div></div>
+        <div class="field"><div class="lbl">Déclencheur</div><div class="input">tâche &gt; 3 sous-tâches</div></div>
+        <div class="field"><div class="lbl">Preuve exigée à la porte suivante</div><div class="row" style="flex-wrap: wrap;"><span class="chip"><span class="dot ok"></span>task envelope</span><span class="chip"><span class="dot"></span>evidence pack</span><span class="chip"><span class="dot"></span>decision trace</span></div></div>
+        <div class="row"><span class="btn">Ouvrir le pattern</span><span class="btn">Simuler</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background: var(--bar); height: 26px; display: flex; align-items: center; gap: 18px; padding: 0 14px; font-size: 12px; color: var(--ink3); border-top: 1px solid var(--line);">
+    <span>grimoire-kit 3.38.0</span><span>API locale :4173</span><span class="row" style="gap: 6px;"><span class="dot ok"></span>standard governed</span><span>0 trace</span><span style="flex-grow: 1;"></span><span class="row" style="gap: 6px;">Mode concentration <span class="kbd">⇧⌘F</span></span><span>Encre · clair</span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
