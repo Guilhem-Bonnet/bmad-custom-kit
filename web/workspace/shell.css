@@ -1,0 +1,655 @@
+/* Coque de la vue de travail — géométrie et primitives partagées.
+ *
+ * Transposition de web/design/workspace-2026-09/shell.tpl.html. Ce fichier ne
+ * contient AUCUNE couleur littérale : tout passe par tokens.css (le test
+ * tests/unit/test_workspace_tokens.py le vérifie).
+ *
+ * Ce que possède ce fichier : la grille de la coque, les trois états de
+ * panneau, le dock, la palette, les infobulles, et les primitives (.btn,
+ * .chip, .seg, .kbd, .tab, .dot, .input, .tree). Ce qu'il ne possède pas : le
+ * contenu des six espaces — chaque module d'espace apporte sa propre feuille
+ * ou ses classes sous `.space-<id>`.
+ */
+
+/* ── Réinitialisation minimale ─────────────────────────────────────────────*/
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--t-s);
+  line-height: 1.4;
+  color: var(--ink);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ── Primitives ────────────────────────────────────────────────────────────*/
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.lbl {
+  font-size: var(--t-min);
+  color: var(--ink3);
+}
+
+.soft {
+  color: var(--ink2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.grow {
+  flex-grow: 1;
+}
+
+.ico {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font-size: var(--t-min);
+  background: var(--e2);
+  color: var(--ink2);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ink3);
+  flex: none;
+}
+
+.dot.ok {
+  background: var(--ok);
+}
+.dot.warn {
+  background: var(--warn);
+}
+.dot.bad {
+  background: var(--bad);
+}
+.dot.acc {
+  background: var(--acc);
+}
+
+.btn {
+  height: var(--h-ctl);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font-size: var(--t-s);
+  background: var(--e2);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--dur), border-color var(--dur);
+}
+
+.btn:hover {
+  background: var(--e3);
+}
+
+.btn.pri {
+  background: var(--pri);
+  border-color: var(--pri);
+  color: var(--onpri);
+  font-weight: 500;
+}
+
+.tab {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  color: var(--ink2);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--dur);
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab[aria-selected="true"],
+.tab.on {
+  color: var(--ink);
+  border-bottom-color: var(--acc);
+  font-weight: 500;
+}
+
+.seg {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--e1);
+  height: 28px;
+}
+
+.seg > button {
+  padding: 0 11px;
+  display: flex;
+  align-items: center;
+  font-size: var(--t-min);
+  color: var(--ink2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.seg > button[aria-pressed="true"] {
+  background: var(--e3);
+  color: var(--ink);
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: var(--r);
+  font-size: 11px;
+  color: var(--ink2);
+  background: var(--e1);
+}
+
+.input {
+  height: var(--h-ctl);
+  display: flex;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--e1);
+  color: var(--ink);
+  width: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.tree > div,
+.tree > button {
+  height: 28px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--ink2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree > .sel,
+.tree > [aria-current="true"] {
+  background: var(--accsoft);
+  color: var(--ink);
+}
+
+/* Le seul bloc d'état vide : il dit d'où viendra la donnée. */
+.empty {
+  margin: var(--sp-6) auto;
+  max-width: 520px;
+  padding: var(--sp-5);
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  background: var(--e1);
+  color: var(--ink2);
+}
+
+.empty h2 {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--t-l);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.empty code {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+
+/* ── Coque ─────────────────────────────────────────────────────────────────*/
+
+#shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+#appbar {
+  background: var(--bar);
+  height: var(--h-app);
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+#brand {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-size: var(--t-min);
+}
+
+#spaces {
+  display: flex;
+  margin-left: var(--sp-4);
+}
+
+#middle {
+  flex-grow: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ── Rail et panneaux à trois états ────────────────────────────────────────*/
+
+#rail {
+  width: var(--w-rail);
+  background: var(--e1);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--sp-1);
+  flex: none;
+}
+
+.rail-btn {
+  width: var(--w-rail);
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink2);
+  background: none;
+  border: 0;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--dur), background var(--dur);
+}
+
+.rail-btn[aria-pressed="true"] {
+  color: var(--ink);
+  border-left-color: var(--acc);
+  background: var(--accsoft);
+}
+
+/* En densité Découverte le rail porte ses libellés (spec §3.4).
+ *
+ * Le libellé est du texte : il tient le plancher typographique comme le reste,
+ * donc le rail s'élargit au lieu de rétrécir la police. Un rail de 44 px avec
+ * un libellé de 10 px aurait reproduit exactement le défaut que la revue a
+ * compté 270 fois — et le test des tokens le refuse. */
+.rail-lbl {
+  display: none;
+}
+
+:root[data-density="decouverte"] #rail {
+  width: var(--w-rail-wide);
+}
+
+:root[data-density="decouverte"] .rail-btn {
+  width: var(--w-rail-wide);
+  flex-direction: column;
+  gap: 2px;
+  height: 52px;
+}
+
+:root[data-density="decouverte"] .rail-lbl {
+  display: block;
+  max-width: 100%;
+  padding: 0 4px;
+  font-size: var(--t-min);
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-density="decouverte"] .panel[data-state="peek"].panel-left {
+  left: var(--w-rail-wide);
+}
+
+.panel {
+  background: var(--e1);
+  display: flex;
+  flex-direction: column;
+  flex: none;
+}
+
+.panel[data-state="collapsed"] {
+  display: none;
+}
+
+/* Entrouvert : en surimpression, la grille ne bouge pas. */
+.panel[data-state="peek"] {
+  position: absolute;
+  top: var(--h-app);
+  bottom: var(--h-status);
+  z-index: 40;
+  box-shadow: var(--shadow-tip);
+}
+
+.panel[data-state="peek"].panel-left {
+  left: var(--w-rail);
+}
+
+.panel[data-state="peek"].panel-right {
+  right: 0;
+}
+
+.panel-left {
+  width: var(--w-panel);
+  border-right: 1px solid var(--line);
+}
+
+.panel-right {
+  width: var(--w-inspector);
+  border-left: 1px solid var(--line);
+}
+
+.panel-head {
+  height: var(--h-doc);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--bar);
+  flex: none;
+}
+
+.panel-body {
+  overflow: auto;
+  padding: var(--sp-2) 6px;
+  flex-grow: 1;
+}
+
+.pin {
+  background: none;
+  border: 0;
+  color: var(--ink3);
+  cursor: pointer;
+  display: flex;
+  padding: 2px;
+}
+
+.pin[aria-pressed="true"] {
+  color: var(--acc);
+}
+
+/* ── Centre : barre de document, toile, dock ───────────────────────────────*/
+
+#center {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#docbar {
+  background: var(--bar);
+  height: var(--h-doc);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+#canvas {
+  flex-grow: 1;
+  position: relative;
+  min-height: 0;
+  overflow: auto;
+  background-color: var(--bg);
+}
+
+/* La grille de points de la toile — 22 px, jamais sur une vue en tableau. */
+#canvas[data-grid="on"] {
+  background-image: radial-gradient(var(--line) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ── Dock ──────────────────────────────────────────────────────────────────*/
+
+#dock {
+  height: var(--h-dock);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  background: var(--term);
+  flex: none;
+}
+
+#dock[data-state="collapsed"] {
+  display: none;
+}
+
+#dock-tabs {
+  height: 34px;
+  display: flex;
+  align-items: stretch;
+  padding: 0 var(--sp-2);
+  border-bottom: 1px solid var(--line);
+  background: var(--bar);
+  flex: none;
+}
+
+#dock-body {
+  flex-grow: 1;
+  overflow: auto;
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: var(--t-min);
+  color: var(--termink);
+}
+
+#dock-body .prompt {
+  color: var(--pri);
+}
+
+/* Le terminal reste sombre dans les deux thèmes (spec §2.1) : le texte discret
+ * du dock doit donc porter l'encre du terminal. Avec --ink3, pensé pour les
+ * panneaux, le placeholder tombait à 3,04:1 en thème clair — trouvé par la
+ * mesure sur le DOM, invisible à la lecture de la feuille. */
+#dock-body .lbl {
+  color: var(--termink);
+}
+
+/* ── Barre d'état ──────────────────────────────────────────────────────────*/
+
+#statusbar {
+  background: var(--bar);
+  height: var(--h-status);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 14px;
+  font-size: var(--t-min);
+  color: var(--ink3);
+  border-top: 1px solid var(--line);
+  flex: none;
+}
+
+/* ── Palette de commandes ──────────────────────────────────────────────────*/
+
+#palette[hidden] {
+  display: none;
+}
+
+#palette {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: var(--accsoft);
+  display: flex;
+  justify-content: center;
+  padding-top: 12vh;
+}
+
+#palette-box {
+  width: min(640px, 92vw);
+  height: fit-content;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--e2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-tip);
+  overflow: hidden;
+}
+
+#palette-input {
+  height: 44px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--e2);
+  padding: 0 14px;
+  font-size: var(--t-m);
+}
+
+#palette-list {
+  overflow: auto;
+  margin: 0;
+  padding: var(--sp-1);
+  list-style: none;
+}
+
+#palette-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 10px;
+  height: 34px;
+  border-radius: var(--r);
+  cursor: pointer;
+}
+
+#palette-list li[aria-selected="true"] {
+  background: var(--accsoft);
+}
+
+#palette-list .cmd {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--t-min);
+  color: var(--ink3);
+}
+
+/* ── Infobulles épinglables ────────────────────────────────────────────────*/
+
+.tip {
+  position: fixed;
+  z-index: 90;
+  width: 268px;
+  background: var(--e3);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 10px var(--sp-3);
+  box-shadow: var(--shadow-tip);
+  font-size: var(--t-min);
+  color: var(--ink2);
+}
+
+.tip .t {
+  font-size: var(--t-s);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.tip .term {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  color: var(--ink);
+  cursor: help;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+}
+
+[data-term] {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+/* ── Mode concentration ────────────────────────────────────────────────────*/
+
+:root[data-focus="on"] .panel[data-state="pinned"] {
+  display: none;
+}
+
+:root[data-focus="on"] #dock {
+  display: none;
+}

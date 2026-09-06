@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -14,6 +16,9 @@ class _StubAPI:
 
     def __init__(self) -> None:
         self.called: str | None = None
+        # Le protocole ReadableForgeAPI porte la racine du projet servi : c'est
+        # elle que les lectures de la vue de travail consomment.
+        self.project_root = Path(tempfile.gettempdir())
 
     def _mark(self, name: str) -> dict[str, Any]:
         self.called = name

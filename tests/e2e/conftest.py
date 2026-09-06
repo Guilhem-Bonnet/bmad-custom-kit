@@ -1,0 +1,148 @@
+"""Harnais Playwright de la vue de travail — un vrai serveur, un vrai navigateur.
+
+Ce qui se mesure ici ne se mesure pas ailleurs : la taille de police *rendue*,
+le contraste *calculé sur le DOM*, et les mécaniques au clavier et à la souris
+que la spécification exige (§6.3, §6.4).
+
+Ces tests ne sont **pas** dans ``tests/unit/`` : la CI y mesure la couverture et
+y exige que tout passe partout, or Playwright et son Chromium ne sont pas des
+dépendances du kit. Ici, leur absence est un ``skip`` explicite, jamais un
+faux vert.
+
+Trois règles d'hygiène, apprises à la dure :
+
+- port haut tiré au sort par le noyau, jamais 4173 : deux sessions parallèles ne
+  doivent pas se marcher dessus ;
+- ``GRIMOIRE_COCKPIT_HOME`` détourné vers un répertoire jetable, pour qu'un test
+  n'enrôle pas le poste de la personne qui le lance ;
+- le processus est tué **et** son extinction vérifiée : un serveur survivant à
+  une session est un port occupé et un dossier verrouillé pour la suivante.
+"""
+
+from __future__ import annotations
+
+import os
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("playwright.sync_api", reason="playwright absent — harnais e2e ignoré")
+
+from playwright.sync_api import Browser, Page, sync_playwright
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def _free_port() -> int:
+    """Un port haut libre, choisi par le noyau — pas par une constante optimiste."""
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = int(sock.getsockname()[1])
+    return port
+
+
+def _alive(pid: int) -> bool:
+    return Path(f"/proc/{pid}").exists() if sys.platform == "linux" else True
+
+
+def _wait_ready(port: int, deadline: float) -> None:
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/status", timeout=2
+            ) as resp:
+                if resp.status == 200:
+                    return
+        except (urllib.error.URLError, ConnectionError, TimeoutError, OSError):
+            time.sleep(0.2)
+    raise TimeoutError(f"`grimoire serve` n'a pas répondu sur :{port}")
+
+
+@pytest.fixture(scope="session")
+def served(real_project: Path, tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
+    """`grimoire serve` sur un port haut, cockpit détourné, tué à la fin."""
+    port = _free_port()
+    env = dict(os.environ)
+    env["GRIMOIRE_COCKPIT_HOME"] = str(tmp_path_factory.mktemp("cockpit-home"))
+    env["NO_COLOR"] = "1"
+    process = subprocess.Popen(
+        [
+            sys.executable, "-m", "grimoire", "serve",
+            "--project-root", str(real_project),
+            "--port", str(port),
+            "--no-open",
+        ],
+        cwd=str(real_project),
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        _wait_ready(port, time.monotonic() + 60)
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
+        # Vérification, pas espoir : /proc dit si le processus est parti.
+        assert not _alive(process.pid), f"serveur survivant : pid {process.pid}"
+
+
+@pytest.fixture(scope="session")
+def browser() -> Iterator[Browser]:
+    """Chromium, cherché là où il est réellement installé.
+
+    ``tests/conftest.py`` détourne ``HOME`` pour qu'aucun test ne touche l'état
+    réel du poste — et Playwright range ses navigateurs sous ``HOME``. Sans
+    cette ligne, le harnais se skippe tout seul en annonçant « Chromium
+    absent » alors qu'il est là : un faux vert de plus, exactement le mode de
+    panne que ce dépôt traque.
+    """
+    from tests.conftest import REAL_HOME
+
+    os.environ.setdefault(
+        "PLAYWRIGHT_BROWSERS_PATH", str(REAL_HOME / ".cache" / "ms-playwright")
+    )
+    with sync_playwright() as playwright:
+        try:
+            instance = playwright.chromium.launch()
+        except Exception as exc:  # pragma: no cover — navigateur non installé
+            pytest.skip(f"Chromium absent : {exc} — `playwright install chromium`")
+        try:
+            yield instance
+        finally:
+            instance.close()
+
+
+@pytest.fixture
+def workspace(browser: Browser, served: str) -> Iterator[Page]:
+    """La coque, chargée et prête. `data-ready` dit que l'amorçage est fini.
+
+    ``reduced_motion="reduce"`` n'est pas une commodité : la coque déclare des
+    transitions de 120 ms sur ``color``, et ``getComputedStyle`` pendant une
+    transition rend la valeur **interpolée**. Mesurer le contraste juste après
+    un changement de thème donnait alors des encres sombres sur des surfaces
+    claires — un échec fabriqué par le harnais. La feuille honore déjà
+    ``prefers-reduced-motion`` ; le test s'en sert pour mesurer un état stable,
+    et couvre au passage le chemin d'accessibilité.
+    """
+    context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, reduced_motion="reduce"
+    )
+    page = context.new_page()
+    page.goto(f"{served}/workspace/index.html", wait_until="domcontentloaded")
+    page.wait_for_selector("body[data-ready='1']", timeout=30_000)
+    try:
+        yield page
+    finally:
+        context.close()

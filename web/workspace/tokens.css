@@ -1,0 +1,177 @@
+/* Tokens de la vue de travail — la seule source de couleur.
+ *
+ * web/DESIGN-SPEC-workspace-2026-09.md §2. Aucune couleur littérale ne doit
+ * apparaître ailleurs sous web/workspace/ : tests/unit/test_workspace_tokens.py
+ * échoue sinon, et il mesure aussi le contraste des encres sur --e1.
+ *
+ * Le thème clair n'est pas une inversion : chaque token garde son rôle et
+ * change de valeur. Le terminal reste sombre dans les deux thèmes, la toile
+ * n'est jamais blanche, et --e2 est la seule surface blanche en clair.
+ *
+ * Sélection du thème :
+ *   - par défaut, prefers-color-scheme
+ *   - <html data-theme="dark|light"> impose, et gagne dans les deux sens
+ */
+
+:root {
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --bg: #0a0c0f;
+  --e1: #161a1f;
+  --bar: #1c2127;
+  --e2: #232930;
+  --e3: #2d343c;
+  --term: #0e1013;
+  --termink: #c9ced6;
+  --line: rgba(255, 255, 255, 0.11);
+
+  /* ── Encre ────────────────────────────────────────────────────────────── */
+  /* --ink3 est le cas limite du contraste. La spec §2.2 le contraint sur --e1
+     et annonce 4,8 et 4,6 mesurés ; le calcul dit 4,69 en sombre (conforme) et
+     3,78 en clair avec la valeur #767c85 qu'elle donne — donc sous le seuil
+     qu'elle pose elle-même. La valeur claire est corrigée au plus près
+     4,55:1). Le harnais Playwright, qui mesure sur le DOM et non sur le token,
+     a ensuite trouvé la vraie limite : --ink3 est aussi rendu sur --bar (barre
+     d'état, écho du dock), où il tombait à 4,35 en sombre et 4,19 en clair.
+     Les deux valeurs sont donc corrigées au plus près pour tenir sur --e1 ET
+     sur --bar : #818891 (4,88 / 4,52) et #656a72 (4,90 / 4,51). L'écart avec
+     l'encre secondaire reste franc, la hiérarchie est préservée.
+     Reste hors contrainte, faute d'usage : --ink3 sur --e2 et --e3, où le
+     texte porte --ink2 ou --ink. */
+  --ink: #f2f3f5;
+  --ink2: #a8aeb7;
+  --ink3: #818891;
+
+  /* ── Accent d'interaction : c'est l'encre ─────────────────────────────── */
+  --acc: #f2f3f5;
+  --accsoft: rgba(255, 255, 255, 0.08);
+
+  /* ── Marque et action primaire — une par écran ────────────────────────── */
+  /* En clair, la spec donne --pri #d9481a avec du blanc dessus : mesuré, c'est
+     4,29:1, donc sous le seuil de son propre critère §6.2 pour un libellé de
+     bouton à 13 px. Deux issues possibles — encre sombre dessus (4,44, toujours
+     sous le seuil) ou orange assombri. La seconde est retenue au plus près :
+     #d24619 porte le blanc à 4,54:1. En sombre, #ff6b3d avec #0e1013 dessus
+     tient déjà 6,73:1 et n'est pas touché. */
+  --pri: #ff6b3d;
+  --onpri: #0e1013;
+
+  /* ── États : toujours point + mot, jamais la couleur seule ────────────── */
+  --ok: #3dbe7a;
+  --warn: #e2b33c;
+  --bad: #e5645a;
+
+  /* ── Séries de données : jamais réutilisées pour un état ──────────────── */
+  --s1: #4c9be8;
+  --s2: #b07ce8;
+  --s3: #d99a2b;
+
+  /* ── Ombre de la surface posée ────────────────────────────────────────── */
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  --shadow-tip: 0 16px 40px rgba(0, 0, 0, 0.35);
+
+  /* ── Typographie ──────────────────────────────────────────────────────── */
+  --font: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+  /* Plancher : 13 px en sombre, 12 px en clair (redéfini plus bas). */
+  --t-min: 13px;
+  --t-s: 13px;
+  --t-m: 14px;
+  --t-l: 16px;
+  --t-xl: 20px;
+
+  /* ── Géométrie ────────────────────────────────────────────────────────── */
+  --r: 3px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* ── Chrome : hauteurs fixées par la spec §3 ──────────────────────────── */
+  --h-app: 44px;
+  --h-doc: 40px;
+  --h-status: 26px;
+  --w-rail: 44px;
+  /* Découverte : le rail porte ses libellés, donc il s'élargit — le plancher
+     typographique ne se négocie pas contre une largeur de chrome. */
+  --w-rail-wide: 84px;
+  --w-panel: 236px;
+  --w-inspector: 300px;
+  --h-dock: 200px;
+
+  /* Contrôles : 30 px en Découverte, 28 px en Concentration. */
+  --h-ctl: 30px;
+
+  /* ── Mouvement : survol et focus seulement ────────────────────────────── */
+  --dur: 120ms;
+}
+
+/* Densité Concentration : contrôles resserrés. */
+:root[data-density="concentration"] {
+  --h-ctl: 28px;
+}
+
+/* Mobile : cible tactile de 44 px, quelle que soit la densité. */
+@media (pointer: coarse) {
+  :root {
+    --h-ctl: 44px;
+  }
+}
+
+/* ── Thème clair ───────────────────────────────────────────────────────────
+ * Défini deux fois : sous prefers-color-scheme pour le réglage « système »,
+ * et sous [data-theme="light"] pour le choix explicite. Aucune couleur n'a sa
+ * seule définition ici — :root les porte toutes.
+ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #e5e6e2;
+    --e1: #f3f3f0;
+    --bar: #eaeae6;
+    --e2: #ffffff;
+    --e3: #dfe0db;
+    --term: #1b1f25;
+    --termink: #d6dae0;
+    --line: rgba(23, 25, 28, 0.13);
+    --ink: #17191c;
+    --ink2: #4e545c;
+    --ink3: #656a72;
+    --acc: #17191c;
+    --accsoft: rgba(23, 25, 28, 0.07);
+    --pri: #d24619;
+    --onpri: #ffffff;
+    --ok: #1f8a55;
+    --warn: #9c6d0c;
+    --bad: #b83a36;
+    --s1: #1f6fbf;
+    --s2: #6b48c4;
+    --s3: #9a6a08;
+    --t-min: 12px;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #e5e6e2;
+  --e1: #f3f3f0;
+  --bar: #eaeae6;
+  --e2: #ffffff;
+  --e3: #dfe0db;
+  --term: #1b1f25;
+  --termink: #d6dae0;
+  --line: rgba(23, 25, 28, 0.13);
+  --ink: #17191c;
+  --ink2: #4e545c;
+  --ink3: #656a72;
+  --acc: #17191c;
+  --accsoft: rgba(23, 25, 28, 0.07);
+  --pri: #d24619;
+  --onpri: #ffffff;
+  --ok: #1f8a55;
+  --warn: #9c6d0c;
+  --bad: #b83a36;
+  --s1: #1f6fbf;
+  --s2: #6b48c4;
+  --s3: #9a6a08;
+  --t-min: 12px;
+}

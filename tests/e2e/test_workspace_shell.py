@@ -1,0 +1,308 @@
+"""Ce qui ne se prouve que dans un navigateur : la coque rendue.
+
+Critères 1 à 4 et 8 de la spécification. Chaque test décrit ce qu'il empêche.
+
+Ce module est le harnais que les cinq lots étendent :
+
+- lot 1 y ajoute les trois états de panneau au clavier, les fontes embarquées et
+  les captures avant/après par écran ;
+- lot 2 la pile d'infobulles à trois niveaux ;
+- lots 3 à 5 un test d'ouverture par écran réel, avec leurs données.
+
+Il ne teste pas le contenu des espaces : au moment où il est écrit, ils sont des
+stubs. Il teste que la coque les ouvre, que les tokens tiennent, et que les
+mécaniques répondent.
+"""
+
+from __future__ import annotations
+
+import pytest
+from playwright.sync_api import Page
+
+SPACES = ["piloter", "concevoir", "executer", "observer", "memoire", "source"]
+
+#: Le contraste minimal exigé par la spec §2.2 et le critère §6.2.
+MIN_RATIO = 4.5
+
+#: Mesure du contraste dans la page : c'est le rendu qui compte, pas la valeur
+#: déclarée — un `opacity` ou un fond hérité peut trahir un token conforme.
+_CONTRAST_JS = """
+() => {
+  const parse = (value) => {
+    const n = value.match(/[\\d.]+/g).map(Number);
+    return [n[0] / 255, n[1] / 255, n[2] / 255, n.length > 3 ? n[3] : 1];
+  };
+  const lum = ([r, g, b]) => {
+    const f = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const backdrop = (el) => {
+    for (let node = el; node && node !== document.documentElement; node = node.parentElement) {
+      const bg = parse(getComputedStyle(node).backgroundColor);
+      if (bg[3] > 0.9) return bg;
+    }
+    return parse(getComputedStyle(document.body).backgroundColor);
+  };
+  const out = [];
+  for (const el of document.querySelectorAll('body *')) {
+    const style = getComputedStyle(el);
+    if (style.visibility === 'hidden' || style.display === 'none') continue;
+    const text = [...el.childNodes]
+      .filter((n) => n.nodeType === 3 && n.textContent.trim())
+      .map((n) => n.textContent.trim()).join('');
+    if (!text) continue;
+    const size = parseFloat(style.fontSize);
+    const fg = parse(style.color);
+    const bg = backdrop(el);
+    const a = lum(fg), b = lum(bg);
+    const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    out.push({
+      tag: el.tagName.toLowerCase(),
+      cls: el.className && el.className.toString ? el.className.toString() : '',
+      text: text.slice(0, 40),
+      size,
+      ratio,
+    });
+  }
+  return out;
+}
+"""
+
+#: Un glyphe de touche n'est pas du texte courant : la spec l'autorise plus petit.
+_FLOOR_EXEMPT = ("kbd",)
+
+
+def _rendered(page: Page) -> list[dict]:
+    return page.evaluate(_CONTRAST_JS)
+
+
+def _apply(page: Page, *, theme: str | None = None, density: str | None = None) -> None:
+    """Change le thème ou la densité, PUIS attend que le rendu ait suivi.
+
+    Chromium ne recalcule pas les styles dans le même tour de boucle que la
+    mutation d'attribut : ``getComputedStyle`` rend alors l'ancienne couleur.
+    Mesurer sans attendre donnait des encres sombres sur des surfaces claires —
+    un échec fabriqué par le harnais, exactement le genre de faux signal qui
+    fait perdre confiance dans un test de contraste. Deux trames suffisent, et
+    on les attend explicitement plutôt que de dormir une durée arbitraire.
+    """
+    page.evaluate(
+        """([t, d]) => {
+            const root = document.documentElement;
+            if (t) root.dataset.theme = t;
+            if (d) root.dataset.density = d;
+            return new Promise((resolve) =>
+              requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        }""",
+        [theme, density],
+    )
+
+
+# ── Critère 1 : les six espaces s'ouvrent sur un projet réel ────────────────
+
+
+@pytest.mark.parametrize("space", SPACES)
+def test_chaque_espace_s_ouvre_sur_un_projet_reel(workspace: Page, space: str) -> None:
+    """Le premier test que la spec demande : six espaces, aucune donnée de démo.
+
+    Il échoue si un module d'espace lève, si son import casse, ou si la coque
+    n'affiche plus l'onglet actif — donc il couvre le contrat `mount(root, ctx)`
+    pour les cinq lots à la fois.
+    """
+    workspace.evaluate("(id) => window.GrimoireWorkspace.goto(id)", space)
+    workspace.wait_for_function("(id) => window.GrimoireWorkspace.space === id", arg=space)
+
+    assert workspace.locator(f'[data-space="{space}"][aria-selected="true"]').count() == 1
+    assert workspace.locator("#canvas").inner_text().strip(), f"l'espace {space} rend une toile vide"
+    # Aucun écran ne doit annoncer de la donnée de démonstration (spec §5).
+    assert "démo" not in workspace.locator("#canvas").inner_text().lower()
+
+
+def test_la_coque_annonce_les_six_espaces_et_pas_un_de_plus(workspace: Page) -> None:
+    assert workspace.evaluate("() => window.GrimoireWorkspace.spaces") == SPACES
+    assert workspace.locator("#spaces .tab").count() == 6
+
+
+def test_aucune_erreur_de_console_a_l_amorcage(browser, served: str) -> None:
+    """La revue §4.4 a trouvé « un mur de zéros plus une erreur JS silencieuse ».
+
+    Une erreur avalée est une erreur qui reviendra sous forme d'écran vide sans
+    explication.
+    """
+    context = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = context.new_page()
+    errors: list[str] = []
+    page.on("pageerror", lambda exc: errors.append(str(exc)))
+    page.on("console", lambda msg: errors.append(msg.text) if msg.type == "error" else None)
+    page.goto(f"{served}/workspace/index.html", wait_until="domcontentloaded")
+    page.wait_for_selector("body[data-ready='1']", timeout=30_000)
+    for space in SPACES:
+        page.evaluate("(id) => window.GrimoireWorkspace.goto(id)", space)
+        page.wait_for_function("(id) => window.GrimoireWorkspace.space === id", arg=space)
+    context.close()
+
+    assert not errors, "erreurs de console :\n  " + "\n  ".join(errors)
+
+
+# ── Critère 2 : plancher typographique et contraste, mesurés sur le DOM ─────
+
+
+@pytest.mark.parametrize("theme,floor", [("dark", 13.0), ("light", 12.0)])
+def test_aucun_texte_rendu_sous_le_plancher(workspace: Page, theme: str, floor: float) -> None:
+    """13 px en sombre, 12 px en clair. Mesuré après rendu, pas dans la feuille.
+
+    La revue a compté 162 éléments sous 10,5 px sur une seule page : le défaut
+    ne vient jamais d'une règle assumée, il vient d'un `font-size` hérité que
+    personne ne relit.
+    """
+    _apply(workspace, theme=theme)
+    offenders = [
+        node for node in _rendered(workspace)
+        if node["size"] < floor and not any(x in node["cls"] for x in _FLOOR_EXEMPT)
+    ]
+
+    assert not offenders, "\n  ".join(
+        f"{n['tag']}.{n['cls']} « {n['text']} » → {n['size']}px" for n in offenders[:20]
+    )
+
+
+@pytest.mark.parametrize("theme", ["dark", "light"])
+def test_aucune_encre_rendue_sous_45(workspace: Page, theme: str) -> None:
+    """Le contraste se mesure sur ce que l'œil reçoit, pas sur le token déclaré."""
+    _apply(workspace, theme=theme)
+    offenders = [n for n in _rendered(workspace) if n["ratio"] < MIN_RATIO]
+
+    assert not offenders, "\n  ".join(
+        f"{n['tag']}.{n['cls']} « {n['text']} » → {n['ratio']:.2f}:1" for n in offenders[:20]
+    )
+
+
+@pytest.mark.parametrize("density", ["decouverte", "concentration"])
+@pytest.mark.parametrize("theme", ["dark", "light"])
+def test_les_six_espaces_s_ouvrent_dans_les_deux_themes_et_les_deux_densites(
+    workspace: Page, theme: str, density: str
+) -> None:
+    """Critère 1, dans ses quatre combinaisons."""
+    _apply(workspace, theme=theme, density=density)
+    for space in SPACES:
+        workspace.evaluate("(id) => window.GrimoireWorkspace.goto(id)", space)
+        workspace.wait_for_function("(id) => window.GrimoireWorkspace.space === id", arg=space)
+        assert workspace.locator("#canvas").inner_text().strip()
+
+
+# ── Critère 3 : panneaux, raccourcis, palette, concentration ───────────────
+
+
+def test_les_trois_etats_de_panneau_repondent(workspace: Page) -> None:
+    """Replié, entrouvert, épinglé — et `peek` ne redimensionne pas la grille."""
+    api = "window.GrimoireWorkspace"
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'pinned')")
+    assert workspace.evaluate(f"() => {api}.panelState('explorer')") == "pinned"
+    pinned_width = workspace.locator("#center").bounding_box()["width"]
+
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'collapsed')")
+    assert workspace.locator("#panel-explorer").is_hidden()
+    collapsed_width = workspace.locator("#center").bounding_box()["width"]
+    assert collapsed_width > pinned_width, "un panneau replié doit rendre sa place"
+
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'peek')")
+    assert workspace.locator("#panel-explorer").is_visible()
+    assert workspace.locator("#center").bounding_box()["width"] == collapsed_width, (
+        "entrouvert est une surimpression : la grille ne bouge pas"
+    )
+
+
+@pytest.mark.parametrize("key,panel", [("1", "explorer"), ("4", "inspector")])
+def test_les_raccourcis_de_panneau_basculent(workspace: Page, key: str, panel: str) -> None:
+    before = workspace.evaluate("(p) => window.GrimoireWorkspace.panelState(p)", panel)
+    workspace.locator("body").press(key)
+    after = workspace.evaluate("(p) => window.GrimoireWorkspace.panelState(p)", panel)
+
+    assert before != after
+
+
+def test_le_mode_concentration_replie_tout(workspace: Page) -> None:
+    """⇧⌘F : la toile prend l'écran. Sans ça, le mode n'est qu'un libellé."""
+    workspace.evaluate("() => window.GrimoireWorkspace.setPanel('explorer', 'pinned')")
+    before = workspace.locator("#canvas").bounding_box()
+
+    workspace.locator("body").press("Shift+ControlOrMeta+f")
+
+    assert workspace.evaluate("() => window.GrimoireWorkspace.focus") == "on"
+    assert workspace.locator("#canvas").bounding_box()["width"] > before["width"]
+
+
+def test_la_palette_s_ouvre_au_clavier_et_montre_les_commandes(workspace: Page) -> None:
+    """Chaque entrée montre sa commande `grimoire …` (spec §3.3) : c'est ainsi
+    que le novice apprend le clavier sans qu'on le lui impose."""
+    workspace.locator("body").press("ControlOrMeta+k")
+    workspace.wait_for_selector("#palette:not([hidden])")
+
+    assert workspace.evaluate("() => window.GrimoireWorkspace.paletteOpen") is True
+    workspace.locator("#palette-input").fill("task")
+    workspace.wait_for_function("() => document.querySelectorAll('#palette-list li').length > 0")
+    assert workspace.locator("#palette-list .cmd").first.inner_text().startswith("grimoire")
+
+    workspace.locator("body").press("Escape")
+    assert workspace.evaluate("() => window.GrimoireWorkspace.paletteOpen") is False
+
+
+def test_le_theme_et_la_densite_se_choisissent_et_survivent_au_rechargement(
+    workspace: Page, served: str
+) -> None:
+    """L'état est mémorisé par projet, côté client (spec §3.1)."""
+    workspace.locator("#st-theme").click()
+    assert workspace.evaluate("() => window.GrimoireWorkspace.theme") == "light"
+
+    workspace.reload(wait_until="domcontentloaded")
+    workspace.wait_for_selector("body[data-ready='1']")
+
+    assert workspace.evaluate("() => window.GrimoireWorkspace.theme") == "light"
+
+
+# ── Critère 4 : les infobulles viennent du glossaire ────────────────────────
+
+
+def test_aucun_terme_du_dom_n_est_absent_du_glossaire(workspace: Page) -> None:
+    """Le pendant dynamique de tests/unit/test_workspace_glossary.py.
+
+    Il voit les termes qu'un module d'espace pose à l'exécution, que l'analyse
+    statique du HTML ne peut pas connaître.
+    """
+    for space in SPACES:
+        workspace.evaluate("(id) => window.GrimoireWorkspace.goto(id)", space)
+        workspace.wait_for_function("(id) => window.GrimoireWorkspace.space === id", arg=space)
+        missing = workspace.evaluate("() => window.GrimoireWorkspace.glossary.missingTerms()")
+        assert not missing, f"espace {space} : termes sans entrée → {missing}"
+
+
+def test_le_glossaire_est_charge_depuis_l_api(workspace: Page) -> None:
+    assert workspace.evaluate("() => window.GrimoireWorkspace.glossary.size()") >= 15
+
+
+def test_une_bulle_s_ouvre_se_fige_et_la_pile_se_ferme(workspace: Page) -> None:
+    """Survol, Alt, Échap — la mécanique que la spec décrit en §3.2."""
+    workspace.evaluate(
+        "() => window.GrimoireWorkspace.glossary.open('porte-de-preuve', document.getElementById('brand'), 0, true)"
+    )
+    assert workspace.locator(".tip").count() == 1
+    assert workspace.locator(".tip .t").inner_text() == "Porte de preuve"
+    assert workspace.locator(".tip .term").count() >= 1, "les termes liés ouvrent les bulles enfants"
+
+    workspace.locator(".tip .term").first.click()
+    assert workspace.locator(".tip").count() == 2, "trois niveaux au plus, deux ici"
+
+    workspace.locator("body").press("Escape")
+    assert workspace.locator(".tip").count() == 0
+
+
+# ── Critère 8 : la même coque, deux hôtes ──────────────────────────────────
+
+
+def test_la_coque_sait_quel_hote_la_sert(workspace: Page) -> None:
+    """L'atelier n'est pas en lecture seule ; le cockpit l'est. Le front lit
+    `status.host`, pas une supposition sur le port."""
+    host = workspace.evaluate("() => ({ kind: window.GrimoireWorkspace.host.kind, ro: window.GrimoireWorkspace.host.readOnly })")
+
+    assert host["kind"] == "atelier"
+    assert host["ro"] is False

@@ -7,6 +7,50 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Ajouté
+
+- **Squelette de la vue de travail — une coque, deux hôtes, cinq lots.**
+  `web/workspace/` porte la coque unique que `grimoire serve` et
+  `grimoire cockpit serve` servent à l'identique : six espaces navigables
+  (Piloter, Concevoir, Exécuter, Observer, Mémoire, Source), panneaux à trois
+  états, dock, palette `⌘K`, mode concentration, thèmes sombre et clair,
+  densités Découverte et Concentration. Les espaces sont des stubs qui exposent
+  `mount(root, ctx)` : les écrans viennent avec les lots d'implémentation.
+  Décisions, alternatives écartées et découpage : `docs/adr-006-vue-de-travail.md`.
+- **Contrats d'API de la vue de travail**, sous le préfixe `/api/workspace/`.
+  Lectures servies par **les deux hôtes** via la table partagée
+  `forge_routes.api_get` : glossaire, tâches, détail de tâche avec les preuves
+  que chaque pas suivant exigera, timeline unifiée (`task trace`), fichiers par
+  étage avec leur empreinte confrontée au catalogue des digests du kit, contenu
+  et diff d'un fichier, catalogue des commandes, diagnostic. Écritures réservées
+  à l'hôte mono-projet, parce que le cockpit se déclare `readOnly` : claim,
+  move, block, close d'une tâche (gate de preuve compris — un refus revient en
+  200 avec la preuve manquante nommée), prise d'override, écriture d'un fichier
+  d'un étage éditable, exécution d'une sous-commande `grimoire`.
+- **`framework/glossary.yaml`** — 57 concepts, source unique des infobulles et
+  de la documentation. Un projet peut le surcharger comme n'importe quel fichier
+  du kit. Un test refuse un terme cité par l'interface sans entrée au glossaire,
+  sur les sources comme sur le DOM rendu.
+- **Console du dock** : `grimoire.tools.workspace_exec` exécute 23
+  sous-commandes `grimoire` de lecture, sans shell, sur liste blanche stricte,
+  avec drapeaux déclarés et délai maximal. `init`, `up`, `migrate`, `serve`,
+  `cockpit`, `upgrade` et `ext` en sont volontairement absents.
+- **Harnais de test** : `tests/e2e/` lance `grimoire serve` sur un port haut avec
+  `GRIMOIRE_COCKPIT_HOME` détourné, et mesure sur le DOM rendu ce que la
+  spécification exige — plancher typographique, contraste, mécaniques au
+  clavier. Il se skippe proprement sans Playwright, jamais en faux vert.
+
+### Corrigé
+
+- **Trois valeurs de la palette ne tenaient pas le contraste que la
+  spécification exige d'elle-même**, trouvées par la mesure et non par la
+  relecture. En thème clair, `--ink3` valait 3,78:1 sur `--e1` là où la spec
+  annonce 4,6 ; il passe à `#656a72`. En thème sombre, `--ink3` tenait sur
+  `--e1` mais tombait à 4,35:1 sur `--bar`, où la barre d'état et l'écho du dock
+  le rendent ; il passe à `#818891`. Le libellé blanc de l'action primaire en
+  thème clair valait 4,29:1 ; `--pri` passe à `#d24619`. Détail des mesures :
+  `docs/adr-006-vue-de-travail.md`, section « Ce que la mise en œuvre a corrigé ».
+
 ## [3.38.0] - 2026-09-04
 
 ### Évalué

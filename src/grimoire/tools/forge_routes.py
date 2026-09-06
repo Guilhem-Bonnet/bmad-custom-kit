@@ -19,9 +19,12 @@ son hub.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Protocol
 
 from grimoire.tools.memory_link import backend_catalogue
+from grimoire.tools.workspace_routes import PREFIX as WORKSPACE_PREFIX
+from grimoire.tools.workspace_routes import WORKSPACE_UNHANDLED, workspace_get
 
 __all__ = ["API_GET_UNHANDLED", "ReadableForgeAPI", "api_get"]
 
@@ -35,6 +38,11 @@ class ReadableForgeAPI(Protocol):
     Le déclarer ici plutôt que d'importer la classe garde la dépendance à sens
     unique, et rend explicite ce que la table consomme vraiment.
     """
+
+    #: Racine du projet servi. L'atelier n'en a qu'une ; le cockpit en construit
+    #: une ``ForgeAPI`` par projet résolu. C'est cet attribut, et lui seul, que
+    #: les lectures de la vue de travail consomment.
+    project_root: Path
 
     def status(self) -> dict[str, Any]:
         """État du projet servi."""
@@ -111,4 +119,15 @@ def api_get(api: ReadableForgeAPI, path: str, query: dict[str, list[str]]) -> An
         return api.memory_link_view()
     if path == "/api/health":
         return api.health_view()
+    # La vue de travail (web/workspace/) ajoute sa surface sous un préfixe à
+    # elle : une seule délégation ici, et les deux hôtes la servent — c'est ce
+    # qui rend vraie la clause « la même coque, deux cibles » de la spec.
+    #
+    # Le test de préfixe précède la lecture de `project_root` à dessein : une
+    # route qui n'est pas la nôtre ne doit rien exiger de l'appelant, pas même
+    # un attribut.
+    if path.startswith(WORKSPACE_PREFIX):
+        payload = workspace_get(api.project_root, path, query)
+        if payload is not WORKSPACE_UNHANDLED:
+            return payload
     return API_GET_UNHANDLED

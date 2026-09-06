@@ -3070,6 +3070,10 @@
    "version": "3.4.2",
    "path": "framework/tools/early-warning.py"
   },
+  "e7be9ce774749e1e2dbac92e23462a559a15fc2475eaab8781333a41bc97c3de": {
+   "version": "3.38.0",
+   "path": "framework/glossary.yaml"
+  },
   "e7bf55633f876dea12014005a8d72f5244ca86879708fb86bd59e6e62bc4a9a1": {
    "version": "3.4.2",
    "path": "archetypes/infra-ops/agents/systems-debugger.md"

@@ -1,0 +1,558 @@
+# Glossaire du kit — la seule source de définitions.
+#
+# La spécification de la vue de travail (web/DESIGN-SPEC-workspace-2026-09.md,
+# §3.2) exige une source unique : les infobulles de l'interface, la
+# documentation et les états vides citent tous ce fichier, et un test refuse un
+# terme cité par l'interface qui n'aurait pas d'entrée ici.
+#
+# Une entrée par concept :
+#   id          identifiant stable, kebab-case, ASCII — c'est la clé que
+#               l'interface écrit dans `data-term`
+#   nom         libellé affiché, casse de phrase
+#   définition  UNE phrase. Une infobulle n'est pas un article.
+#   raccourci   raccourci clavier qui atteint le concept, ou "" s'il n'y en a pas
+#   termes      autres `id` de ce fichier — ce sont eux que la bulle souligne en
+#               pointillé et qui ouvrent une bulle enfant (trois niveaux au plus)
+#   doc         page de documentation qui développe, ou "" — chemin relatif à
+#               docs/, jamais une URL externe
+#
+# Règle de rédaction : la définition dit ce que le concept EST et ce qu'il
+# décide, pas ce qu'il faut en penser. Pas d'emoji, pas de majuscules d'emphase.
+
+schema: grimoire-glossary/v1
+
+entries:
+
+  # ── La coque ──────────────────────────────────────────────────────────────
+
+  - id: espace-de-travail
+    nom: Espace de travail
+    définition: >-
+      Un des six regroupements de l'interface par intention — Piloter,
+      Concevoir, Exécuter, Observer, Mémoire, Source — chacun avec sa toile,
+      sa barre de document et son inspecteur.
+    raccourci: "⌘1 … ⌘6"
+    termes: [toile, inspecteur, dock]
+    doc: ""
+
+  - id: toile
+    nom: Toile
+    définition: >-
+      La surface centrale d'un espace, où le document se manipule directement à
+      quatre niveaux de zoom, de la flotte au nœud.
+    raccourci: "Z puis F/P/W/N"
+    termes: [niveau-de-zoom, vue, flotte]
+    doc: ""
+
+  - id: rail
+    nom: Rail
+    définition: >-
+      La colonne d'icônes de 44 px qui ouvre les panneaux latéraux sans jamais
+      les épingler d'elle-même.
+    raccourci: "1 … 5"
+    termes: [panneau, explorateur, inspecteur]
+    doc: ""
+
+  - id: panneau
+    nom: Panneau
+    définition: >-
+      Une surface latérale à trois états — repliée, entrouverte en
+      surimpression, épinglée dans la grille — dont l'état est mémorisé par
+      espace de travail et par projet.
+    raccourci: "1 … 5"
+    termes: [rail, mode-concentration, densite]
+    doc: ""
+
+  - id: explorateur
+    nom: Explorateur
+    définition: >-
+      Le panneau gauche : l'arbre du projet servi — agents, workflows,
+      blueprints, tâches, preuves, mémoire.
+    raccourci: "1"
+    termes: [panneau, projet]
+    doc: ""
+
+  - id: inspecteur
+    nom: Inspecteur
+    définition: >-
+      Le panneau droit : les propriétés, la validation, le coût et les preuves
+      de ce qui est sélectionné sur la toile.
+    raccourci: "4"
+    termes: [panneau, toile, porte-de-preuve]
+    doc: ""
+
+  - id: dock
+    nom: Dock
+    définition: >-
+      La bande basse commune aux six espaces : Console, Traces, Timeline,
+      Problèmes.
+    raccourci: "5"
+    termes: [console, trace, timeline, probleme]
+    doc: ""
+
+  - id: console
+    nom: Console
+    définition: >-
+      Le terminal du dock, qui exécute les sous-commandes `grimoire` du projet
+      servi et refuse tout le reste.
+    raccourci: "`"
+    termes: [dock, commande-equivalente]
+    doc: cli-reference.md
+
+  - id: commande-equivalente
+    nom: Commande équivalente
+    définition: >-
+      La commande `grimoire …` qu'une action à la souris aurait produite,
+      affichée dans le dock pour que le clavier s'apprenne sans être imposé.
+    raccourci: ""
+    termes: [console, palette-de-commandes]
+    doc: cli-reference.md
+
+  - id: palette-de-commandes
+    nom: Palette de commandes
+    définition: >-
+      La recherche unique qui atteint projets, espaces, workflows, agents,
+      tâches, fichiers et commandes du kit, chaque entrée montrant sa commande
+      équivalente.
+    raccourci: "⌘K"
+    termes: [commande-equivalente, espace-de-travail]
+    doc: ""
+
+  - id: infobulle
+    nom: Infobulle épinglable
+    définition: >-
+      Une bulle de définition qu'Alt fige, dans laquelle le pointeur peut
+      entrer, et dont les termes soulignés ouvrent une bulle enfant — trois
+      niveaux au plus, Échap ferme la pile.
+    raccourci: "Alt"
+    termes: [glossaire, mode-concentration]
+    doc: ""
+
+  - id: glossaire
+    nom: Glossaire
+    définition: >-
+      Le fichier `framework/glossary.yaml` : une entrée par concept, source
+      unique des infobulles et de la documentation.
+    raccourci: "F1"
+    termes: [infobulle]
+    doc: ""
+
+  - id: mode-concentration
+    nom: Mode concentration
+    définition: >-
+      Le réglage qui replie tous les panneaux, réduit les infobulles au nom et
+      au raccourci et donne la toile à l'écran entier.
+    raccourci: "⇧⌘F"
+    termes: [densite, panneau, infobulle]
+    doc: ""
+
+  - id: densite
+    nom: Densité
+    définition: >-
+      Un des deux réglages d'affichage — Découverte, aérée et bavarde, ou
+      Concentration, dense et muette — choisi par l'utilisateur, jamais deviné.
+    raccourci: ""
+    termes: [mode-concentration]
+    doc: ""
+
+  - id: niveau-de-zoom
+    nom: Niveau de zoom
+    définition: >-
+      Un des quatre grains de la toile — Flotte, Projet, Workflow, Nœud — qui
+      changent ce qui est montré, pas seulement sa taille.
+    raccourci: "Z puis F/P/W/N"
+    termes: [toile, flotte, workflow]
+    doc: ""
+
+  - id: vue
+    nom: Vue
+    définition: >-
+      La forme sous laquelle une collection se lit — Carte, Board ou Liste —
+      la Liste étant celle qui sert à gérer flows et groupes.
+    raccourci: "V"
+    termes: [toile, board-gouverne]
+    doc: ""
+
+  # ── Les hôtes et le projet ────────────────────────────────────────────────
+
+  - id: atelier
+    nom: Atelier
+    définition: >-
+      L'hôte mono-projet servi par `grimoire serve` : la vue de travail
+      appliquée au projet courant.
+    raccourci: ""
+    termes: [cockpit, projet, kit]
+    doc: cli-reference.md
+
+  - id: cockpit
+    nom: Cockpit
+    définition: >-
+      L'hôte multi-projets servi par `grimoire cockpit serve` : la même coque
+      que l'atelier, plus le niveau de zoom Flotte et le sélecteur de projet.
+    raccourci: ""
+    termes: [atelier, flotte, projet]
+    doc: cli-reference.md
+
+  - id: flotte
+    nom: Flotte
+    définition: >-
+      L'ensemble des projets enregistrés au registre local, et le niveau de
+      zoom que seul le cockpit ajoute.
+    raccourci: "Z puis F"
+    termes: [cockpit, projet, niveau-de-zoom]
+    doc: ""
+
+  - id: projet
+    nom: Projet
+    définition: >-
+      Un dépôt initialisé par le kit, reconnaissable à son dossier
+      `_grimoire/`, et l'unité que l'atelier sert et que le cockpit gouverne.
+    raccourci: ""
+    termes: [kit, etage, standard-agentique]
+    doc: ""
+
+  - id: kit
+    nom: Kit
+    définition: >-
+      Le paquet `grimoire-kit` lui-même, dont la version décide de ce que
+      `grimoire up` régénère dans un projet.
+    raccourci: ""
+    termes: [etage, override, empreinte]
+    doc: ""
+
+  - id: hote
+    nom: Hôte
+    définition: >-
+      Un runtime d'agents que le kit sait équiper — Claude Code, Copilot,
+      Cursor — et vers lequel il projette agents, workflows et hooks.
+    raccourci: ""
+    termes: [projection, agent]
+    doc: ""
+
+  # ── L'espace Source : les étages ──────────────────────────────────────────
+
+  - id: etage
+    nom: Étage
+    définition: >-
+      Une des trois couches auxquelles appartient tout fichier d'un projet —
+      kit régénéré, overrides possédés, projections d'hôtes — et qui décide qui
+      a le droit de l'écrire.
+    raccourci: ""
+    termes: [override, projection, kit]
+    doc: ""
+
+  - id: override
+    nom: Override
+    définition: >-
+      Une copie d'un fichier du kit placée sous `_grimoire/overrides/`, qui
+      prime sur son homologue et survit à toutes les mises à jour.
+    raccourci: ""
+    termes: [etage, kit, empreinte]
+    doc: ""
+
+  - id: projection
+    nom: Projection
+    définition: >-
+      Un fichier écrit par le kit dans le format d'un hôte — `.claude/`,
+      `.github/` — régénéré à chaque synchronisation et jamais édité à la main.
+    raccourci: ""
+    termes: [hote, etage]
+    doc: ""
+
+  - id: empreinte
+    nom: Empreinte
+    définition: >-
+      Le SHA-256 d'un fichier, comparé au catalogue des digests livrés par le
+      kit pour décider si le projet l'a écrit ou si une version du kit l'a
+      livré.
+    raccourci: ""
+    termes: [kit, override, etage]
+    doc: ""
+
+  # ── Le travail gouverné ───────────────────────────────────────────────────
+
+  - id: tache
+    nom: Tâche
+    définition: >-
+      L'unité de travail du Mission Ledger, avec ses critères d'acceptation,
+      son propriétaire et les portes de preuve qu'elle doit franchir.
+    raccourci: ""
+    termes: [mission-ledger, porte-de-preuve, board-gouverne]
+    doc: cli-reference.md
+
+  - id: mission-ledger
+    nom: Mission Ledger
+    définition: >-
+      Le journal en ajout seul qui est la source de vérité des missions, des
+      tâches et de leurs transitions ; le board n'en est qu'une projection.
+    raccourci: ""
+    termes: [tache, board-gouverne, trace-ledger]
+    doc: adr-005-mission-ledger-source-of-truth.md
+
+  - id: board-gouverne
+    nom: Board gouverné
+    définition: >-
+      La projection du Mission Ledger en huit colonnes — proposed, ready,
+      in_progress, blocked, review, accepted, released, archived — repliables
+      en quatre.
+    raccourci: ""
+    termes: [mission-ledger, tache, porte-de-preuve]
+    doc: cli-reference.md
+
+  - id: porte-de-preuve
+    nom: Porte de preuve
+    définition: >-
+      La règle qui refuse une transition de tâche tant que les preuves
+      déclarées ne sont pas là, et dont le refus nomme la preuve manquante et
+      son remède.
+    raccourci: ""
+    termes: [tache, evidence-pack, decision-trace, task-envelope]
+    doc: ""
+
+  - id: evidence-pack
+    nom: Evidence pack
+    définition: >-
+      L'inventaire des preuves d'une tâche — commande, test, diff — écrit sous
+      `_grimoire-runtime-output/evidence/`.
+    raccourci: ""
+    termes: [porte-de-preuve, tache]
+    doc: ""
+
+  - id: decision-trace
+    nom: Decision trace
+    définition: >-
+      Le relevé des décisions prises pendant une tâche : ce qui a été choisi,
+      contre quoi, et sur quelle base.
+    raccourci: ""
+    termes: [porte-de-preuve, evidence-pack]
+    doc: ""
+
+  - id: task-envelope
+    nom: Task envelope
+    définition: >-
+      Le contrat d'entrée d'une tâche : ce qu'elle vise, ses critères
+      d'acceptation et ce qu'elle a le droit de toucher.
+    raccourci: ""
+    termes: [tache, porte-de-preuve]
+    doc: ""
+
+  - id: context-bundle
+    nom: Context bundle
+    définition: >-
+      Le paquet de contexte qu'un agent reçoit pour une tâche donnée, calculé
+      depuis le projet et non recopié à la main.
+    raccourci: ""
+    termes: [tache, agent]
+    doc: ""
+
+  - id: standard-agentique
+    nom: Standard agentique
+    définition: >-
+      Le corps de règles que `_grimoire/standard/` déclare pour un projet —
+      profil, gates, politique mémoire, registre de hooks.
+    raccourci: ""
+    termes: [profil, porte-de-preuve, projet]
+    doc: ""
+
+  - id: profil
+    nom: Profil
+    définition: >-
+      Le niveau d'exigence du standard — `observed`, `activated`, `governed`,
+      `enforced` — qui décide si une porte avertit ou bloque.
+    raccourci: ""
+    termes: [standard-agentique, porte-de-preuve]
+    doc: ""
+
+  # ── L'observation ─────────────────────────────────────────────────────────
+
+  - id: trace
+    nom: Trace
+    définition: >-
+      Un enregistrement d'exécution du runtime — appels d'outils, verdicts de
+      policy, durées — écrit au TraceLedger.
+    raccourci: ""
+    termes: [trace-ledger, span, timeline]
+    doc: ""
+
+  - id: trace-ledger
+    nom: TraceLedger
+    définition: >-
+      Le journal d'observabilité du projet, sous `_grimoire/standard/traces/` :
+      ce que les hooks ont autorisé ou refusé, et les portes rouges.
+    raccourci: ""
+    termes: [trace, porte-de-preuve, mission-ledger]
+    doc: ""
+
+  - id: span
+    nom: Span
+    définition: >-
+      Un intervalle mesuré à l'intérieur d'une trace : une étape, un appel
+      d'outil, avec sa durée et son issue.
+    raccourci: ""
+    termes: [trace, timeline]
+    doc: ""
+
+  - id: timeline
+    nom: Timeline
+    définition: >-
+      La chronologie unifiée d'une tâche, qui recoud Mission Ledger,
+      TraceLedger, runtime et preuves en une seule suite d'événements datés.
+    raccourci: ""
+    termes: [tache, trace, mission-ledger]
+    doc: cli-reference.md
+
+  - id: probleme
+    nom: Problème
+    définition: >-
+      Un constat de `grimoire doctor` ou de la validation d'un workflow,
+      montré dans le dock avec ce qu'il faut faire pour le lever.
+    raccourci: ""
+    termes: [doctor, dock, validation]
+    doc: ""
+
+  - id: doctor
+    nom: Doctor
+    définition: >-
+      Le diagnostic du kit sur un projet : chemins qui ne se résolvent pas,
+      hôtes désynchronisés, standard incomplet.
+    raccourci: ""
+    termes: [probleme, projet, hote]
+    doc: cli-reference.md
+
+  - id: validation
+    nom: Validation
+    définition: >-
+      Le verdict statique sur un workflow ou un blueprint : agents absents du
+      manifeste, nœuds orphelins, portes sans preuve déclarée.
+    raccourci: ""
+    termes: [workflow, blueprint, probleme]
+    doc: ""
+
+  - id: antifragilite
+    nom: Antifragilité
+    définition: >-
+      Le score qui mesure ce qu'un projet apprend de ses incidents ; `null`
+      signifie « pas encore mesurée », jamais zéro.
+    raccourci: ""
+    termes: [projet, trace]
+    doc: ""
+
+  # ── Ce qu'on conçoit ──────────────────────────────────────────────────────
+
+  - id: agent
+    nom: Agent
+    définition: >-
+      Une persona exécutable — rôle, outils autorisés, protocole d'activation —
+      déployée dans les hôtes du projet.
+    raccourci: ""
+    termes: [hote, equipe, workflow]
+    doc: ""
+
+  - id: workflow
+    nom: Workflow
+    définition: >-
+      Un enchaînement de nœuds — agents, portes, décisions — que le projet peut
+      valider, simuler puis compiler.
+    raccourci: ""
+    termes: [noeud, blueprint, validation]
+    doc: workflow-taxonomy.md
+
+  - id: noeud
+    nom: Nœud
+    définition: >-
+      Une étape d'un workflow, avec son genre, son équipe, son déclencheur et
+      la preuve qu'elle exige à la porte suivante.
+    raccourci: "Z puis N"
+    termes: [workflow, porte-de-preuve, equipe]
+    doc: ""
+
+  - id: blueprint
+    nom: Blueprint
+    définition: >-
+      La description éditable d'un système d'agents, d'où sont compilés agents,
+      workflows et équipes.
+    raccourci: ""
+    termes: [workflow, agent, pattern]
+    doc: ""
+
+  - id: pattern
+    nom: Pattern
+    définition: >-
+      Une forme d'orchestration éprouvée et nommée, référencée par un nœud
+      plutôt que recopiée.
+    raccourci: ""
+    termes: [noeud, blueprint, workflow]
+    doc: ""
+
+  - id: equipe
+    nom: Équipe
+    définition: >-
+      Un groupe d'agents désigné par un nom, qu'un nœud invoque d'un bloc.
+    raccourci: ""
+    termes: [agent, noeud]
+    doc: ""
+
+  - id: extension
+    nom: Extension
+    définition: >-
+      Un paquet installable qui ajoute des agents, des workflows ou des outils
+      à un projet sans modifier le kit.
+    raccourci: ""
+    termes: [projet, kit, archetype]
+    doc: ""
+
+  - id: archetype
+    nom: Archétype
+    définition: >-
+      Le jeu d'agents et de workflows que `grimoire init` déploie selon la
+      nature du projet détectée.
+    raccourci: ""
+    termes: [projet, agent, extension]
+    doc: ""
+
+  # ── La mémoire ────────────────────────────────────────────────────────────
+
+  - id: memoire
+    nom: Mémoire
+    définition: >-
+      Ce que le projet retient entre les sessions : un store d'entrées et un
+      graphe de relations, servis par un ou plusieurs backends.
+    raccourci: ""
+    termes: [store, graphe, backend]
+    doc: ""
+
+  - id: store
+    nom: Store
+    définition: >-
+      La collection d'entrées de mémoire du projet, chacune datée, typée et
+      attribuée.
+    raccourci: ""
+    termes: [memoire, graphe, backend]
+    doc: ""
+
+  - id: graphe
+    nom: Graphe
+    définition: >-
+      Les relations entre entrées de mémoire, entités et décisions, lues comme
+      un réseau plutôt que comme une liste.
+    raccourci: ""
+    termes: [memoire, store]
+    doc: ""
+
+  - id: backend
+    nom: Backend
+    définition: >-
+      Le moteur qui stocke et interroge une couche de mémoire — local,
+      lexical, vectoriel ou graphe.
+    raccourci: ""
+    termes: [memoire, store, graphe]
+    doc: ""
+
+  - id: demo
+    nom: Démo
+    définition: >-
+      Le jeu de données de démonstration, toujours explicitement demandé et
+      toujours marqué comme tel : une vue sans donnée reste vide.
+    raccourci: ""
+    termes: [projet]
+    doc: ""
