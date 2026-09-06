@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <style>
+    :root { --bg: #0B0C0E; --e1: #121418; --e2: #1A1D22; --e3: #22262C; --ink: #F6F7F8; --ink2: #A9AEB6; --ink3: #80868F; --line: rgba(255,255,255,0.10); --acc: #FF6B3D; --accsoft: rgba(255,107,61,0.14); --ok: #34D399; --warn: #FCD34D; }
+    body { margin: 0; font-family: 'Geist', system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+    a { color: var(--acc); } a:hover { color: var(--ink); }
+    .ui { font-size: 13px; line-height: 1.45; }
+    .mono { font-family: 'Geist Mono', ui-monospace, Menlo, monospace; }
+    .h { font-size: 15px; font-weight: 500; }
+    .lbl { font-size: 12px; color: var(--ink3); }
+    .soft { color: var(--ink2); }
+    .card { background: var(--e1); border: 1px solid var(--line); border-radius: 4px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .kbd { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; font-size: 11px; color: var(--ink2); background: var(--e2); }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .mini { position: relative; height: 120px; background: var(--bg); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+    .rail { position: absolute; left: 0; top: 0; bottom: 0; width: 22px; background: var(--e1); border-right: 1px solid var(--line); }
+    .rail i { display: block; width: 10px; height: 10px; margin: 8px 6px; border: 1px solid var(--ink3); border-radius: 2px; }
+    .rail i.on { border-color: var(--acc); background: var(--accsoft); }
+    .pane { position: absolute; top: 0; bottom: 0; background: var(--e2); border-right: 1px solid var(--line); }
+    .tip { background: var(--e3); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; font-size: 12px; color: var(--ink2); box-shadow: 0 16px 40px rgba(0,0,0,.35); }
+    .tip .t { font-size: 13px; font-weight: 500; color: var(--ink); }
+    .tip u { text-decoration: underline dotted; text-underline-offset: 3px; color: var(--ink); }
+    .ico { width: 14px; height: 14px; }
+    .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ink3); display: inline-block; }
+    .dot.acc { background: var(--acc); }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+    th { text-align: left; font-weight: 500; color: var(--ink3); font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+    td { padding: 7px 8px; border-bottom: 1px solid var(--line); color: var(--ink2); vertical-align: top; }
+    td:first-child { color: var(--ink); }
+  </style>
+</helmet>
+<div class="ui" style="width: 1440px; height: 900px; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; background: var(--bg); overflow: hidden;">
+  <div class="row" style="justify-content: space-between;"><div><div style="font-size: 20px; font-weight: 500;">Mécaniques de la vue de travail</div><div class="soft">Ce qui fait tenir ensemble l'expert et le novice : panneaux à trois états, infobulles épinglables, raccourcis, deux réglages.</div></div><span class="lbl">Direction A + B + C + D</span></div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; flex-grow: 1; min-height: 0;">
+
+    <!-- Colonne 1 : panneaux -->
+    <div class="card">
+      <div class="h">Panneaux : replié, entrouvert, épinglé</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+        <div class="mini"><div class="rail"><i class="on"></i><i></i><i></i></div></div>
+        <div class="mini"><div class="rail"><i class="on"></i><i></i><i></i></div><div class="pane" style="left: 22px; width: 92px; box-shadow: 8px 0 24px rgba(0,0,0,.4);"><div class="lbl" style="padding: 8px;">entrouvert</div></div></div>
+        <div class="mini"><div class="rail"><i class="on"></i><i></i><i></i></div><div class="pane" style="left: 22px; width: 92px;"><div class="row lbl" style="padding: 8px;">épinglé <svg class="ico" viewBox="0 0 20 20" fill="none" stroke="var(--acc)" stroke-width="1.5"><rect x="5" y="9" width="10" height="8" rx="1.5"></rect><path d="M7 9V6.5a3 3 0 0 1 6 0V9"></path></svg></div></div><div style="position: absolute; left: 115px; top: 0; bottom: 0; right: 0; background: var(--bg);"></div></div>
+      </div>
+      <div class="row lbl" style="justify-content: space-between;"><span>Replié : le rail seul</span><span>Entrouvert : en surimpression</span><span>Épinglé : dans la grille</span></div>
+      <table>
+        <tr><th>Geste</th><th>Effet</th></tr>
+        <tr><td>Clic sur l'icône du rail</td><td>Ouvre en surimpression ; un clic ailleurs referme.</td></tr>
+        <tr><td>Survol du rail, 450 ms</td><td>Entrouvre. Jamais au survol du contenu : traverser l'écran n'ouvre rien.</td></tr>
+        <tr><td>Cadenas ou <span class="kbd">⌘</span> + clic</td><td>Épingle dans la grille, le contenu se redimensionne.</td></tr>
+        <tr><td><span class="kbd">1</span> à <span class="kbd">5</span></td><td>Bascule chaque panneau : explorateur, bibliothèque, preuves, mémoire, dock.</td></tr>
+        <tr><td><span class="kbd">⇧⌘F</span></td><td>Mode concentration : tout se replie, la toile prend l'écran.</td></tr>
+      </table>
+    </div>
+
+    <!-- Colonne 2 : infobulles épinglables -->
+    <div class="card">
+      <div class="h">Infobulles épinglables, en pile</div>
+      <div class="soft">Survol de 500 ms : bulle courte. <span class="kbd">Alt</span> la fige ; on entre dedans ; ses termes ouvrent d'autres bulles, elles aussi épinglables. <span class="kbd">Échap</span> ferme la pile. Trois niveaux au plus.</div>
+      <div style="position: relative; height: 250px;">
+        <div style="position: absolute; left: 0; top: 0; padding: 8px 12px; border: 1px dashed var(--ink3); border-radius: 4px; color: var(--ink2);">Gate · preuve</div>
+        <div class="tip" style="position: absolute; left: 24px; top: 48px; width: 250px;">
+          <div class="row" style="justify-content: space-between;"><span class="t">Porte de preuve</span><span class="lbl">Alt · épingler</span></div>
+          <div style="margin-top: 5px;">Transition refusée tant que l'<u>evidence pack</u> manque.</div>
+        </div>
+        <div class="tip" style="position: absolute; left: 60px; top: 122px; width: 250px; border-color: var(--acc);">
+          <div class="row" style="justify-content: space-between;"><span class="t">Evidence pack</span><span class="row lbl" style="gap: 4px;"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="var(--acc)" stroke-width="1.5"><rect x="5" y="9" width="10" height="8" rx="1.5"></rect><path d="M7 9V6.5a3 3 0 0 1 6 0V9"></path></svg>épinglée</span></div>
+          <div style="margin-top: 5px;">Inventaire des preuves d'une <u>tâche</u> : commande, test, diff.</div>
+          <div class="row" style="margin-top: 6px; gap: 10px;"><span class="lbl">Ouvrir</span><span class="kbd">↵</span><span class="lbl">Documentation</span><span class="kbd">F1</span></div>
+        </div>
+        <div class="tip" style="position: absolute; left: 96px; top: 200px; width: 250px;">
+          <div class="row" style="justify-content: space-between;"><span class="t">Tâche</span><span class="lbl">Alt · épingler</span></div>
+          <div style="margin-top: 5px;">Unité de travail du Mission Ledger, avec ses portes.</div>
+        </div>
+      </div>
+      <table>
+        <tr><th>Contenu d'une bulle</th><th>Source</th></tr>
+        <tr><td>Nom, définition d'une phrase, raccourci, termes liés</td><td>Glossaire unique du kit : une entrée par concept, la documentation en dérive.</td></tr>
+        <tr><td>Mode expert</td><td>La bulle se réduit au nom et au raccourci ; <span class="kbd">Alt</span> rouvre la définition.</td></tr>
+      </table>
+    </div>
+
+    <!-- Colonne 3 : deux réglages et raccourcis -->
+    <div class="card">
+      <div class="h">Deux réglages, pas deux interfaces</div>
+      <table>
+        <tr><th></th><th>Découverte</th><th>Concentration</th></tr>
+        <tr><td>Rail</td><td>icônes avec libellés</td><td>icônes seules</td></tr>
+        <tr><td>Panneaux</td><td>explorateur et inspecteur épinglés</td><td>tout replié, ouverture à la demande</td></tr>
+        <tr><td>Infobulles</td><td>complètes, 500 ms</td><td>nom et raccourci, 800 ms</td></tr>
+        <tr><td>Dock</td><td>Traces ouvert</td><td>Console ouverte, terminal</td></tr>
+        <tr><td>Densité</td><td>aérée, contrôles 32 px</td><td>dense, contrôles 28 px</td></tr>
+      </table>
+      <div class="h" style="margin-top: 4px;">Raccourcis qui atteignent tout</div>
+      <table>
+        <tr><td><span class="kbd">⌘K</span></td><td>Palette : projets, workflows, tâches, agents, commandes du kit. Chaque entrée montre sa commande <span class="mono">grimoire …</span>.</td></tr>
+        <tr><td><span class="kbd">⌘1</span> … <span class="kbd">⌘5</span></td><td>Espaces de travail : Piloter, Concevoir, Exécuter, Observer, Mémoire.</td></tr>
+        <tr><td><span class="kbd">Z</span> puis <span class="kbd">F</span> <span class="kbd">P</span> <span class="kbd">W</span> <span class="kbd">N</span></td><td>Niveau de zoom : flotte, projet, workflow, nœud.</td></tr>
+        <tr><td><span class="kbd">V</span></td><td>Vue de la collection : carte, board, liste.</td></tr>
+        <tr><td><span class="kbd">`</span></td><td>Terminal du dock, curseur dans la ligne de commande.</td></tr>
+      </table>
+      <div class="lbl">Chaque action à la souris affiche sa commande équivalente dans le dock : le novice apprend le clavier sans qu'on le lui impose.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

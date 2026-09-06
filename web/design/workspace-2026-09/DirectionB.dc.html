@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f1f1d; background: #f4f4f1; }
+    a { color: #b4432b; } a:hover { color: #8f3320; }
+    .wf { font-size: 13px; line-height: 1.35; }
+    .lbl { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #6b6b66; }
+    .box { border: 1px solid #c9c9c3; background: #ffffff; }
+    .muted { color: #6b6b66; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid #c9c9c3; border-radius: 999px; font-size: 12px; background: #fff; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: #8a8a84; display: inline-block; }
+    .dot.ok { background: #2f9e5f; } .dot.warn { background: #d29a1a; } .dot.acc { background: #ff6b3d; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .tool { width: 36px; height: 36px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; }
+    .tool.on { background: #ffe6dc; border-color: #ff6b3d; }
+    .ico { width: 16px; height: 16px; border: 1.5px solid #1f1f1d; border-radius: 3px; }
+    .vtab { writing-mode: vertical-rl; transform: rotate(180deg); padding: 12px 8px; font-size: 12px; color: #6b6b66; border-left: 2px solid transparent; }
+    .vtab.on { color: #1f1f1d; font-weight: 600; border-left-color: #ff6b3d; }
+    .node { position: absolute; width: 168px; border: 1.5px solid #1f1f1d; background: #fff; border-radius: 8px; padding: 8px 10px; font-size: 12px; }
+    .node .t { font-weight: 600; font-size: 13px; }
+    .btn { padding: 6px 12px; border: 1px solid #1f1f1d; border-radius: 6px; font-size: 13px; background: #fff; }
+    .btn.pri { background: #ff6b3d; border-color: #ff6b3d; color: #fff; }
+    .field { display: flex; flex-direction: column; gap: 3px; }
+    .input { border: 1px solid #c9c9c3; border-radius: 6px; padding: 6px 8px; background: #fff; }
+  </style>
+</helmet>
+<div class="wf" style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #f4f4f1; overflow: hidden;">
+
+  <!-- Barre d'application -->
+  <div class="box" style="height: 44px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-width: 0 0 1px 0;">
+    <div style="font-weight: 700; letter-spacing: .06em; font-size: 13px;">GRIMOIRE</div>
+    <div class="muted">proj-da</div>
+    <div class="muted">/</div>
+    <div style="font-weight: 600;">boomerang-orchestration</div>
+    <div style="flex-grow: 1;"></div>
+    <div class="chip">Espace : Conception <span class="muted">&#9662;</span></div>
+    <div class="chip muted">⌘K</div>
+    <div class="btn">Partager</div>
+    <div class="btn pri">Compiler</div>
+  </div>
+
+  <!-- Barre d'options contextuelle à l'outil actif -->
+  <div class="box" style="height: 36px; display: flex; align-items: center; gap: 20px; padding: 0 16px 0 72px; border-width: 0 0 1px 0; font-size: 12px;">
+    <div class="row"><span class="lbl">Nœud</span><span class="chip">agent <span class="muted">&#9662;</span></span></div>
+    <div class="row"><span class="lbl">Aimanter</span><span class="chip"><span class="dot ok"></span>grille 8</span></div>
+    <div class="row"><span class="lbl">Alignement</span><span class="chip">gauche</span><span class="chip">centre</span><span class="chip">répartir</span></div>
+    <div style="flex-grow: 1;"></div>
+    <div class="row muted"><span class="dot warn"></span> 2 avertissements de validation</div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; min-height: 0;">
+    <!-- Rail d'outils -->
+    <div class="box" style="width: 56px; border-width: 0 1px 0 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0;">
+      <div class="tool on"><div class="ico"></div></div>
+      <div class="tool"><div class="ico" style="border-radius: 999px;"></div></div>
+      <div class="tool"><div class="ico" style="width: 20px; height: 2px; border-width: 0; background: #1f1f1d;"></div></div>
+      <div class="tool"><div class="ico" style="border-style: dashed;"></div></div>
+      <div class="tool"><div class="ico" style="width: 12px; height: 12px;"></div></div>
+      <div style="flex-grow: 1;"></div>
+      <div class="tool"><div class="ico" style="border-color: #6b6b66;"></div></div>
+    </div>
+
+    <!-- Document -->
+    <div style="flex-grow: 1; position: relative; background: #fbfbf9; min-width: 0;">
+      <svg style="position: absolute; inset: 0; width: 100%; height: 100%;" viewBox="0 0 1000 780" preserveAspectRatio="none" fill="none">
+        <path d="M330 300 L430 300" stroke="#1f1f1d" stroke-width="1.5"></path>
+        <path d="M598 300 L700 250" stroke="#1f1f1d" stroke-width="1.5"></path>
+        <path d="M598 300 L700 350" stroke="#1f1f1d" stroke-width="1.5"></path>
+        <path d="M868 320 L868 470 L514 470 L514 520" stroke="#1f1f1d" stroke-width="1.5" stroke-dasharray="4 4"></path>
+      </svg>
+      <div class="node" style="left: 160px; top: 270px;"><div class="t">Concierge</div><div class="muted">triage · reformule</div></div>
+      <div class="node" style="left: 430px; top: 270px; border-color: #ff6b3d; box-shadow: 0 0 0 3px #ffe6dc;"><div class="t">Découper</div><div class="muted">boomerang · 3 sous-tâches</div></div>
+      <div class="node" style="left: 700px; top: 220px;"><div class="t">Project navigator</div><div class="muted">contexte</div></div>
+      <div class="node" style="left: 700px; top: 320px;"><div class="t">Memory keeper</div><div class="muted">rappel</div></div>
+      <div class="node" style="left: 430px; top: 520px; border-style: dashed;"><div class="t">Gate · preuve</div><div class="muted">evidence pack requis</div></div>
+      <!-- Traces en pastille flottante, pas de dock permanent -->
+      <div class="box" style="position: absolute; left: 16px; bottom: 16px; border-radius: 999px; padding: 6px 12px; display: flex; gap: 12px; font-size: 12px;">
+        <span class="row"><span class="dot acc"></span>1 gate rouge</span><span class="muted">Traces · Console · Timeline</span>
+      </div>
+      <div class="chip" style="position: absolute; right: 16px; bottom: 16px;">100 %</div>
+    </div>
+
+    <!-- Pile de panneaux à onglets verticaux, un seul ouvert -->
+    <div style="display: flex;">
+      <div class="box" style="width: 300px; border-width: 0 0 0 1px; display: flex; flex-direction: column;">
+        <div style="padding: 12px 14px; border-bottom: 1px solid #e3e3de; display: flex; align-items: center; justify-content: space-between;"><span style="font-weight: 600;">Propriétés</span><span class="muted">réduire</span></div>
+        <div style="padding: 14px; display: flex; flex-direction: column; gap: 12px;">
+          <div class="field"><div class="lbl">Nom</div><div class="input">Découper</div></div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+            <div class="field"><div class="lbl">Genre</div><div class="input">boomerang</div></div>
+            <div class="field"><div class="lbl">Équipe</div><div class="input">team-build</div></div>
+          </div>
+          <div class="field"><div class="lbl">Agents</div><div class="row" style="flex-wrap: wrap;"><span class="chip">concierge</span><span class="chip">dev</span><span class="chip muted">+ ajouter</span></div></div>
+          <div class="field"><div class="lbl">Déclencheur</div><div class="input">tâche &gt; 3 sous-tâches</div></div>
+          <div class="field"><div class="lbl">Preuve exigée à la porte suivante</div><div class="row" style="flex-wrap: wrap;"><span class="chip"><span class="dot ok"></span>task envelope</span><span class="chip"><span class="dot"></span>evidence pack</span><span class="chip"><span class="dot"></span>decision trace</span></div></div>
+        </div>
+      </div>
+      <div class="box" style="width: 40px; border-width: 0 0 0 1px; display: flex; flex-direction: column; align-items: center; padding-top: 8px;">
+        <div class="vtab on">Propriétés</div>
+        <div class="vtab">Éléments</div>
+        <div class="vtab">Preuves</div>
+        <div class="vtab">Coût</div>
+        <div class="vtab">Historique</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="box" style="height: 26px; display: flex; align-items: center; gap: 18px; padding: 0 16px; font-size: 12px; color: #6b6b66; border-width: 1px 0 0 0;">
+    <span>grimoire-kit 3.38.0</span><span class="row"><span class="dot ok"></span>standard governed</span><span style="flex-grow: 1;"></span><span>Enregistré</span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

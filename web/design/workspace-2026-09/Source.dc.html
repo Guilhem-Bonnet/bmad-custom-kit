@@ -1,0 +1,174 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <style>
+    :root { --bg: #08090B; --e1: #15181D; --e2: #22272E; --e3: #2C323A; --bar: #1C2027; --term: #0B0C0E; --termink: #C9CED6; --ink: #F6F7F8; --ink2: #A9AEB6; --ink3: #80868F; --line: rgba(255,255,255,0.10); --acc: #FF6B3D; --accsoft: rgba(255,107,61,0.14); --ok: #34D399; --warn: #FCD34D; --r: 3px; }
+    body { margin: 0; font-family: 'Geist', system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+    a { color: var(--acc); } a:hover { color: var(--ink); }
+    .ui { font-size: 13px; line-height: 1.4; }
+    .mono { font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+    .lbl { font-size: 12px; color: var(--ink3); }
+    .soft { color: var(--ink2); }
+    .surf { background: var(--e1); }
+    .chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--r); font-size: 12px; background: var(--e2); color: var(--ink2); }
+    .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ink3); flex: none; }
+    .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.acc { background: var(--acc); }
+    .tab { height: 100%; display: flex; align-items: center; padding: 0 12px; color: var(--ink2); border-bottom: 2px solid transparent; }
+    .tab.on { color: var(--ink); border-bottom-color: var(--acc); font-weight: 500; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .ico { width: 18px; height: 18px; flex: none; }
+    .rail-btn { width: 44px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--ink2); border-left: 2px solid transparent; }
+    .rail-btn.on { color: var(--ink); border-left-color: var(--acc); background: var(--accsoft); }
+    .tree > div { height: 26px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: var(--r); color: var(--ink2); }
+    .tree > .sel { background: var(--accsoft); color: var(--ink); }
+    .tier { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink3); padding: 10px 12px 4px; }
+    .btn { height: 30px; display: inline-flex; align-items: center; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r); font-size: 13px; background: var(--e2); color: var(--ink); }
+    .btn.pri { background: var(--acc); border-color: var(--acc); color: #0B0C0E; font-weight: 500; }
+    .seg { display: flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--e1); height: 28px; }
+    .seg > div { padding: 0 11px; display: flex; align-items: center; font-size: 12px; color: var(--ink2); }
+    .seg > .on { background: var(--e3); color: var(--ink); }
+    .kbd { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; font-size: 11px; color: var(--ink2); background: var(--e1); }
+    .ln { display: grid; grid-template-columns: 40px minmax(0, 1fr); font-size: 12.5px; line-height: 20px; }
+    .ln > span:first-child { color: var(--ink3); text-align: right; padding-right: 14px; user-select: none; }
+    .ln.add { background: rgba(52,211,153,0.10); } .ln.add > span:first-child { color: var(--ok); }
+    .k { color: #8FB0DA; } .v { color: var(--ink); } .c { color: var(--ink3); } .h1 { color: var(--acc); }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+  </style>
+</helmet>
+<div class="ui" style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: var(--bg); overflow: hidden;">
+
+  <div style="background: var(--bar); height: 44px; display: flex; align-items: stretch; gap: 14px; padding: 0 14px; border-bottom: 1px solid var(--line);">
+    <div class="row" style="font-weight: 600; letter-spacing: .08em; font-size: 12px;">GRIMOIRE</div>
+    <div class="row"><span class="chip" style="color: var(--ink);"><span class="dot ok"></span>proj-da<span class="soft">&#9662;</span></span></div>
+    <div style="display: flex; margin-left: 16px;">
+      <div class="tab">Piloter</div><div class="tab">Concevoir</div><div class="tab">Exécuter</div><div class="tab">Observer</div><div class="tab">Mémoire</div><div class="tab on">Source</div>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div class="row"><span class="chip" style="width: 250px; justify-content: space-between;"><span>Rechercher ou commander</span><span class="kbd">⌘K</span></span></div>
+    <div class="row"><span class="btn">Valider</span><span class="btn pri">Synchroniser les hôtes</span></div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; min-height: 0;">
+    <div class="surf" style="width: 44px; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding-top: 4px;">
+      <div class="rail-btn on"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5.5h5l1.5 1.5H17v8H3z"></path></svg></div>
+      <div class="rail-btn"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 5l-4 5 4 5M13 5l4 5-4 5"></path></svg></div>
+      <div class="rail-btn"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3l6 2v5c0 4-3 6-6 7-3-1-6-3-6-7V5z"></path></svg></div>
+      <div style="flex-grow: 1;"></div>
+      <div class="rail-btn"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="6.5"></circle><path d="M10 7v3l2 2"></path></svg></div>
+    </div>
+
+    <!-- Fichiers par étage -->
+    <div class="surf" style="width: 260px; border-right: 1px solid var(--line); display: flex; flex-direction: column;">
+      <div class="row" style="height: 40px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--line); background: var(--bar);"><span style="font-weight: 500;">Fichiers</span><span style="flex-grow: 1;"></span><span class="kbd">1</span><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="var(--acc)" stroke-width="1.5"><rect x="5" y="9" width="10" height="8" rx="1.5"></rect><path d="M7 9V6.5a3 3 0 0 1 6 0V9"></path></svg></div>
+      <div class="tier">Overrides · possédés par le projet</div>
+      <div class="tree" style="padding: 0 6px; display: flex; flex-direction: column; gap: 1px;">
+        <div>_grimoire/overrides/agents/<span class="chip" style="height: 18px; padding: 0 6px; margin-left: auto;">1</span></div>
+        <div style="padding-left: 22px;">art-director.md<span class="dot acc" style="margin-left: auto;"></span></div>
+        <div>_grimoire/overrides/workflows/<span class="lbl" style="margin-left: auto;">vide</span></div>
+      </div>
+      <div class="tier">Kit · généré, 3.38.0</div>
+      <div class="tree" style="padding: 0 6px; display: flex; flex-direction: column; gap: 1px;">
+        <div style="color: var(--ink);"><span class="soft">&#9662;</span>_grimoire/kit/agents/</div>
+        <div style="padding-left: 22px;">agent-optimizer.md</div>
+        <div class="sel" style="padding-left: 22px;">concierge.md</div>
+        <div style="padding-left: 22px;">creative-toolsmith.md</div>
+        <div style="padding-left: 22px;">memory-keeper.md</div>
+        <div style="padding-left: 22px;">project-navigator.md</div>
+        <div><span class="soft">&#9656;</span>_grimoire/kit/workflows/<span class="lbl" style="margin-left: auto;">6</span></div>
+        <div><span class="soft">&#9656;</span>_grimoire/kit/framework/<span class="lbl" style="margin-left: auto;">12</span></div>
+        <div><span class="soft">&#9656;</span>_grimoire/standard/<span class="lbl" style="margin-left: auto;">28</span></div>
+      </div>
+      <div class="tier">Projections des hôtes · régénérées</div>
+      <div class="tree" style="padding: 0 6px; display: flex; flex-direction: column; gap: 1px;">
+        <div><span class="soft">&#9656;</span>.claude/<span class="lbl" style="margin-left: auto;">24</span></div>
+        <div><span class="soft">&#9656;</span>.github/<span class="lbl" style="margin-left: auto;">22</span></div>
+      </div>
+    </div>
+
+    <!-- Éditeur -->
+    <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+      <div style="background: var(--bar); height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--line);">
+        <div class="row mono soft" style="font-size: 12.5px;"><span>_grimoire/kit/agents/</span><span style="color: var(--ink); font-weight: 500;">concierge.md</span></div>
+        <span class="chip"><span class="dot ok"></span>identique au kit 3.38.0</span>
+        <div style="flex-grow: 1;"></div>
+        <div class="seg"><div class="on">Source</div><div>Diff contre le kit</div><div>Rendu</div></div>
+        <span class="chip">lecture seule</span>
+      </div>
+      <div class="surf" style="display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--accsoft);">
+        <span class="dot acc"></span><span>Ce fichier est généré par le kit. Le modifier crée <span class="mono">_grimoire/overrides/agents/concierge.md</span>, qui prime et survit aux mises à jour.</span><span style="flex-grow: 1;"></span><span class="btn">Créer un override</span>
+      </div>
+      <div class="mono" style="flex-grow: 1; padding: 12px 0; overflow: hidden; background: var(--bg);">
+        <div class="ln"><span>1</span><span class="c">&lt;!-- ARCHETYPE: meta — Agent Concierge : point d'entrée unique, triage et routage. --&gt;</span></div>
+        <div class="ln"><span>2</span><span class="c">---</span></div>
+        <div class="ln"><span>3</span><span><span class="k">name:</span> <span class="v">"concierge"</span></span></div>
+        <div class="ln"><span>4</span><span><span class="k">description:</span> <span class="v">"Concierge — Triage, clarification, routage intelligent vers l'agent adapté"</span></span></div>
+        <div class="ln"><span>5</span><span><span class="k">model_affinity:</span></span></div>
+        <div class="ln"><span>6</span><span>&nbsp;&nbsp;<span class="k">reasoning:</span> <span class="v">high</span></span></div>
+        <div class="ln"><span>7</span><span>&nbsp;&nbsp;<span class="k">context_window:</span> <span class="v">large</span></span></div>
+        <div class="ln"><span>8</span><span>&nbsp;&nbsp;<span class="k">speed:</span> <span class="v">fast</span></span></div>
+        <div class="ln"><span>9</span><span>&nbsp;&nbsp;<span class="k">cost:</span> <span class="v">low</span></span></div>
+        <div class="ln"><span>10</span><span class="c">---</span></div>
+        <div class="ln"><span>11</span><span></span></div>
+        <div class="ln"><span>12</span><span class="v">You must fully embody this agent's persona and follow all activation instructions exactly as specified.</span></div>
+        <div class="ln"><span>13</span><span></span></div>
+        <div class="ln"><span>14</span><span class="h1">&lt;agent id="concierge.agent.yaml" name="Marcel" title="Concierge &amp; Request Router"&gt;</span></div>
+        <div class="ln"><span>15</span><span>&lt;activation critical="MANDATORY"&gt;</span></div>
+        <div class="ln"><span>16</span><span>&nbsp;&nbsp;&lt;step n="1"&gt;Load persona from this current agent file&lt;/step&gt;</span></div>
+        <div class="ln"><span>17</span><span>&nbsp;&nbsp;&lt;step n="2"&gt;Load and apply <span class="h1">{project-root}/_grimoire/kit/framework/agent-base-compact.md</span>&lt;/step&gt;</span></div>
+        <div class="ln"><span>18</span><span>&nbsp;&nbsp;&lt;step n="4"&gt;Charger <span class="h1">{project-root}/_grimoire/_memory/shared-context.md</span>&lt;/step&gt;</span></div>
+        <div class="ln"><span>19</span><span>&nbsp;&nbsp;&lt;step n="8"&gt;TRIAGE PROTOCOL — classify, reformulate, route&lt;/step&gt;</span></div>
+        <div class="ln"><span>20</span><span>&lt;/activation&gt;</span></div>
+        <div class="ln"><span>21</span><span class="c">&lt;!-- Agent routing map — généré à l'installation depuis les agents réellement déployés. --&gt;</span></div>
+        <div class="ln"><span>22</span><span>&lt;agents&gt;</span></div>
+        <div class="ln"><span>23</span><span>&nbsp;&nbsp;&lt;agent tag="agent-optimizer" name="Sentinel"/&gt;</span></div>
+        <div class="ln"><span>24</span><span>&nbsp;&nbsp;&lt;agent tag="memory-keeper" name="Mnemo"/&gt;</span></div>
+      </div>
+      <div style="height: 176px; border-top: 1px solid var(--line); display: flex; flex-direction: column; background: var(--term);">
+        <div style="height: 34px; display: flex; align-items: stretch; padding: 0 8px; border-bottom: 1px solid var(--line); background: var(--bar);">
+          <div class="tab on row" style="gap: 6px;">Problèmes <span class="chip" style="height: 18px; padding: 0 6px;">1</span></div><div class="tab">Console</div><div class="tab">Traces</div>
+          <div style="flex-grow: 1;"></div>
+          <div class="row lbl" style="gap: 6px;">Commande équivalente : <span class="mono" style="color: var(--ink2);">grimoire doctor --check-paths</span></div>
+        </div>
+        <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px;">
+          <div class="row"><span class="dot warn"></span><span class="mono soft">.github/agents/art-director.agent.md</span><span class="soft">fichier maison à un chemin géré : préservé, non régénéré. Déclarer <span class="mono">art-director</span> en override pour lever l'avertissement.</span></div>
+          <div class="row"><span class="dot ok"></span><span class="soft">Tous les chemins du kit cités se résolvent · carte de routage cohérente avec le manifeste</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspecteur du fichier -->
+    <div class="surf" style="width: 300px; border-left: 1px solid var(--line); display: flex; flex-direction: column;">
+      <div style="height: 40px; display: flex; align-items: stretch; padding: 0 8px; border-bottom: 1px solid var(--line); background: var(--bar);">
+        <div class="tab on">Fichier</div><div class="tab">Utilisé par</div><div class="tab">Historique</div>
+        <div style="flex-grow: 1;"></div>
+        <div class="row"><svg class="ico" viewBox="0 0 20 20" fill="none" stroke="var(--acc)" stroke-width="1.5"><rect x="5" y="9" width="10" height="8" rx="1.5"></rect><path d="M7 9V6.5a3 3 0 0 1 6 0V9"></path></svg></div>
+      </div>
+      <div style="padding: 14px; display: flex; flex-direction: column; gap: 14px;">
+        <div><div class="lbl">Agent</div><div style="font-size: 15px; font-weight: 500; margin-top: 2px;">concierge · Marcel</div><div class="soft">persona d'entrée du projet</div></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+          <div class="field"><div class="lbl">Étage</div><div>kit, généré</div></div>
+          <div class="field"><div class="lbl">Version</div><div class="mono">3.38.0</div></div>
+          <div class="field"><div class="lbl">Empreinte</div><div class="row"><span class="dot ok"></span>au catalogue</div></div>
+          <div class="field"><div class="lbl">Override</div><div>aucun</div></div>
+        </div>
+        <div class="field"><div class="lbl">Projeté vers</div><div style="display: flex; flex-direction: column; gap: 4px;" class="mono soft"><div class="row"><span class="dot ok"></span>.claude/agents/concierge.md</div><div class="row"><span class="dot ok"></span>.github/agents/concierge.agent.md</div><div class="row"><span class="dot ok"></span>AGENTS.md · entrée</div></div></div>
+        <div class="field"><div class="lbl">Chargé par</div><div class="row" style="flex-wrap: wrap;"><span class="chip">agent-base-compact.md</span><span class="chip">shared-context.md</span><span class="chip">session-state.md</span></div></div>
+        <div class="row"><span class="btn">Ouvrir dans Concevoir</span><span class="btn">Documentation</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background: var(--bar); height: 26px; display: flex; align-items: center; gap: 18px; padding: 0 14px; font-size: 12px; color: var(--ink3); border-top: 1px solid var(--line);">
+    <span>grimoire-kit 3.38.0</span><span class="row" style="gap: 6px;"><span class="dot ok"></span>Claude Code à jour</span><span class="row" style="gap: 6px;"><span class="dot warn"></span>Copilot · 1 fichier maison</span><span style="flex-grow: 1;"></span><span>Forge · sombre</span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
