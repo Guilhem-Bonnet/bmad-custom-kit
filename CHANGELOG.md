@@ -7,6 +7,8 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+## [3.39.0] - 2026-09-06
+
 ### Modifié
 
 - **Basculement, pas 2 (`docs/adr-006-vue-de-travail.md`) — la vue de travail
