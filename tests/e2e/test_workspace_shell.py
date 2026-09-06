@@ -378,6 +378,25 @@ def test_la_palette_atteint_les_fichiers_de_source(workspace: Page) -> None:
     workspace.locator("body").press("Escape")
 
 
+def test_choisir_un_fichier_dans_la_palette_l_ouvre_dans_source(workspace: Page) -> None:
+    """Reste connu de l'intégration des cinq lots : le test précédent prouve
+    que la palette *liste* les fichiers, mais son `run()` ne faisait que
+    `goto('source')` — `shell.js` écrasait `location.hash` avant que
+    `source.js` n'ait vu de chemin, et aucun fichier ne s'ouvrait jamais.
+    `goto(id, { file })` répare le relais (shell.js, spaces/source.js)."""
+    workspace.locator("body").press("ControlOrMeta+k")
+    workspace.wait_for_selector("#palette:not([hidden])")
+    workspace.locator("#palette-input").fill("_grimoire/kit/agents")
+    workspace.wait_for_function("() => document.querySelectorAll('#palette-list li').length > 0")
+
+    chosen_path = workspace.locator("#palette-list li").first.locator("span").first.inner_text()
+    workspace.locator("body").press("Enter")
+
+    workspace.wait_for_function("() => window.GrimoireWorkspace.space === 'source'")
+    workspace.wait_for_selector(".sr-docrow .mono", timeout=10_000)
+    assert workspace.locator(".sr-docrow .mono").inner_text() == chosen_path
+
+
 def test_le_theme_et_la_densite_se_choisissent_et_survivent_au_rechargement(workspace: Page, served: str) -> None:
     """L'état est mémorisé par projet, côté client (spec §3.1)."""
     workspace.locator("#st-theme").click()

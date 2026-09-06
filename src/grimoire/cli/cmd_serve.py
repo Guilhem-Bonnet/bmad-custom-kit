@@ -73,7 +73,10 @@ def serve(
     if ui_dir is None:
         console.print("[yellow]•[/yellow] UI embarquée introuvable — API seule.")
     if open_browser and ui_dir is not None:
-        webbrowser.open(f"{url}atelier.html")
+        # Basculement, pas 2 (ADR-006) : la vue de travail est la page par
+        # défaut une fois les cinq lots mergés. `atelier.html` reste servie et
+        # redirige désormais ici (`?legacy=1` pour l'ouvrir quand même).
+        webbrowser.open(f"{url}workspace/index.html")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

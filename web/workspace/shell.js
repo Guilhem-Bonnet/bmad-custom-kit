@@ -15,6 +15,12 @@
 //   ctx.explorer   l'élément de l'arbre gauche
 //   ctx.empty      (titre, phrase, commande) → le bloc d'état vide unique
 //   ctx.signal     un AbortSignal annulé au démontage de l'espace
+//   ctx.params     ce que l'appelant de `goto(id, params)` a demandé pour ce
+//                  montage (ex. `{ file }` depuis ⌘K) — jamais persistant,
+//                  relu à chaque montage seulement
+//   ctx.rail       `{ on(id, handler) }` : enregistre ce que fait le rail « 2 »
+//                  (bibliothèque) tant que cet espace est monté ; remis à
+//                  zéro par la coque à chaque changement d'espace
 
 import { api, boot, host } from './api.js';
 import glossary from './glossary.js';
@@ -188,7 +194,7 @@ function buildRail() {
     button.addEventListener('click', (event) => {
       clearTimeout(peekTimer);
       if (item.id === 'dock') { setDock($('dock').dataset.state === 'collapsed' ? 'pinned' : 'collapsed'); return; }
-      if (!PANELS[item.id]) return;
+      if (!PANELS[item.id]) { triggerRailAction(item.id, event); return; }
       if (event.metaKey || event.ctrlKey) {
         setPanel(item.id, panelState(item.id) === 'pinned' ? 'collapsed' : 'pinned');
         return;
@@ -419,6 +425,28 @@ function empty(title, sentence, command) {
 let current = null;
 let controller = null;
 
+// ── Actions du rail sans panneau dédié ──────────────────────────────────────
+//
+// `explorer` et `inspector` sont des panneaux de la coque (PANELS). `dock` a
+// sa propre bascule. `library` (rail « 2 ») n'appartient qu'à l'espace
+// Concevoir : la spec §4 en fait un tiroir de la toile, pas un panneau de la
+// coque. Plutôt que d'apprendre à `shell.js` ce qu'est une bibliothèque de
+// nœuds (violerait le contrat `mount(root, ctx)`, README « aucun module
+// d'espace n'écrit dans le DOM de l'autre » — et l'inverse est vrai aussi),
+// l'espace monté enregistre ici ce que « 2 » doit faire tant qu'il est actif.
+// Remis à zéro à chaque changement d'espace : un espace qui ne s'en sert pas
+// laisse « 2 » sans effet, plutôt que de rejouer l'action d'un espace quitté.
+let railActions = {};
+
+function registerRailAction(id, handler) {
+  railActions[id] = handler;
+}
+
+function triggerRailAction(id, event) {
+  const handler = railActions[id];
+  if (handler) handler(event);
+}
+
 function buildSpaces() {
   const nav = $('spaces');
   nav.replaceChildren();
@@ -436,12 +464,17 @@ function buildSpaces() {
   });
 }
 
-async function goto(id) {
+async function goto(id, params) {
   const space = SPACES.find((s) => s.id === id) || SPACES[0];
-  if (current === space.id) return;
+  // Un deuxième `goto()` vers l'espace déjà actif est un doublon SAUF s'il
+  // porte des `params` (⌘K « ouvrir ce fichier de Source » alors que Source
+  // est déjà monté) : sans l'exception, la palette perdrait silencieusement
+  // la navigation quand l'espace ne change pas.
+  if (current === space.id && !params) return;
   if (controller) controller.abort();
   controller = new AbortController();
   current = space.id;
+  railActions = {};
   restorePanelsForSpace();
   location.hash = '#' + space.id;
   for (const button of document.querySelectorAll('[data-space]')) {
@@ -465,6 +498,8 @@ async function goto(id) {
     explorer: $('explorer-body'),
     signal: controller.signal,
     goto,
+    params: params || {},
+    rail: { on: registerRailAction },
   };
   try {
     const module = await import(`./spaces/${space.id}.js`);
@@ -530,7 +565,10 @@ async function buildPalette() {
   const files = (settle(filesResult, {}).tiers || []).flatMap((tier) =>
     (tier.files || []).map((f) => ({
       label: f.path, hint: `Fichier · ${tier.label || tier.id}`, command: `grimoire # source ${f.path}`,
-      run: () => goto('source'),
+      // `goto('source', { file })` : sans le second argument, `shell.js`
+      // écrasait `location.hash` avant que `source.js` n'ait vu le chemin —
+      // la palette listait les fichiers mais n'en ouvrait jamais un seul.
+      run: () => goto('source', { file: f.path }),
     })),
   ).slice(0, 500);
 
@@ -623,6 +661,7 @@ function bindShortcuts() {
       const item = RAIL[Number(event.key) - 1];
       if (item.id === 'dock') setDock($('dock').dataset.state === 'collapsed' ? 'pinned' : 'collapsed');
       else if (PANELS[item.id]) togglePanel(item.id);
+      else triggerRailAction(item.id, event);
       return;
     }
     if (event.key === '`') { event.preventDefault(); selectDockTab('console'); setDock('pinned'); }

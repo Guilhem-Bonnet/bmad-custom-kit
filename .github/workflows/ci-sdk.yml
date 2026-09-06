@@ -167,6 +167,25 @@ jobs:
           echo "### Python ${{ matrix.python-version }} Tests" >> $GITHUB_STEP_SUMMARY
           echo "See the test step logs for the full result." >> $GITHUB_STEP_SUMMARY
 
+  e2e:
+    name: "E2E (chromium, ubuntu-latest)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install package + dev deps + Playwright
+        run: |
+          pip install -e ".[dev]" playwright
+          playwright install --with-deps chromium
+
+      - name: Run the workspace browser harness
+        run: pytest tests/e2e -q --tb=short
+
   build:
     name: "Build package"
     runs-on: ubuntu-latest

@@ -12,15 +12,24 @@ grimoire serve
     [Votre premier blueprint](nodal/premier-blueprint.md) pour le parcourir en
     ligne de commande.
 
-`grimoire serve` ouvre l'**atelier** sur `http://127.0.0.1:4173/atelier.html` :
-l'UI complète est embarquée dans le paquet (hub de projet, marketplace,
-éditeur de blueprints, wizard de setup). Le serveur est lié à `127.0.0.1` —
-c'est un outil local, pas un service.
+`grimoire serve` ouvre la **vue de travail** sur
+`http://127.0.0.1:4173/workspace/index.html` : la coque unique décrite par
+[l'ADR de la vue de travail](adr-006-vue-de-travail.md), avec l'espace
+Concevoir pour l'éditeur de blueprints. L'UI complète reste embarquée dans le
+paquet. Le serveur est lié à `127.0.0.1` — c'est un outil local, pas un
+service.
 
 Le site public (GitHub Pages) et l'atelier local sont **la même UI** : sans
 API locale, les pages « atelier » affichent l'écran de premier lancement avec
 les commandes ci-dessus ; avec `grimoire serve`, elles se branchent sur le
 projet réel.
+
+!!! note "Les pages ci-dessous restent servies"
+    `atelier.html`, `blueprints.html`, `patterns.html` et `extensions.html`
+    répondent toujours, mais redirigent désormais vers l'espace de la vue de
+    travail qui les remplace (Concevoir, pour les trois derniers). Ajouter
+    `?legacy=1` à l'URL les sert sans redirection — c'est ce que décrit le
+    reste de cette page.
 
 Options utiles : `grimoire serve --port 8080`, `--project-root <chemin>`,
 `--no-open` (ne pas ouvrir le navigateur).

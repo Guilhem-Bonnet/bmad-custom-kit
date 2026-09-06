@@ -424,6 +424,13 @@ et l'annonce, et `GRIMOIRE_NO_COCKPIT` désactive cette inscription.
 | `grimoire cockpit start` / `stop` / `status` | Lancer en arrière-plan, arrêter, interroger |
 | `grimoire cockpit open` | Ouvrir le cockpit en cours d'exécution dans le navigateur |
 
+`serve`, `start` et `open` ouvrent `workspace/index.html` — la même coque que
+`grimoire serve`, avec le niveau Flotte et le sélecteur de projet en plus
+(`?project=<slug>`). `portfolio.html` (et les autres pages historiques
+partagées avec l'atelier) reste servie mais redirige vers l'espace
+correspondant ; `?legacy=1` sur l'ancienne URL l'ouvre sans redirection. Voir
+[l'ADR de la vue de travail](adr-006-vue-de-travail.md).
+
 ---
 
 ## Workflows
@@ -905,10 +912,21 @@ Voir [Mode local & blueprints](serve-blueprints.md).
 | --- | --- |
 | `--port, -p` | Port d'écoute (défaut 4173, bind 127.0.0.1) |
 | `--project-root` | Racine du projet servi (défaut : dossier courant) |
-| `--open / --no-open` | Ouvrir (ou non) le navigateur sur l'atelier |
+| `--open / --no-open` | Ouvrir (ou non) le navigateur sur la vue de travail |
 
 Pour une UI custom ou une racine de kit explicite (`--ui-dir`, `--kit-root`),
 utiliser la forme longue : `python -m grimoire.tools.forge_server`.
+
+### La vue de travail, page par défaut
+
+`--open` ouvre `workspace/index.html` — la coque unique décrite par
+`web/DESIGN-SPEC-workspace-2026-09.md` et son
+[ADR](adr-006-vue-de-travail.md). Les pages historiques
+(`atelier.html`, `kanban.html`, `observability.html`, `memory.html`,
+`blueprints.html`, `patterns.html`, `extensions.html`, `labs.html`,
+`documentation.html`) restent servies mais redirigent désormais vers l'espace
+de la coque qui les remplace ; ajouter `?legacy=1` à l'URL sert encore
+l'ancienne page, sans redirection.
 
 ### Projets de la machine
 

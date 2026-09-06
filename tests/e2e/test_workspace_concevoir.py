@@ -109,13 +109,37 @@ def test_la_bibliotheque_de_noeuds_liste_les_sept_primitives(concevoir: tuple[Pa
     page.locator(".cv-card").first.dblclick()
     page.wait_for_selector(".cv-node", timeout=15_000)
 
-    # Scopé à la barre d'outils : le rail de la coque porte lui aussi un
-    # bouton « Bibliothèque » (raccourci 2, non câblé — voir le module),
-    # et `get_by_role` ferait sinon une correspondance ambiguë.
+    # Scopé à la barre d'outils : le rail de la coque porte lui aussi une
+    # icône « Bibliothèque » (raccourci 2, voir le test dédié plus bas), et
+    # `get_by_role` ferait sinon une correspondance ambiguë.
     page.locator(".cv-toolbar").get_by_role("button", name="Bibliothèque").click()
     page.wait_for_selector(".cv-prim", timeout=10_000)
 
     assert page.locator(".cv-prim").count() == 7
+
+
+def test_le_raccourci_2_du_rail_ouvre_la_bibliotheque_de_noeuds(concevoir: tuple[Page, str]) -> None:
+    """Reste connu de l'intégration des cinq lots : le rail annonce « 2 »
+    pour la bibliothèque (shell.js, `RAIL`), mais rien ne l'activait — ni le
+    clic sur l'icône, ni le raccourci clavier — faute d'un espace qui
+    l'enregistre (`ctx.rail.on('library', …)`). Concevoir est le seul espace
+    à s'en servir ; ailleurs, « 2 » reste sans effet, ce que ce test ne
+    couvre pas puisqu'aucune spec ne le demande."""
+    page, _ = concevoir
+    page.locator(".cv-card").first.dblclick()
+    page.wait_for_selector(".cv-node", timeout=15_000)
+    assert page.locator(".cv-palette[data-open='1']").count() == 0
+
+    page.locator("body").press("2")
+    page.wait_for_selector(".cv-palette[data-open='1']")
+    page.wait_for_selector(".cv-prim", timeout=10_000)
+    assert page.locator(".cv-prim").count() == 7
+
+    page.locator("body").press("2")
+    # `state="attached"` : le tiroir fermé (`data-open="0"`) est masqué en CSS,
+    # pas retiré du DOM — `wait_for_selector` attend "visible" par défaut et
+    # ne se résoudrait jamais.
+    page.wait_for_selector(".cv-palette[data-open='0']", state="attached")
 
 
 # ── Zoom Workflow → Nœud : inspecteur à quatre onglets ──────────────────────

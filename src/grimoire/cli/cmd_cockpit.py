@@ -56,6 +56,7 @@ from grimoire.tools.project_registry import (
     write_state,
 )
 from grimoire.tools.project_update import update_project
+from grimoire.tools.workspace_legacy import legacy_redirect_target
 
 cockpit_app = typer.Typer(
     help="Local multi-project governance cockpit (serves the bundled site).",
@@ -238,8 +239,19 @@ class _CockpitHandler(SimpleHTTPRequestHandler):
         return asked or selected_slug()
 
     def do_GET(self) -> None:  # http.server contract
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         if not path.startswith("/api/"):
+            # Basculement, pas 2 (ADR-006) : une page héritée redirige vers
+            # l'espace qui la remplace, sauf `?legacy=1` — même table que
+            # l'atelier (`workspace_legacy`), pour ne pas la faire diverger.
+            space = legacy_redirect_target(path.lstrip("/"))
+            if space is not None and "legacy" not in parse_qs(parsed.query):
+                self.send_response(302)
+                self.send_header("Location", f"/workspace/index.html#{space}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             super().do_GET()
             return
         if not self._local_only():
@@ -667,7 +679,11 @@ def serve(
         console.print(f"[red]✗[/red] Port {port} indisponible : {exc}")
         raise typer.Exit(1) from exc
 
-    url = f"http://127.0.0.1:{port}/portfolio.html"
+    # Basculement, pas 2 (ADR-006) : la vue de travail est la page par défaut
+    # une fois les cinq lots mergés — le cockpit y ajoute le niveau Flotte.
+    # `portfolio.html` reste servie et redirige désormais ici (`?legacy=1`
+    # pour l'ouvrir quand même).
+    url = f"http://127.0.0.1:{port}/workspace/index.html"
     console.print(f"[bold green]Cockpit[/bold green] → [link]{url}[/link]  [dim](Ctrl-C pour arrêter)[/dim]")
     if open_browser:
         webbrowser.open(url)
@@ -704,7 +720,7 @@ def start(
     cmd = [sys.executable, "-m", "grimoire", "cockpit", "serve",
            "--port", str(port), "--no-open", "--no-refresh"]
     pid = _spawn_detached(cmd)
-    url = f"http://127.0.0.1:{port}/portfolio.html"
+    url = f"http://127.0.0.1:{port}/workspace/index.html"
     for _ in range(24):
         if _port_alive(port):
             break

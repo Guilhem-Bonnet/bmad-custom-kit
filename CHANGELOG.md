@@ -7,6 +7,24 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Modifié
+
+- **Basculement, pas 2 (`docs/adr-006-vue-de-travail.md`) — la vue de travail
+  devient la page par défaut.** Les cinq lots sont mergés : `grimoire serve`
+  et `grimoire cockpit serve` ouvrent désormais `workspace/index.html` dans le
+  navigateur (`--open`, activé par défaut) au lieu de `atelier.html` et
+  `portfolio.html`. Les quatorze pages historiques restent servies à
+  l'identique — rien n'est supprimé avant le pas 3, une mineure ultérieure —
+  mais les dix pages *outil* (`atelier.html`, `portfolio.html`, `kanban.html`,
+  `observability.html`, `memory.html`, `blueprints.html`, `patterns.html`,
+  `extensions.html`, `labs.html`, `documentation.html`) redirigent maintenant
+  (302) vers l'espace de la coque qui les remplace ; `?legacy=1` sur l'ancienne
+  URL sert encore l'ancienne page sans redirection, pour quiconque n'est pas
+  prêt à basculer. Table partagée par les deux hôtes :
+  `grimoire.tools.workspace_legacy`. Les quatre pages vitrine (`index.html`,
+  `demo.html`, `anatomy.html`, `game-ui.html`) ne redirigent jamais — hors
+  périmètre (spec §7).
+
 ### Ajouté
 
 - **Squelette de la vue de travail — une coque, deux hôtes, cinq lots.**
@@ -143,6 +161,18 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   le rendent ; il passe à `#818891`. Le libellé blanc de l'action primaire en
   thème clair valait 4,29:1 ; `--pri` passe à `#d24619`. Détail des mesures :
   `docs/adr-006-vue-de-travail.md`, section « Ce que la mise en œuvre a corrigé ».
+
+- **Intégration des cinq lots — la palette `⌘K` listait les fichiers de Source
+  mais n'en ouvrait aucun.** `run()` faisait `goto('source')` sans le chemin
+  choisi, et `shell.js` écrasait `location.hash` avant que `source.js` n'ait pu
+  le voir. `goto(id, params)` relaie désormais `{ file }` dans `ctx.params`,
+  lu une fois au montage suivant — sans persister dans le hash.
+
+- **Intégration des cinq lots — le raccourci `2` du rail (bibliothèque)
+  n'activait rien**, ni au clic ni au clavier, faute d'un panneau de la coque
+  à cet identifiant. `ctx.rail.on(id, handler)` laisse l'espace monté
+  enregistrer ce que fait un rail sans panneau dédié ; Concevoir y branche le
+  tiroir de bibliothèque de nœuds, remis à zéro à chaque changement d'espace.
 
 ## [3.38.0] - 2026-09-04
 
