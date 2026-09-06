@@ -70,6 +70,13 @@ function post(path, body) {
   return request(path, { method: 'POST', body: JSON.stringify(body || {}) });
 }
 
+function put(path, body) {
+  if (host.readOnly) {
+    return Promise.reject(new ApiError('hôte en lecture seule', 403, { readOnly: true }));
+  }
+  return request(path, { method: 'PUT', body: JSON.stringify(body || {}) });
+}
+
 /** Amorçage : résout l'hôte et le projet ciblé. À appeler une fois. */
 export async function boot() {
   const params = new URLSearchParams(location.search);
@@ -108,6 +115,21 @@ export const api = {
   fileDiff: (path) => get(WS + 'file/diff', { path }),
   commands: () => get(WS + 'commands'),
   doctor: () => get(WS + 'doctor'),
+  // Concevoir (lot 3) : les containers enrichis (genre, agents, équipe,
+  // dernière modification) que `/api/blueprints` seul ne porte pas.
+  blueprintContainers: () => get(WS + 'blueprints'),
+
+  // ── Blueprints : éditeur de graphe (atelier seulement — voir forge_routes.py) ─
+  blueprintGet: (id) => get('/api/blueprints/' + encodeURIComponent(id)),
+  blueprintDiff: (id, ref) =>
+    get('/api/blueprints/' + encodeURIComponent(id) + '/diff', ref ? { ref } : undefined),
+  blueprintValidate: (id, blueprint) =>
+    post('/api/blueprints/' + encodeURIComponent(id) + '/validate', blueprint),
+  blueprintSimulate: (id, blueprint) =>
+    post('/api/blueprints/' + encodeURIComponent(id) + '/simulate', blueprint),
+  blueprintCompile: (id, blueprint) =>
+    post('/api/blueprints/' + encodeURIComponent(id) + '/compile', blueprint),
+  costModel: (model) => get('/api/cost-model', model ? { model } : undefined),
 
   // ── Écritures : atelier seulement, refusées côté cockpit ──────────────────
   taskAction: (id, action, body) =>
@@ -115,6 +137,7 @@ export const api = {
   createOverride: (path) => post(WS + 'file/override', { path }),
   writeFile: (path, text) => post(WS + 'file/write', { path, text }),
   run: (argv) => post(WS + 'command', { argv }),
+  blueprintPut: (id, blueprint) => put('/api/blueprints/' + encodeURIComponent(id), blueprint),
 };
 
 export default api;

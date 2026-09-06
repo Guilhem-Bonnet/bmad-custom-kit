@@ -44,6 +44,7 @@ __all__ = [
     "MAX_FILES_PER_TIER",
     "TIERS",
     "WorkspacePathError",
+    "blueprints_view",
     "file_diff",
     "file_view",
     "files_view",
@@ -498,3 +499,77 @@ def _unified(root: Path, base_rel: str, head_rel: str, *, base_label: str, head_
         "added": sum(1 for line in diff if line.startswith("+") and not line.startswith("+++")),
         "removed": sum(1 for line in diff if line.startswith("-") and not line.startswith("---")),
     }
+
+
+# ── Concevoir : blueprints ───────────────────────────────────────────────────
+
+
+def blueprints_view(project_root: Path) -> dict[str, Any]:
+    """Les blueprints du projet, enrichis pour le niveau Projet de Concevoir.
+
+    Réutilise :func:`grimoire.tools.project_health.flows` — même inventaire que
+    la vue santé, pour ne jamais répondre différemment sur le même dossier — et
+    ajoute ce que la Liste de la spec §4 réclame et que ``flows`` ne porte pas :
+    le genre (v1 classique ou Studio v2), les agents délégués (nodes
+    ``extension-node``), l'équipe déclarée dans ``meta.team`` s'il y en a une,
+    et la date de dernière modification du fichier.
+
+    Un blueprint illisible reste dans la liste (via ``flows``) mais sans ses
+    champs enrichis : une erreur de parsing ici ne doit pas faire disparaître
+    l'entrée que la vue santé montre déjà.
+    """
+    import json
+    from datetime import UTC, datetime
+
+    from grimoire.tools.project_health import BLUEPRINTS_RELPATH, flows
+
+    root = project_root.resolve()
+    base = root / BLUEPRINTS_RELPATH
+    containers: list[dict[str, Any]] = []
+    for base_entry in flows(root):
+        bp_id = str(base_entry["id"])
+        path = base / f"{bp_id}.blueprint.json"
+        genre = "blueprint"
+        agents: list[str] = []
+        team = ""
+        modified_at: str | None = None
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            raw = {}
+        if raw:
+            nodes = [n for n in (raw.get("nodes") or []) if isinstance(n, dict)]
+            if raw.get("blueprintVersion") == 2 or (
+                nodes and all("pins" not in n for n in nodes)
+            ):
+                genre = "studio"
+            seen: set[str] = set()
+            for node in nodes:
+                if node.get("kind") == "extension-node":
+                    ext_id = str(node.get("ref", "")).split("/")[0]
+                    if ext_id and ext_id not in seen:
+                        seen.add(ext_id)
+                        agents.append(ext_id)
+            meta = raw.get("meta") if isinstance(raw.get("meta"), dict) else {}
+            team = str(meta.get("team", "") or "")
+        try:
+            modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat()
+        except OSError:
+            modified_at = None
+        containers.append(
+            {
+                "id": bp_id,
+                "type": "blueprint",
+                "name": base_entry.get("name") or bp_id,
+                "genre": genre,
+                "agents": agents,
+                "team": team,
+                "nodes": base_entry.get("nodes", 0),
+                "edges": base_entry.get("edges", 0),
+                "validated": bool(base_entry.get("validated", False)),
+                "compiled_at": base_entry.get("compiledAt"),
+                "modified_at": modified_at,
+            }
+        )
+    containers.sort(key=lambda c: str(c["name"]).lower())
+    return {"count": len(containers), "blueprints": containers}

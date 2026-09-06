@@ -53,6 +53,24 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   `GRIMOIRE_COCKPIT_HOME` détourné, et mesure sur le DOM rendu ce que la
   spécification exige — plancher typographique, contraste, mécaniques au
   clavier. Il se skippe proprement sans Playwright, jamais en faux vert.
+- **Lot 3 de la vue de travail — l'espace Concevoir.** Zoom Projet → Workflow
+  → Nœud (+ Flotte en lecture seule sur le cockpit) ; au niveau Projet, les
+  blueprints du projet servi comme conteneurs en Carte, Board (groupés par
+  genre — blueprint classique ou Studio v2) ou Liste (nom, genre, agents
+  délégués, équipe, validation, dernière modification) ; au niveau Workflow,
+  un éditeur de graphe réécrit contre les routes existantes de bp2
+  (`/api/blueprints/<id>`, `/validate`, `/simulate`, `/compile`) — nœuds mis en
+  page par rang topologique, bibliothèque des sept primitives en tiroir,
+  résultats de validation dans le dock ; au niveau Nœud, le nœud et ses voisins
+  directs avec un inspecteur à quatre onglets (Propriétés, Validation, Coût,
+  Preuves — ces deux derniers lus sur la pression de contexte et les preuves
+  exigées que rend `/simulate`). Nouvelle route partagée
+  `GET /api/workspace/blueprints` (`workspace_api.blueprints_view`) : enrichit
+  `/api/blueprints` avec ce que la Liste réclame et que
+  `project_health.flows` ne porte pas. Limite assumée : l'éditeur de graphe
+  n'existe que sur l'atelier — `/api/blueprints/<id>` et ses routes filles ne
+  sont câblées que sur le serveur mono-projet ; le cockpit l'affiche en le
+  disant plutôt que de tenter un appel qui rendrait 404.
 
 ### Corrigé
 

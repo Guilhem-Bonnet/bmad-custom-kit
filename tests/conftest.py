@@ -224,3 +224,26 @@ def project_with_task(real_project: Path) -> Iterator[tuple[Path, str]]:
     if not tasks:
         pytest.skip("`grimoire task add` n'a pas ouvert de tâche dans cet environnement")
     yield real_project, tasks[0].id
+
+
+@pytest.fixture
+def project_with_blueprint(real_project: Path) -> Iterator[tuple[Path, str]]:
+    """Le projet réel, avec un blueprint multi-nœuds sous `_grimoire/blueprints/`.
+
+    Créé par le CLI (`grimoire blueprint new --template pipeline`) plutôt
+    qu'écrit à la main : c'est ce qui garantit un fichier que `blueprint
+    validate`/`simulate`/`compile` savent lire, avec plusieurs nœuds connectés
+    — un seul nœud isolé ne prouverait ni la mise en page en colonnes de
+    l'espace Concevoir, ni le rendu des arêtes.
+    """
+    bp_id = "workspace-demo"
+    target = real_project / "_grimoire" / "blueprints" / f"{bp_id}.blueprint.json"
+    if not target.is_file():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        result = _grimoire(
+            ["blueprint", "new", bp_id, "--out", str(target), "--template", "pipeline"],
+            real_project,
+        )
+        if not target.is_file():
+            pytest.skip(f"`grimoire blueprint new` n'a pas produit de fichier ici : {result.stderr[-400:]}")
+    yield real_project, bp_id

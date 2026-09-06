@@ -98,6 +98,10 @@ def _file_diff(project_root: Path, query: _Query) -> Any:
     return workspace_api.file_diff(project_root, _one(query, "path"))
 
 
+def _blueprints(project_root: Path, _query: _Query) -> Any:
+    return workspace_api.blueprints_view(project_root)
+
+
 def _commands(_project_root: Path, _query: _Query) -> Any:
     return {"commands": workspace_exec.catalogue(), "count": len(workspace_exec.ALLOWED)}
 
@@ -117,6 +121,7 @@ GET_ROUTES: dict[str, _GetHandler] = {
     f"{PREFIX}file/diff": _file_diff,
     f"{PREFIX}commands": _commands,
     f"{PREFIX}doctor": _doctor,
+    f"{PREFIX}blueprints": _blueprints,
 }
 
 
