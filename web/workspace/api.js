@@ -106,6 +106,8 @@ export const api = {
   files: (tier) => get(WS + 'files', tier ? { tier } : undefined),
   file: (path) => get(WS + 'file', { path }),
   fileDiff: (path) => get(WS + 'file/diff', { path }),
+  fileUsage: (path) => get(WS + 'file/usage', { path }),
+  fileHistory: (path) => get(WS + 'file/history', { path }),
   commands: () => get(WS + 'commands'),
   doctor: () => get(WS + 'doctor'),
 
