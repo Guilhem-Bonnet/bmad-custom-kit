@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="fr" data-theme="dark" data-density="decouverte" data-focus="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimoire — vue de travail</title>
+<!--
+  La coque unique, servie telle quelle par `grimoire serve` (un projet) et
+  `grimoire cockpit serve` (une flotte). Ce fichier ne contient QUE la
+  structure : pas de couleur, pas de logique. Les tokens sont dans tokens.css,
+  la géométrie dans shell.css, le comportement dans shell.js.
+
+  Le squelette est délibérément vide : chaque espace est monté par son module
+  (spaces/*.js), qui expose `mount(root, ctx)`. Cinq lots travaillent en
+  parallèle sur des fichiers disjoints — voir README.md.
+-->
+<link rel="stylesheet" href="./tokens.css">
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+
+<div id="shell">
+
+  <!-- Barre d'application : marque, projet, espaces, palette, action primaire -->
+  <header id="appbar">
+    <div id="brand">GRIMOIRE</div>
+    <div class="row">
+      <button class="chip" id="project-chip" type="button" data-term="projet">
+        <span class="dot" id="project-dot"></span>
+        <span id="project-name">—</span>
+      </button>
+    </div>
+    <nav id="spaces" aria-label="Espaces de travail"></nav>
+    <div class="grow"></div>
+    <div class="row">
+      <button class="chip" id="palette-open" type="button" style="width:250px;justify-content:space-between">
+        <span>Rechercher ou commander</span><span class="kbd">⌘K</span>
+      </button>
+    </div>
+    <div class="row"><button class="btn pri" id="primary-action" type="button">—</button></div>
+  </header>
+
+  <div id="middle">
+
+    <!-- Rail : 1 explorateur, 2 bibliothèque, 3 preuves, 4 inspecteur/mémoire, 5 dock -->
+    <nav id="rail" aria-label="Panneaux"></nav>
+
+    <!-- Panneau gauche : explorateur -->
+    <aside class="panel panel-left" id="panel-explorer" data-state="pinned" aria-label="Explorateur">
+      <div class="panel-head">
+        <span style="font-weight:500">Explorateur</span>
+        <span class="grow"></span>
+        <span class="kbd">1</span>
+        <button class="pin" type="button" aria-pressed="true" aria-label="Épingler l'explorateur" data-pin="explorer">
+          <svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px"><rect x="5" y="9" width="10" height="8" rx="1.5"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/></svg>
+        </button>
+      </div>
+      <div class="panel-body tree" id="explorer-body"></div>
+    </aside>
+
+    <!-- Centre : barre de document, toile, dock -->
+    <main id="center">
+      <div id="docbar">
+        <div class="row soft" id="breadcrumb"></div>
+        <div class="grow"></div>
+        <div class="seg" id="zoom-seg" role="group" aria-label="Niveau de zoom" data-term="niveau-de-zoom"></div>
+        <div class="seg" id="view-seg" role="group" aria-label="Vue" data-term="vue"></div>
+        <span class="chip" id="doc-validation" hidden><span class="dot"></span><span></span></span>
+      </div>
+
+      <section id="canvas" data-grid="off" aria-live="polite"></section>
+
+      <section id="dock" data-state="pinned" aria-label="Dock">
+        <div id="dock-tabs" role="tablist"></div>
+        <div id="dock-body" role="tabpanel"></div>
+      </section>
+    </main>
+
+    <!-- Panneau droit : inspecteur -->
+    <aside class="panel panel-right" id="panel-inspector" data-state="pinned" aria-label="Inspecteur">
+      <div class="panel-head">
+        <span style="font-weight:500">Inspecteur</span>
+        <span class="grow"></span>
+        <span class="kbd">4</span>
+        <button class="pin" type="button" aria-pressed="true" aria-label="Épingler l'inspecteur" data-pin="inspector">
+          <svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px"><rect x="5" y="9" width="10" height="8" rx="1.5"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/></svg>
+        </button>
+      </div>
+      <div class="panel-body" id="inspector-body"></div>
+    </aside>
+
+  </div>
+
+  <!-- Barre d'état -->
+  <footer id="statusbar">
+    <span id="st-kit">grimoire-kit —</span>
+    <span id="st-api">API locale</span>
+    <span class="row" style="gap:6px"><span class="dot" id="st-standard-dot"></span><span id="st-standard">standard —</span></span>
+    <span id="st-host">—</span>
+    <span class="grow"></span>
+    <button class="chip" id="st-density" type="button" data-term="densite">Densité</button>
+    <button class="chip" id="st-theme" type="button">Thème</button>
+    <span class="row" style="gap:6px">Mode concentration <span class="kbd">⇧⌘F</span></span>
+  </footer>
+
+</div>
+
+<!-- Palette de commandes -->
+<div id="palette" hidden role="dialog" aria-modal="true" aria-label="Palette de commandes">
+  <div id="palette-box">
+    <input id="palette-input" type="text" autocomplete="off" spellcheck="false"
+           placeholder="Aller à, ou lancer une commande grimoire…">
+    <ul id="palette-list" role="listbox"></ul>
+  </div>
+</div>
+
+<script type="module" src="./shell.js"></script>
+</body>
+</html>

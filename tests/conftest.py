@@ -149,3 +149,78 @@ def init_project(tmp_path: Path) -> Path:
 #   @pytest.mark.slow          — long-running tests
 #   @pytest.mark.integration   — tests requiring external services
 #   @pytest.mark.regression    — known regression tests
+
+
+# ── Vue de travail (web/workspace/) ───────────────────────────────────────────
+#
+# Le projet jetable est **réellement** initialisé — ``grimoire init`` puis
+# ``grimoire standard init --profile governed`` — et pas fabriqué à la main. Un
+# faux projet ne prouverait rien de ce que la vue de travail lit : ni les étages
+# du kit, ni les empreintes confrontées au catalogue des digests, ni le board
+# gouverné, ni ce que ``doctor`` trouve. Environ une seconde, payée une fois par
+# session.
+
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+
+
+def _grimoire(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "grimoire", *args],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=180,
+    )
+
+
+def _init_real_project(root: Path, name: str) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q"], cwd=str(root), check=False, capture_output=True)
+    created = _grimoire(["init", ".", "-y", "--name", name], root)
+    if not (root / "_grimoire" / "kit").is_dir():
+        pytest.skip(f"`grimoire init` indisponible ici : {created.stderr[-400:]}")
+    _grimoire(["standard", "init", "--profile", "governed"], root)
+
+
+@pytest.fixture(scope="session")
+def real_project(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Un projet Grimoire réel, enrôlé au standard `governed`."""
+    root = tmp_path_factory.mktemp("workspace-a") / "projet-a"
+    _init_real_project(root, "projet-a")
+    return root
+
+
+@pytest.fixture(scope="session")
+def second_project(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Un second projet réel — il n'existe que pour prouver qu'on ne les confond pas."""
+    root = tmp_path_factory.mktemp("workspace-b") / "projet-b"
+    _init_real_project(root, "projet-b")
+    return root
+
+
+@pytest.fixture
+def project_with_task(real_project: Path) -> Iterator[tuple[Path, str]]:
+    """Le projet réel, avec une tâche ouverte au Mission Ledger.
+
+    La tâche est créée par le CLI, donc elle passe par le ledger et le board
+    comme n'importe quelle autre — c'est la seule façon d'obtenir un identifiant
+    que ``task trace`` sait retrouver.
+    """
+    from grimoire.missions.service import TaskService
+
+    if not TaskService(real_project).has_ledger:
+        _grimoire(
+            [
+                "task", "add", "Vérifier la vue de travail",
+                "-a", "Les six espaces s'ouvrent",
+                "-a", "Aucune couleur hors tokens",
+                "--owner", "winston",
+            ],
+            real_project,
+        )
+    tasks = TaskService(real_project).list_tasks()
+    if not tasks:
+        pytest.skip("`grimoire task add` n'a pas ouvert de tâche dans cet environnement")
+    yield real_project, tasks[0].id

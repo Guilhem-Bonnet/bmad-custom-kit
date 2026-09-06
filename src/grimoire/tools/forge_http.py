@@ -23,6 +23,8 @@ from urllib.parse import parse_qs, urlparse
 from grimoire.tools.ext_manager import ExtensionError
 from grimoire.tools.forge_routes import API_GET_UNHANDLED, api_get
 from grimoire.tools.project_registry import DEFAULT_SCAN_DEPTH, looks_grimoire, register_project
+from grimoire.tools.workspace_routes import PREFIX as WORKSPACE_PREFIX
+from grimoire.tools.workspace_routes import WORKSPACE_UNHANDLED, workspace_post
 
 if TYPE_CHECKING:  # pragma: no cover - uniquement pour le typage
     from grimoire.tools.forge_server import ForgeAPI
@@ -230,6 +232,20 @@ def make_handler(api: ForgeAPI) -> type[BaseHTTPRequestHandler]:
                     self._governed_event("blueprint.compile", id=bp_id,
                                          artifact=compiled.get("artifact"))
                     self._json(compiled)
+                elif path.startswith(WORKSPACE_PREFIX):
+                    # Écritures de la vue de travail — hôte mono-projet
+                    # seulement. Le cockpit ne câble pas cette branche : il se
+                    # déclare `readOnly` et n'a pas de raison de réclamer une
+                    # tâche ou de créer un override dans un dépôt qu'il ne sert
+                    # pas. Le refus y est donc un 404, pas un oubli.
+                    result = workspace_post(api.project_root, path, body)
+                    if result is WORKSPACE_UNHANDLED:
+                        self._error("route inconnue", 404)
+                    else:
+                        self._governed_event(
+                            "workspace.post", route=path[len(WORKSPACE_PREFIX):]
+                        )
+                        self._json(result)
                 else:
                     self._error("route inconnue", 404)
             except ExtensionError as exc:
