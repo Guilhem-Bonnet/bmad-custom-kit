@@ -13,6 +13,49 @@
  *   - <html data-theme="dark|light"> impose, et gagne dans les deux sens
  */
 
+/* ── Fontes embarquées ────────────────────────────────────────────────────
+ * Geist et Geist Mono, woff2, license SIL OFL 1.1 (fonts/OFL.txt), depuis la
+ * release GitHub officielle de Vercel (vercel/geist-font v1.7.2). Seuls les
+ * poids utilisés par la spec §2.3 sont embarqués : 400/500/600 pour Geist,
+ * 400/500 pour Geist Mono — 260 Ko au total. `font-display: swap` évite un
+ * texte invisible pendant le chargement ; le repli système s'affiche d'abord.
+ */
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/Geist-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/Geist-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/Geist-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("./fonts/GeistMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("./fonts/GeistMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* ── Surfaces ─────────────────────────────────────────────────────────── */
   --bg: #0a0c0f;

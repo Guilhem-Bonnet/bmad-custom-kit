@@ -211,6 +211,92 @@ def test_les_trois_etats_de_panneau_repondent(workspace: Page) -> None:
     )
 
 
+def test_le_clic_sur_le_rail_ouvre_en_surimpression(workspace: Page) -> None:
+    """« Clic sur l'icône du rail : ouvre en surimpression » (spec §3.1) —
+    pas besoin d'épingler pour un coup d'œil, et la grille ne bouge pas."""
+    api = "window.GrimoireWorkspace"
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'collapsed')")
+    before_width = workspace.locator("#center").bounding_box()["width"]
+
+    workspace.locator('.rail-btn[data-panel="explorer"]').click()
+
+    assert workspace.evaluate(f"() => {api}.panelState('explorer')") == "peek"
+    assert workspace.locator("#panel-explorer").is_visible()
+    assert workspace.locator("#center").bounding_box()["width"] == before_width, (
+        "l'ouverture par clic est une surimpression : la grille ne bouge pas"
+    )
+
+
+def test_le_survol_du_rail_450ms_entrouvre(workspace: Page) -> None:
+    """Le délai de la spec §3.1, mesuré : rien avant, entrouvert après."""
+    api = "window.GrimoireWorkspace"
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'collapsed')")
+
+    workspace.locator('.rail-btn[data-panel="explorer"]').hover()
+    workspace.wait_for_timeout(200)
+    assert workspace.evaluate(f"() => {api}.panelState('explorer')") == "collapsed"
+
+    workspace.wait_for_timeout(400)
+    assert workspace.evaluate(f"() => {api}.panelState('explorer')") == "peek"
+
+
+def test_le_survol_du_contenu_n_ouvre_jamais_un_panneau(workspace: Page) -> None:
+    """« Jamais au survol du contenu » (spec §3.1) : traverser la toile,
+    largement plus longtemps que le délai du rail, n'ouvre rien."""
+    api = "window.GrimoireWorkspace"
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'collapsed')")
+    workspace.evaluate(f"() => {api}.setPanel('inspector', 'collapsed')")
+
+    workspace.locator("#canvas").hover()
+    workspace.wait_for_timeout(700)
+
+    assert workspace.evaluate(f"() => {api}.panelState('explorer')") == "collapsed"
+    assert workspace.evaluate(f"() => {api}.panelState('inspector')") == "collapsed"
+
+
+def test_le_cadenas_epingle_dans_la_grille(workspace: Page) -> None:
+    """« Cadenas … épingle dans la grille, le contenu se redimensionne »."""
+    api = "window.GrimoireWorkspace"
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'collapsed')")
+    collapsed_width = workspace.locator("#center").bounding_box()["width"]
+    # Le cadenas vit dans l'en-tête du panneau : il n'est cliquable qu'une
+    # fois le panneau visible — entrouvert, ici, puisque c'est le clic sur le
+    # rail qui l'amène à l'écran.
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'peek')")
+
+    workspace.locator('[data-pin="explorer"]').click()
+
+    assert workspace.evaluate(f"() => {api}.panelState('explorer')") == "pinned"
+    assert workspace.locator("#center").bounding_box()["width"] < collapsed_width, (
+        "épingler dans la grille doit rendre la toile plus étroite"
+    )
+
+
+def test_le_cmd_clic_sur_le_rail_epingle_sans_passer_par_l_entrouvert(workspace: Page) -> None:
+    """« … ou ⌘ + clic : épingle dans la grille » (spec §3.1)."""
+    api = "window.GrimoireWorkspace"
+    workspace.evaluate(f"() => {api}.setPanel('inspector', 'collapsed')")
+
+    workspace.locator('.rail-btn[data-panel="inspector"]').click(modifiers=["Control"])
+
+    assert workspace.evaluate(f"() => {api}.panelState('inspector')") == "pinned"
+
+
+def test_la_poignee_redimensionne_le_panneau_epingle(workspace: Page) -> None:
+    """« le contenu se redimensionne » : la poignée tire la largeur à la souris."""
+    api = "window.GrimoireWorkspace"
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'pinned')")
+    box = workspace.locator("#panel-explorer").bounding_box()
+
+    workspace.mouse.move(box["x"] + box["width"] - 1, box["y"] + 40)
+    workspace.mouse.down()
+    workspace.mouse.move(box["x"] + box["width"] + 80, box["y"] + 40, steps=5)
+    workspace.mouse.up()
+
+    new_box = workspace.locator("#panel-explorer").bounding_box()
+    assert new_box["width"] > box["width"] + 40, "la poignée doit élargir le panneau"
+
+
 @pytest.mark.parametrize("key,panel", [("1", "explorer"), ("4", "inspector")])
 def test_les_raccourcis_de_panneau_basculent(workspace: Page, key: str, panel: str) -> None:
     before = workspace.evaluate("(p) => window.GrimoireWorkspace.panelState(p)", panel)
@@ -231,6 +317,38 @@ def test_le_mode_concentration_replie_tout(workspace: Page) -> None:
     assert workspace.locator("#canvas").bounding_box()["width"] > before["width"]
 
 
+def test_la_palette_se_navigue_au_clavier(workspace: Page) -> None:
+    """Flèches, Entrée, Échap — le clavier complet que la spec §3.3 exige."""
+    workspace.locator("body").press("ControlOrMeta+k")
+    workspace.wait_for_selector("#palette:not([hidden])")
+    workspace.wait_for_function("() => document.querySelectorAll('#palette-list li').length > 1")
+
+    first = workspace.locator("#palette-list li[aria-selected='true']").inner_text()
+    workspace.locator("body").press("ArrowDown")
+    second_selected = workspace.locator("#palette-list li[aria-selected='true']")
+    assert second_selected.count() == 1
+    assert second_selected.inner_text() != first, "la flèche bas doit déplacer la sélection"
+
+    workspace.locator("body").press("ArrowUp")
+    assert workspace.locator("#palette-list li[aria-selected='true']").inner_text() == first, (
+        "la flèche haut doit revenir à l'entrée précédente"
+    )
+    workspace.locator("body").press("Escape")
+
+
+def test_la_palette_execute_l_entree_selectionnee_a_l_entree(workspace: Page) -> None:
+    """Entrée déclenche exactement ce que le clavier vient de mettre en évidence."""
+    workspace.locator("body").press("ControlOrMeta+k")
+    workspace.wait_for_selector("#palette:not([hidden])")
+    workspace.locator("#palette-input").fill("Observer")
+    workspace.wait_for_function("() => document.querySelectorAll('#palette-list li').length > 0")
+
+    workspace.locator("body").press("Enter")
+
+    workspace.wait_for_function("() => window.GrimoireWorkspace.space === 'observer'")
+    assert workspace.evaluate("() => window.GrimoireWorkspace.paletteOpen") is False
+
+
 def test_la_palette_s_ouvre_au_clavier_et_montre_les_commandes(workspace: Page) -> None:
     """Chaque entrée montre sa commande `grimoire …` (spec §3.3) : c'est ainsi
     que le novice apprend le clavier sans qu'on le lui impose."""
@@ -246,6 +364,20 @@ def test_la_palette_s_ouvre_au_clavier_et_montre_les_commandes(workspace: Page) 
     assert workspace.evaluate("() => window.GrimoireWorkspace.paletteOpen") is False
 
 
+def test_la_palette_atteint_les_fichiers_de_source(workspace: Page) -> None:
+    """spec §3.3 : la palette atteint aussi les fichiers de Source — un projet
+    réel a toujours des fichiers d'étage kit (`_grimoire/kit/agents/…`)."""
+    workspace.locator("body").press("ControlOrMeta+k")
+    workspace.wait_for_selector("#palette:not([hidden])")
+    workspace.locator("#palette-input").fill("_grimoire/kit/agents")
+    workspace.wait_for_function("() => document.querySelectorAll('#palette-list li').length > 0")
+
+    hints = workspace.locator("#palette-list .lbl").all_inner_texts()
+    assert any(hint.startswith("Fichier") for hint in hints)
+
+    workspace.locator("body").press("Escape")
+
+
 def test_le_theme_et_la_densite_se_choisissent_et_survivent_au_rechargement(workspace: Page, served: str) -> None:
     """L'état est mémorisé par projet, côté client (spec §3.1)."""
     workspace.locator("#st-theme").click()
@@ -255,6 +387,43 @@ def test_le_theme_et_la_densite_se_choisissent_et_survivent_au_rechargement(work
     workspace.wait_for_selector("body[data-ready='1']")
 
     assert workspace.evaluate("() => window.GrimoireWorkspace.theme") == "light"
+
+
+def test_la_densite_se_choisit_et_survit_au_rechargement(workspace: Page, served: str) -> None:
+    """Le second réglage de la spec §3.4, mémorisé comme le thème."""
+    workspace.locator("#st-density").click()
+    assert workspace.evaluate("() => window.GrimoireWorkspace.density") == "concentration"
+
+    workspace.reload(wait_until="domcontentloaded")
+    workspace.wait_for_selector("body[data-ready='1']")
+
+    assert workspace.evaluate("() => window.GrimoireWorkspace.density") == "concentration"
+
+
+def test_l_etat_des_panneaux_est_memorise_par_espace_et_survit_au_rechargement(
+    workspace: Page, served: str
+) -> None:
+    """« mémorisé par espace de travail et par projet » (spec §3.1) : deux
+    espaces gardent chacun leur propre état de panneau, y compris après recharge."""
+    api = "window.GrimoireWorkspace"
+    workspace.evaluate(f"(id) => {api}.goto(id)", "piloter")
+    workspace.wait_for_function(f"(id) => {api}.space === id", arg="piloter")
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'collapsed')")
+
+    workspace.evaluate(f"(id) => {api}.goto(id)", "concevoir")
+    workspace.wait_for_function(f"(id) => {api}.space === id", arg="concevoir")
+    workspace.evaluate(f"() => {api}.setPanel('explorer', 'pinned')")
+
+    workspace.reload(wait_until="domcontentloaded")
+    workspace.wait_for_selector("body[data-ready='1']")
+    # Le hash de l'URL a survécu à la recharge : on est de retour sur concevoir.
+    assert workspace.evaluate(f"() => {api}.panelState('explorer')") == "pinned"
+
+    workspace.evaluate(f"(id) => {api}.goto(id)", "piloter")
+    workspace.wait_for_function(f"(id) => {api}.space === id", arg="piloter")
+    assert workspace.evaluate(f"() => {api}.panelState('explorer')") == "collapsed", (
+        "l'état de piloter ne doit pas avoir été écrasé par celui de concevoir"
+    )
 
 
 # ── Critère 4 : les infobulles viennent du glossaire ────────────────────────
