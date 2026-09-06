@@ -266,7 +266,17 @@ entries:
       kit pour décider si le projet l'a écrit ou si une version du kit l'a
       livré.
     raccourci: ""
-    termes: [kit, override, etage]
+    termes: [kit, override, etage, digest]
+    doc: ""
+
+  - id: digest
+    nom: Digest
+    définition: >-
+      L'entrée du catalogue `registry/kit-file-hashes.json` qui associe
+      l'empreinte d'un fichier livré à son chemin et à la version du kit qui
+      l'a écrit.
+    raccourci: ""
+    termes: [empreinte, kit]
     doc: ""
 
   # ── Le travail gouverné ───────────────────────────────────────────────────
@@ -306,8 +316,18 @@ entries:
       déclarées ne sont pas là, et dont le refus nomme la preuve manquante et
       son remède.
     raccourci: ""
-    termes: [tache, evidence-pack, decision-trace, task-envelope]
+    termes: [tache, evidence-pack, decision-trace, task-envelope, claim-ledger]
     doc: ""
+
+  - id: claim-ledger
+    nom: Claim ledger
+    définition: >-
+      Le relevé qui associe chaque affirmation d'une tâche à sa preuve — une
+      affirmation sans preuve reste une hypothèse (AG-QUA-002) — sous
+      `_grimoire-output/evidence/<tâche>/claim-ledger.md`.
+    raccourci: ""
+    termes: [porte-de-preuve, evidence-pack, standard-agentique]
+    doc: standard/integration.md
 
   - id: evidence-pack
     nom: Evidence pack
@@ -435,6 +455,26 @@ entries:
       signifie « pas encore mesurée », jamais zéro.
     raccourci: ""
     termes: [projet, trace]
+    doc: ""
+
+  - id: cout
+    nom: Coût
+    définition: >-
+      La dépense calculée par le modèle de coût unique du kit
+      (`/api/cost-model`), par modèle et par tâche, plutôt qu'estimée dans
+      chaque écran séparément.
+    raccourci: ""
+    termes: [trace, serie]
+    doc: ""
+
+  - id: serie
+    nom: Série
+    définition: >-
+      Une des trois couleurs `--s1`, `--s2`, `--s3` réservées aux graphes —
+      coût par modèle, latence — jamais réutilisées pour un état ; une seule
+      série reste neutre.
+    raccourci: ""
+    termes: [cout]
     doc: ""
 
   # ── Ce qu'on conçoit ──────────────────────────────────────────────────────
