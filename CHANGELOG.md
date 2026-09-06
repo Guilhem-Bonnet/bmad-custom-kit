@@ -41,10 +41,22 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   move, block, close d'une tâche (gate de preuve compris — un refus revient en
   200 avec la preuve manquante nommée), prise d'override, écriture d'un fichier
   d'un étage éditable, exécution d'une sous-commande `grimoire`.
-- **`framework/glossary.yaml`** — 57 concepts, source unique des infobulles et
+- **`framework/glossary.yaml`** — 61 concepts, source unique des infobulles et
   de la documentation. Un projet peut le surcharger comme n'importe quel fichier
   du kit. Un test refuse un terme cité par l'interface sans entrée au glossaire,
   sur les sources comme sur le DOM rendu.
+- **La pile d'infobulles épinglables** (`web/workspace/glossary.js`, lot 2 de
+  la vue de travail — spécification §3.2). Survol de 500 ms (800 ms en densité
+  Concentration, réduite au nom et au raccourci) ; Alt fige la bulle avec son
+  cadenas, le pointeur peut y entrer, sa croix ou Échap la referment ; les
+  termes liés ouvrent une bulle enfant, trois niveaux au plus — un quatrième
+  est refusé par `glossary.open()` lui-même, pas seulement laissé sans bouton
+  pour l'ouvrir. Un clic ailleurs referme les bulles non épinglées et laisse
+  les épinglées. Accessible : tout `[data-term]` reçoit un `tabindex` s'il n'en
+  avait pas, le focus clavier ouvre la bulle sans délai, `aria-describedby`
+  relie l'ancre à sa bulle. `docs/glossaire.md` dérive du glossaire
+  (`scripts/gen-glossaire-doc.py`) ; un test unitaire échoue si la page est en
+  retard sur le YAML.
 - **Console du dock** : `grimoire.tools.workspace_exec` exécute 23
   sous-commandes `grimoire` de lecture, sans shell, sur liste blanche stricte,
   avec drapeaux déclarés et délai maximal. `init`, `up`, `migrate`, `serve`,

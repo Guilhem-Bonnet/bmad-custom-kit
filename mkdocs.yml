@@ -120,6 +120,7 @@ nav:
           - CLI: cli-reference.md
           - Configuration: config-reference.md
           - API: api-reference.md
+          - Glossaire: glossaire.md
           - Changelog: changelog.md
       - Migration:
           - v2 → v3: migration-v2-v3.md
