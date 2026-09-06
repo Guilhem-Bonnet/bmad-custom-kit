@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f1f1d; background: #f4f4f1; }
+    a { color: #b4432b; } a:hover { color: #8f3320; }
+    .wf { font-size: 13px; line-height: 1.35; }
+    .lbl { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #6b6b66; }
+    .muted { color: #6b6b66; }
+    .card { background: #fff; border: 1px solid #d6d6d0; border-radius: 12px; box-shadow: 0 8px 24px rgba(31,31,29,.08); }
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid #c9c9c3; border-radius: 999px; font-size: 12px; background: #fff; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: #8a8a84; display: inline-block; }
+    .dot.ok { background: #2f9e5f; } .dot.warn { background: #d29a1a; } .dot.acc { background: #ff6b3d; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .seg { display: flex; border: 1px solid #c9c9c3; border-radius: 8px; overflow: hidden; background: #fff; }
+    .seg > div { padding: 6px 12px; font-size: 12px; color: #6b6b66; }
+    .seg > .on { background: #1f1f1d; color: #fff; }
+    .container { position: absolute; border: 1.5px dashed #8a8a84; border-radius: 16px; background: rgba(255,255,255,.55); }
+    .node { position: absolute; width: 160px; border: 1.5px solid #1f1f1d; background: #fff; border-radius: 10px; padding: 8px 10px; font-size: 12px; }
+    .node .t { font-weight: 600; font-size: 13px; }
+    .tree > div { padding: 5px 8px; border-radius: 6px; }
+    .btn { padding: 6px 12px; border: 1px solid #1f1f1d; border-radius: 6px; font-size: 13px; background: #fff; }
+    .btn.pri { background: #ff6b3d; border-color: #ff6b3d; color: #fff; }
+  </style>
+</helmet>
+<div class="wf" style="width: 1440px; height: 900px; position: relative; background: #eeeeea; overflow: hidden;">
+
+  <!-- Chrome minimal : fil d'Ariane et niveaux de zoom -->
+  <div style="position: absolute; left: 0; right: 0; top: 0; height: 48px; display: flex; align-items: center; gap: 16px; padding: 0 20px;">
+    <div style="font-weight: 700; letter-spacing: .06em; font-size: 13px;">GRIMOIRE</div>
+    <div class="row muted"><span>Flotte</span><span>›</span><span style="color: #1f1f1d;">proj-da</span><span>›</span><span style="color: #1f1f1d; font-weight: 600;">boomerang-orchestration</span></div>
+    <div style="flex-grow: 1;"></div>
+    <div class="seg"><div>Flotte</div><div>Projet</div><div class="on">Workflow</div><div>Nœud</div></div>
+    <div class="chip muted" style="width: 220px; justify-content: space-between;"><span>Rechercher</span><span>⌘K</span></div>
+  </div>
+
+  <!-- La toile continue : le projet est un conteneur, les workflows des sous-conteneurs -->
+  <div class="container" style="left: 330px; top: 110px; width: 760px; height: 560px;">
+    <div class="row" style="position: absolute; left: 16px; top: -12px; background: #eeeeea; padding: 0 6px;"><span style="font-weight: 600;">proj-da</span><span class="chip"><span class="dot ok"></span>kit 3.38.0 aligné</span></div>
+  </div>
+  <div class="container" style="left: 360px; top: 160px; width: 700px; height: 380px; border-style: solid; border-color: #ff6b3d; background: rgba(255,255,255,.75);">
+    <div class="row" style="position: absolute; left: 16px; top: -12px; background: #eeeeea; padding: 0 6px;"><span style="font-weight: 600;">boomerang-orchestration</span><span class="chip"><span class="dot warn"></span>2 avertissements</span></div>
+  </div>
+  <svg style="position: absolute; left: 360px; top: 160px; width: 700px; height: 380px;" viewBox="0 0 700 380" fill="none">
+    <path d="M200 120 L260 120" stroke="#1f1f1d" stroke-width="1.5"></path>
+    <path d="M420 120 L480 80" stroke="#1f1f1d" stroke-width="1.5"></path>
+    <path d="M420 120 L480 160" stroke="#1f1f1d" stroke-width="1.5"></path>
+    <path d="M560 200 L560 270 L340 270 L340 290" stroke="#1f1f1d" stroke-width="1.5" stroke-dasharray="4 4"></path>
+  </svg>
+  <div class="node" style="left: 400px; top: 260px;"><div class="t">Concierge</div><div class="muted">triage</div></div>
+  <div class="node" style="left: 620px; top: 260px; border-color: #ff6b3d; box-shadow: 0 0 0 3px #ffe6dc;"><div class="t">Découper</div><div class="muted">boomerang</div></div>
+  <div class="node" style="left: 840px; top: 220px;"><div class="t">Project navigator</div></div>
+  <div class="node" style="left: 840px; top: 300px;"><div class="t">Memory keeper</div></div>
+  <div class="node" style="left: 620px; top: 450px; border-style: dashed;"><div class="t">Gate · preuve</div><div class="muted">evidence pack requis</div></div>
+  <!-- Voisins repliés au même niveau -->
+  <div class="chip" style="position: absolute; left: 360px; top: 570px;">party-mode</div>
+  <div class="chip" style="position: absolute; left: 470px; top: 570px;">incident-response</div>
+  <div class="chip" style="position: absolute; left: 610px; top: 570px;">state-checkpoint</div>
+  <div class="chip" style="position: absolute; left: 750px; top: 570px;">+ 3 workflows</div>
+
+  <!-- Navigateur flottant -->
+  <div class="card" style="position: absolute; left: 20px; top: 64px; width: 260px; padding: 12px 8px;">
+    <div class="lbl" style="padding: 0 8px 8px;">Navigateur</div>
+    <div class="tree" style="display: flex; flex-direction: column; gap: 1px;">
+      <div class="row"><span class="dot ok"></span>proj-da</div>
+      <div class="row" style="padding-left: 24px; background: #ffe6dc;">Workflows <span class="muted">6</span></div>
+      <div class="row" style="padding-left: 24px;">Agents <span class="muted">7</span></div>
+      <div class="row" style="padding-left: 24px;">Tâches <span class="muted">1</span></div>
+      <div class="row" style="padding-left: 24px;">Mémoire <span class="muted">141</span></div>
+      <div class="row"><span class="dot ok"></span>grimoire-kit-da</div>
+      <div class="row" style="padding-left: 24px;">non initialisé <span class="chip">initialiser</span></div>
+    </div>
+  </div>
+
+  <!-- Fiche de détail flottante sur la sélection -->
+  <div class="card" style="position: absolute; right: 20px; top: 64px; width: 300px; padding: 16px;">
+    <div class="lbl">Nœud</div>
+    <div style="font-size: 16px; font-weight: 600; margin: 4px 0 12px;">Découper</div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-bottom: 12px;">
+      <div><div class="lbl">Genre</div><div>boomerang</div></div>
+      <div><div class="lbl">Équipe</div><div>team-build</div></div>
+      <div><div class="lbl">Agents</div><div>concierge, dev</div></div>
+      <div><div class="lbl">Déclencheur</div><div>&gt; 3 sous-tâches</div></div>
+    </div>
+    <div class="lbl">Preuve à la porte suivante</div>
+    <div class="row" style="flex-wrap: wrap; margin: 6px 0 14px;"><span class="chip"><span class="dot ok"></span>task envelope</span><span class="chip"><span class="dot"></span>evidence pack</span></div>
+    <div class="row"><div class="btn pri">Ouvrir</div><div class="btn">Simuler</div></div>
+  </div>
+
+  <!-- Légende et état, en bas -->
+  <div class="card" style="position: absolute; left: 20px; bottom: 20px; border-radius: 999px; padding: 6px 14px; display: flex; gap: 14px; font-size: 12px; box-shadow: none;">
+    <span class="row"><span class="dot ok"></span>vert</span><span class="row"><span class="dot warn"></span>à vérifier</span><span class="row"><span class="dot acc"></span>bloqué</span><span class="muted">trait pointillé = porte de preuve</span>
+  </div>
+  <div class="card" style="position: absolute; right: 20px; bottom: 20px; border-radius: 999px; padding: 6px 14px; font-size: 12px; box-shadow: none;">grimoire-kit 3.38.0 · governed · 0 trace</div>
+</div>
+</x-dc>
+</body>
+</html>
