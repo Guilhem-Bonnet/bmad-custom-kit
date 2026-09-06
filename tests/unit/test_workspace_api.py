@@ -306,3 +306,114 @@ def test_le_diagnostic_passe_par_la_meme_liste_blanche(real_project: Path) -> No
 
     assert report["command"] == "grimoire doctor"
     assert report["lines"], "doctor dit toujours quelque chose sur un projet initialisé"
+
+
+# ── Inspecteur : badge de dérive, usage, historique ─────────────────────────
+
+
+def test_un_override_identique_au_kit_ne_porte_pas_le_badge_de_derive(
+    second_project: Path,
+) -> None:
+    """Juste après la prise d'override, rien n'a encore divergé : le badge de
+    dérive doit rester éteint, pas allumé par défaut."""
+    from grimoire.tools.workspace_routes import workspace_post
+
+    tree = wa.files_view(second_project, tier="kit")
+    # `second_project` est partagé (portée session) avec d'autres tests qui
+    # prennent déjà des overrides : il faut un fichier encore vierge, pas « le
+    # premier », sous peine de lire l'état laissé par un test voisin.
+    sample = next(
+        f
+        for f in tree["tiers"][0]["files"]
+        if f["path"].startswith("_grimoire/kit/agents/") and not f["overridden"]
+    )
+    created = workspace_post(second_project, "/api/workspace/file/override", {"path": sample["path"]})
+
+    overrides = wa.files_view(second_project, tier="overrides")
+    entry = next(f for f in overrides["tiers"][0]["files"] if f["path"] == created["override_path"])
+
+    assert entry["masks_kit"] is True
+    assert entry["diverges"] is False
+    assert entry["kit_counterpart"] == sample["path"]
+
+
+def test_un_override_edite_porte_le_badge_de_derive(second_project: Path) -> None:
+    from grimoire.tools.workspace_routes import workspace_post
+
+    tree = wa.files_view(second_project, tier="kit")
+    sample = next(
+        f
+        for f in tree["tiers"][0]["files"]
+        if f["path"].startswith("_grimoire/kit/agents/") and not f["overridden"]
+    )
+    created = workspace_post(second_project, "/api/workspace/file/override", {"path": sample["path"]})
+    original = wa.file_view(second_project, created["override_path"])["text"]
+    workspace_post(
+        second_project,
+        "/api/workspace/file/write",
+        {"path": created["override_path"], "text": original + "\nligne du projet\n"},
+    )
+
+    overrides = wa.files_view(second_project, tier="overrides")
+    entry = next(f for f in overrides["tiers"][0]["files"] if f["path"] == created["override_path"])
+
+    assert entry["diverges"] is True
+
+
+def test_utilise_par_ne_fabrique_jamais_une_projection(real_project: Path) -> None:
+    """Une heuristique honnête peut manquer une projection ; elle ne doit
+    jamais en inventer une qui n'existe pas sur le disque."""
+    tree = wa.files_view(real_project, tier="kit")
+    sample = next(f for f in tree["tiers"][0]["files"] if f["path"].endswith(".md"))
+
+    usage = wa.file_usage(real_project, sample["path"])
+
+    assert usage["path"] == sample["path"]
+    for rel in usage["projections"]:
+        clean = rel.split(" · ")[0]
+        assert (real_project / clean).exists(), f"projection inventée : {rel}"
+    assert "entries" in usage["loaded_by"]
+
+
+def test_utilise_par_refuse_un_chemin_hors_projet(real_project: Path) -> None:
+    with pytest.raises(wa.WorkspacePathError):
+        wa.file_usage(real_project, "../../etc/passwd")
+
+
+def test_historique_dit_honnetement_l_absence_de_depot(tmp_path: Path) -> None:
+    """Pas de `.git` : pas d'historique inventé, juste `is_repo: false`."""
+    kit = tmp_path / "_grimoire" / "kit"
+    kit.mkdir(parents=True)
+    (kit / "note.md").write_text("# note\n", encoding="utf-8")
+
+    history = wa.file_history(tmp_path, "_grimoire/kit/note.md")
+
+    assert history == {"path": "_grimoire/kit/note.md", "is_repo": False, "commits": []}
+
+
+def test_historique_lit_le_journal_git_du_fichier(tmp_path: Path) -> None:
+    import subprocess
+
+    kit = tmp_path / "_grimoire" / "kit"
+    kit.mkdir(parents=True)
+    target = kit / "note.md"
+    target.write_text("# note\n", encoding="utf-8")
+
+    def _git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=str(tmp_path), check=True, capture_output=True)
+
+    _git("init", "-q")
+    _git("config", "user.email", "test@example.com")
+    _git("config", "user.name", "Test")
+    _git("add", "_grimoire/kit/note.md")
+    _git("commit", "-q", "-m", "note initiale")
+    target.write_text("# note\n\nune ligne de plus.\n", encoding="utf-8")
+    _git("add", "_grimoire/kit/note.md")
+    _git("commit", "-q", "-m", "complète la note")
+
+    history = wa.file_history(tmp_path, "_grimoire/kit/note.md")
+
+    assert history["is_repo"] is True
+    assert len(history["commits"]) == 2
+    assert history["commits"][0]["subject"] == "complète la note"
+    assert all(c["sha"] and c["date"] and c["author"] for c in history["commits"])
