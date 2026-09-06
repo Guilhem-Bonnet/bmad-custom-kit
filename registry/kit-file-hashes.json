@@ -938,6 +938,10 @@
    "version": "3.24.0",
    "path": "archetypes/stack/agents/typescript-expert.md"
   },
+  "4aab7a556b135ee16c29859aa67853e6fe865ed0cfa7de7d13b2d41541087abc": {
+   "version": "3.38.0",
+   "path": "framework/glossary.yaml"
+  },
   "4abc69314492a3ed0e5bbad0e096910e944648f1df193612ce0885fda3c4a77c": {
    "version": "3.24.0",
    "path": "framework/mcp/grimoire-mcp-server.md"
